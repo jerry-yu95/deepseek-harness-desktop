@@ -1,4 +1,4 @@
-import { cp, lstat, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises'
+import { cp, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 
@@ -124,4 +124,45 @@ export async function importSkill({ sourceDirectory, targetRoot }) {
     throw error
   }
   return { ...metadata, path: join(target, 'SKILL.md'), container: target, sourceName: basename(sourceDirectory) }
+}
+
+function cleanMarkdown(value, field, max = 20_000) {
+  if (typeof value !== 'string' || value.trim().length === 0) throw new TypeError(`${field} is required`)
+  const normalized = value.trim()
+  if (normalized.length > max) throw new TypeError(`${field} is too long`)
+  return normalized
+}
+
+export async function createSkill({ name, description, instructions, examples = '', targetRoot }) {
+  const metadata = parseSkillFrontmatter(`---\nname: ${name}\ndescription: ${description}\n---\n`)
+  const body = cleanMarkdown(instructions, 'skill instructions')
+  const exampleText = typeof examples === 'string' ? examples.trim() : ''
+  if (exampleText.length > 10_000) throw new TypeError('skill examples are too long')
+  await mkdir(targetRoot, { recursive: true })
+  const target = join(targetRoot, metadata.name)
+  if (await exists(target)) throw new Error(`skill ${metadata.name} already exists`)
+  const temporary = join(targetRoot, `.create-${metadata.name}-${process.pid}-${Date.now()}`)
+  const content = [
+    '---',
+    `name: ${metadata.name}`,
+    `description: ${JSON.stringify(metadata.description)}`,
+    '---',
+    '',
+    `# ${metadata.name}`,
+    '',
+    '## Instructions',
+    '',
+    body,
+    ...(exampleText ? ['', '## Examples', '', exampleText] : []),
+    '',
+  ].join('\n')
+  try {
+    await mkdir(temporary, { recursive: false })
+    await writeFile(join(temporary, 'SKILL.md'), content, { encoding: 'utf8', flag: 'wx' })
+    await rename(temporary, target)
+  } catch (error) {
+    await rm(temporary, { recursive: true, force: true })
+    throw error
+  }
+  return { ...metadata, path: join(target, 'SKILL.md'), container: target }
 }

@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   defaultSkillRoots,
+  createSkill,
   discoverSkills,
   importSkill,
   parseSkillFrontmatter,
@@ -20,6 +21,35 @@ test('skill frontmatter requires kebab-case name and a description', () => {
   })
   assert.throws(() => parseSkillFrontmatter(validSkill('BadSkill')), /kebab-case/)
   assert.throws(() => parseSkillFrontmatter('no frontmatter'), /frontmatter/)
+})
+
+test('skill studio creates a valid discoverable bundle without overwrite', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-skill-create-'))
+  try {
+    const created = await createSkill({
+      name: 'tapd-workflow',
+      description: 'Use when querying TAPD work items',
+      instructions: 'Check project scope before changing an item.',
+      examples: '- 查询当前迭代缺陷',
+      targetRoot: root,
+    })
+    assert.equal(created.name, 'tapd-workflow')
+    const content = await readFile(join(root, 'tapd-workflow', 'SKILL.md'), 'utf8')
+    assert.deepEqual(parseSkillFrontmatter(content), {
+      name: 'tapd-workflow',
+      description: 'Use when querying TAPD work items',
+    })
+    assert.match(content, /## Instructions/)
+    assert.match(content, /## Examples/)
+    await assert.rejects(createSkill({
+      name: 'tapd-workflow', description: 'duplicate', instructions: 'No.', targetRoot: root,
+    }), /already exists/)
+    await assert.rejects(createSkill({
+      name: '../escape', description: 'bad', instructions: 'No.', targetRoot: root,
+    }), /kebab-case/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 test('skill discovery follows official root precedence and reports shadows', async () => {

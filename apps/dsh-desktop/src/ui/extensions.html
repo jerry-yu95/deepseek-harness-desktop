@@ -13,12 +13,13 @@
         <p class="eyebrow">DSH DESKTOP / EXTENSION DOCK</p>
         <h1>扩展坞</h1>
       </div>
-      <p class="intro">管理社区插件与本地技能。内置能力受到保护，所有改动只作用于 desktop profile。</p>
+      <p class="intro">插件扩展运行时，技能沉淀工作方法，连接器提供外部工具与数据。三类能力独立管理。</p>
     </header>
 
     <nav aria-label="Extension type">
       <button type="button" class="tab active" data-tab="plugins">插件 <span id="plugin-count">0</span></button>
       <button type="button" class="tab" data-tab="skills">技能 <span id="skill-count">0</span></button>
+      <button type="button" class="tab" data-tab="connectors">连接器 <span id="connector-count">0</span></button>
       <button type="button" class="tab" data-tab="skins">皮肤</button>
       <button type="button" class="tab" data-tab="updates">检查更新</button>
       <span class="line"></span>
@@ -51,15 +52,59 @@
           <p>遵循官方五级优先顺序扫描。导入后由 DSH watcher 自动刷新，无需重启。</p>
         </div>
         <div class="skill-actions">
-          <button type="button" id="import-skill">导入技能目录</button>
+          <button type="button" id="show-skill-creator">创建技能</button>
+          <button type="button" class="secondary" id="import-skill">导入技能目录</button>
           <button type="button" class="secondary" id="open-skill-root">打开用户技能目录</button>
         </div>
+        <details class="studio" id="skill-studio">
+          <summary>Skill Studio · 创建可被 Harness 自动发现的 SKILL.md</summary>
+          <form id="skill-form">
+            <div class="form-grid">
+              <label>技能名称（kebab-case）<input name="name" placeholder="tapd-workflow" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></label>
+              <label>触发描述<input name="description" placeholder="查询或更新 TAPD 需求时使用此技能" required></label>
+            </div>
+            <label>执行说明<textarea name="instructions" rows="8" placeholder="写清步骤、边界、失败处理和应当调用的连接器……" required></textarea></label>
+            <label>示例（可选）<textarea name="examples" rows="4" placeholder="- 用户说“查一下本迭代缺陷”时……"></textarea></label>
+            <div class="form-footer"><span>保存到用户 DSH Skill 根目录；当前 Harness watcher 会自动发现。</span><button type="submit">创建并启用</button></div>
+          </form>
+        </details>
         <div class="list" id="skill-list" aria-live="polite"></div>
+      </section>
+
+      <section id="connectors" class="panel" aria-labelledby="connector-heading" hidden>
+        <div class="panel-head">
+          <div><p class="index">03</p><h2 id="connector-heading">连接器中心</h2></div>
+          <p>第一阶段支持自定义 MCP 与 HTTP 连接器注册、凭证引用和健康检查。后续平台适配器复用同一注册表。</p>
+        </div>
+        <details class="studio" id="connector-studio">
+          <summary>＋ 自定义连接器</summary>
+          <form id="connector-form">
+            <div class="form-grid three">
+              <label>标识<input name="id" placeholder="my-tapd" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></label>
+              <label>名称<input name="name" placeholder="我的 TAPD" required></label>
+              <label>类型<select name="kind" id="connector-kind"><option value="mcp">MCP 服务</option><option value="http">HTTP API</option></select></label>
+            </div>
+            <label>说明<input name="description" placeholder="这个连接器能为 Agent 提供什么"></label>
+            <div class="mcp-fields">
+              <label>传输方式<select name="transport" id="connector-transport"><option value="stdio">stdio（本地进程）</option><option value="streamable-http">Streamable HTTP</option></select></label>
+              <label class="stdio-only">启动命令<input name="command" placeholder="npx"></label>
+              <label class="stdio-only">参数（每行一个）<textarea name="args" rows="3" placeholder="-y&#10;@example/mcp-server"></textarea></label>
+            </div>
+            <label class="url-field" hidden>服务地址<input name="url" type="url" placeholder="https://example.com/mcp"></label>
+            <div class="form-grid">
+              <label>能力标签（逗号分隔）<input name="capabilities" placeholder="search, read, create"></label>
+              <label>凭证环境变量（逗号分隔）<input name="secretEnvKeys" placeholder="TAPD_TOKEN"></label>
+            </div>
+            <p class="update-footnote">本阶段不在注册表保存密钥，只记录环境变量名称；正式平台连接器将接入系统安全凭证服务。</p>
+            <div class="form-footer"><span>MCP 保存后会通过官方 dsh-mcp-client 注册为 Agent 原生工具，并安全重载 Harness。</span><button type="submit">保存并接入</button></div>
+          </form>
+        </details>
+        <div class="list" id="connector-list" aria-live="polite"></div>
       </section>
 
       <section id="skins" class="panel" aria-labelledby="skin-heading" hidden>
         <div class="panel-head">
-          <div><p class="index">03</p><h2 id="skin-heading">自定义皮肤</h2></div>
+          <div><p class="index">04</p><h2 id="skin-heading">自定义皮肤</h2></div>
           <p>进入 Harness 后打开“设置 → 插件配置 → Web UI 插件 → 自定义皮肤”，上传图片后由桌面端自动选择可读配色与遮罩。</p>
         </div>
         <div class="skin-proof"><b>图片驱动</b><span>自动适配亮色 / 暗色</span><span>一键恢复默认</span></div>
@@ -68,7 +113,7 @@
 
       <section id="updates" class="panel" aria-labelledby="update-heading" hidden>
         <div class="panel-head">
-          <div><p class="index">04</p><h2 id="update-heading">更新中心</h2></div>
+          <div><p class="index">05</p><h2 id="update-heading">更新中心</h2></div>
           <p>桌面应用跟随本项目 GitHub Releases；官方 DSH 内核使用独立备份、验证与回滚流程。</p>
         </div>
         <h3>Harness Design Desktop 应用</h3>

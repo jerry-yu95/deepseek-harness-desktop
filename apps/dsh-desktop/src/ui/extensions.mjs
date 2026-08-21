@@ -1,7 +1,9 @@
 const pluginList = document.querySelector('#plugin-list')
 const skillList = document.querySelector('#skill-list')
+const connectorList = document.querySelector('#connector-list')
 const pluginCount = document.querySelector('#plugin-count')
 const skillCount = document.querySelector('#skill-count')
+const connectorCount = document.querySelector('#connector-count')
 const toast = document.querySelector('#toast')
 const currentVersion = document.querySelector('#current-version')
 const latestVersion = document.querySelector('#latest-version')
@@ -60,6 +62,14 @@ function skillMarkup(skill) {
   return `<article class="item"><div><div class="name-row"><span class="name">${escapeHtml(skill.name)}</span>${shadow}</div><p class="description">${escapeHtml(skill.description)}</p></div><button type="button" class="item-action" data-open-skill="${escapeHtml(skill.id)}">${escapeHtml(skill.source)}</button></article>`
 }
 
+function connectorMarkup(connector) {
+  const endpoint = connector.transport === 'stdio'
+    ? [connector.command, ...(connector.args ?? [])].join(' ')
+    : connector.url
+  const type = connector.kind === 'mcp' ? `MCP · ${connector.transport}` : 'HTTP API'
+  return `<article class="item"><div><div class="name-row"><span class="name">${escapeHtml(connector.name)}</span><span class="badge builtin">${escapeHtml(type)}</span></div><p class="description">${escapeHtml(connector.description || endpoint)}</p><p class="health" data-connector-health="${escapeHtml(connector.id)}">尚未检测 · ${escapeHtml(endpoint)}</p></div><div class="connector-actions"><button type="button" class="item-action" data-check-connector="${escapeHtml(connector.id)}">检测</button><button type="button" class="item-action danger" data-remove-connector="${escapeHtml(connector.id)}">移除</button></div></article>`
+}
+
 function renderUpdate(status) {
   currentVersion.textContent = status.currentVersion
   runtimeSource.textContent = status.source === 'packaged' ? '随安装包提供' : '独立更新'
@@ -96,15 +106,18 @@ function renderUpdate(status) {
 async function refresh() {
   document.body.dataset.busy = 'true'
   try {
-    const [inventory, updateStatus, appUpdateStatus] = await Promise.all([
+    const [inventory, connectors, updateStatus, appUpdateStatus] = await Promise.all([
       window.dshDesktop.listExtensions(),
+      window.dshDesktop.listConnectors(),
       window.dshDesktop.getUpdateStatus(),
       window.dshDesktop.getAppUpdateStatus(),
     ])
     pluginCount.textContent = inventory.plugins.length
     skillCount.textContent = inventory.skills.length
+    connectorCount.textContent = connectors.length
     pluginList.innerHTML = inventory.plugins.length ? inventory.plugins.map(pluginMarkup).join('') : '<p class="empty">暂无插件</p>'
     skillList.innerHTML = inventory.skills.length ? inventory.skills.map(skillMarkup).join('') : '<p class="empty">尚未发现技能</p>'
+    connectorList.innerHTML = connectors.length ? connectors.map(connectorMarkup).join('') : '<p class="empty">尚未配置连接器。可先添加 MCP 服务或 HTTP API。</p>'
     renderUpdate(updateStatus)
     renderAppUpdate(appUpdateStatus)
   } catch (error) {
@@ -178,6 +191,101 @@ document.querySelector('#import-skill').addEventListener('click', async () => {
     }
   } catch (error) {
     notify(error.message, true)
+  }
+})
+document.querySelector('#show-skill-creator').addEventListener('click', () => {
+  const studio = document.querySelector('#skill-studio')
+  studio.open = true
+  studio.querySelector('input')?.focus()
+})
+document.querySelector('#skill-form').addEventListener('submit', async (event) => {
+  event.preventDefault()
+  const form = event.currentTarget
+  const values = Object.fromEntries(new FormData(form))
+  const button = form.querySelector('button[type=submit]')
+  button.disabled = true
+  try {
+    const skill = await window.dshDesktop.createSkill(values)
+    notify(`${skill.name} 已创建并进入 Harness 技能目录`)
+    form.reset()
+    await refresh()
+  } catch (error) {
+    notify(error.message, true)
+  } finally {
+    button.disabled = false
+  }
+})
+
+const connectorKind = document.querySelector('#connector-kind')
+const connectorTransport = document.querySelector('#connector-transport')
+function syncConnectorFields() {
+  const mcp = connectorKind.value === 'mcp'
+  document.querySelector('.mcp-fields').hidden = !mcp
+  const remote = !mcp || connectorTransport.value !== 'stdio'
+  document.querySelector('.url-field').hidden = !remote
+  for (const field of document.querySelectorAll('.stdio-only')) field.hidden = remote
+}
+connectorKind.addEventListener('change', syncConnectorFields)
+connectorTransport.addEventListener('change', syncConnectorFields)
+syncConnectorFields()
+
+function splitLines(value) {
+  return String(value || '').split(/\r?\n/u).map((item) => item.trim()).filter(Boolean)
+}
+function splitComma(value) {
+  return String(value || '').split(',').map((item) => item.trim()).filter(Boolean)
+}
+document.querySelector('#connector-form').addEventListener('submit', async (event) => {
+  event.preventDefault()
+  const form = event.currentTarget
+  const values = Object.fromEntries(new FormData(form))
+  const input = {
+    ...values,
+    args: splitLines(values.args),
+    capabilities: splitComma(values.capabilities),
+    secretEnvKeys: splitComma(values.secretEnvKeys),
+  }
+  const button = form.querySelector('button[type=submit]')
+  button.disabled = true
+  try {
+    const connector = await window.dshDesktop.saveConnector(input)
+    notify(`${connector.name} 已保存`)
+    form.reset()
+    syncConnectorFields()
+    await refresh()
+  } catch (error) {
+    notify(error.message, true)
+  } finally {
+    button.disabled = false
+  }
+})
+
+connectorList.addEventListener('click', async (event) => {
+  const check = event.target.closest('[data-check-connector]')
+  const remove = event.target.closest('[data-remove-connector]')
+  if (check) {
+    check.disabled = true
+    try {
+      const result = await window.dshDesktop.checkConnector(check.dataset.checkConnector)
+      const health = connectorList.querySelector(`[data-connector-health="${CSS.escape(check.dataset.checkConnector)}"]`)
+      health.textContent = result.detail
+      health.classList.toggle('error', !result.ok)
+    } catch (error) {
+      notify(error.message, true)
+    } finally {
+      check.disabled = false
+    }
+  }
+  if (remove) {
+    remove.disabled = true
+    try {
+      await window.dshDesktop.removeConnector(remove.dataset.removeConnector)
+      notify('连接器已移除')
+      await refresh()
+    } catch (error) {
+      notify(error.message, true)
+      remove.disabled = false
+    }
   }
 })
 document.querySelector('#open-skill-root').addEventListener('click', () => window.dshDesktop.openSkillRoot())

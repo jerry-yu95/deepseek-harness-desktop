@@ -14,6 +14,8 @@ import {
 } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 
+import { ConnectorStore, renderMcpConnectorPatch } from './extensions/connectors.mjs'
+
 export const BUILTIN_BUNDLES = Object.freeze([
   '@deepseek-ai/dsh-base',
   '@deepseek-ai/dsh-web-app',
@@ -294,7 +296,9 @@ export async function ensureDesktopProfile({
     if (error?.code !== 'ENOENT') throw error
   }
   changed = (await writeIfChanged(join(profileDir, 'cordis.yml'), ROOT_CONFIG)) || changed
-  changed = (await writeIfChanged(join(profileDir, 'cordis.patch.yml'), DESKTOP_PATCH_CONFIG)) || changed
+  const connectors = await new ConnectorStore({ path: join(dshHome, 'desktop', 'connectors.json') }).list()
+  const connectorPatch = renderMcpConnectorPatch(connectors)
+  changed = (await writeIfChanged(join(profileDir, 'cordis.patch.yml'), `${DESKTOP_PATCH_CONFIG}${connectorPatch}`)) || changed
   changed = (await writeIfChanged(join(profileDir, 'pnpm-workspace.yaml'), WORKSPACE_CONFIG)) || changed
   changed = (await writeIfChanged(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)) || changed
 

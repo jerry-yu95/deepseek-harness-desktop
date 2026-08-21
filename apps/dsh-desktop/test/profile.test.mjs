@@ -86,6 +86,23 @@ test('profile bootstrap is idempotent and links every managed package', async ()
   }
 })
 
+test('profile bootstrap activates saved MCP connectors through the official bridge', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-mcp-profile-'))
+  try {
+    await mkdir(join(root, 'desktop'), { recursive: true })
+    await writeFile(join(root, 'desktop', 'connectors.json'), JSON.stringify([{
+      id: 'local-tools', name: 'Local tools', description: '', kind: 'mcp', enabled: true,
+      capabilities: [], secretEnvKeys: [], transport: 'stdio', command: 'node', args: ['server.mjs'],
+    }]))
+    const result = await ensureDesktopProfile({ dshHome: root })
+    const patch = await readFile(join(result.profileDir, 'cordis.patch.yml'), 'utf8')
+    assert.match(patch, /@deepseek-ai\/dsh-mcp-client/)
+    assert.match(patch, /serverName: "local-tools"/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('profile bootstrap repairs its own stale links after an app upgrade', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-upgrade-'))
   try {
