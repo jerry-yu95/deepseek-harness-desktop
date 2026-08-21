@@ -4,12 +4,13 @@ export function useHarnessStatus(api, sessionId) {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState();
+    const [period, setPeriod] = useState('7d');
     const request = useRef(0);
     const refresh = useCallback(async () => {
         const seq = ++request.current;
         const controller = new AbortController();
         try {
-            const value = await api.status(sessionId, controller.signal);
+            const value = await api.status(sessionId, controller.signal, period);
             if (request.current === seq) {
                 setStatus(value);
                 setError(undefined);
@@ -23,7 +24,7 @@ export function useHarnessStatus(api, sessionId) {
             if (request.current === seq)
                 setLoading(false);
         }
-    }, [api, sessionId]);
+    }, [api, period, sessionId]);
     useEffect(() => {
         setLoading(true);
         setStatus(undefined);
@@ -47,7 +48,7 @@ export function useHarnessStatus(api, sessionId) {
         }
     }, []);
     return {
-        status, loading, busy, ...(error === undefined ? {} : { error }), refresh,
+        status, loading, busy, period, ...(error === undefined ? {} : { error }), refresh, setPeriod,
         setMode: (mode, objective) => action(() => api.mode(sessionId, mode, objective)),
         probe: bypassCache => action(async () => { await api.probe(sessionId, bypassCache); return api.status(sessionId); }),
         feedback: verdict => action(() => api.feedback(sessionId, verdict)),

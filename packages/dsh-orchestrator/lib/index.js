@@ -1,5 +1,7 @@
+import { assessTask, validateAdaptiveDag } from "./adaptive.js";
 import { appendProgress, cacheKey, cached, createRunRecord, harnessContext, harnessContextSync, harnessDir, initHarness, loadHarness, readCache, redactSecrets, replaceFeatures, retrieveMemory, sanitizeTrajectory, setOrchestrationMode, stableDigest, transitionHarness, updateFeature, updateOrchestration, writeCache, writeRunRecord } from "./core.js";
 import { assessModelHealth, getModelHealth, loadHealthStore, recordHealthFeedback, recordHealthSignals, runModelHealthProbe } from "./model-health.js";
+import { aggregateObservability, recordRuntimeEvent, recordTokenSnapshot } from "./observability.js";
 import { runOrchestrationRole, workspaceFingerprint } from "./orchestration.js";
 import { HARNESS_RPC_CHANNEL } from "./wire.js";
 import { defineTool } from "@deepseek-ai/dsh-tools";
@@ -10,22 +12,27 @@ const inject = [
 	"tools",
 	"connection",
 	"agents",
-	"commands"
+	"commands",
+	"sessionProjections",
+	"llm"
 ];
 function apply(ctx) {
 	ctx.effect(() => ctx.commands.register({
 		name: "harness",
 		description: "查看或切换 Agent Harness 编排模式",
-		input: { hint: "on | off | status | run planner|reviewer|evaluator [evidence]" },
+		input: { hint: "on | adaptive | off | status | route <task> | run planner|reviewer|evaluator [evidence]" },
 		recordInput: false,
 		handler: executeHarnessCommand
 	}), "harness-orchestrator: slash command");
 	ctx.effect(() => ctx.connection.rpc.handle(HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
 		try {
-			if (endpoint === "status") return {
-				ok: true,
-				value: await dashboardStatus(ctx, parseSessionRequest(payload).sessionId)
-			};
+			if (endpoint === "status") {
+				const request = parseSessionRequest(payload);
+				return {
+					ok: true,
+					value: await dashboardStatus(ctx, request.sessionId, request.period)
+				};
+			}
 			if (endpoint === "mode") {
 				const request = parseModeRequest(payload);
 				const cwd = requireWorkspace(requireLiveAgent(ctx, request.sessionId).session.header.cwd);
@@ -47,8 +54,24 @@ function apply(ctx) {
 						modelKey: currentModelKey(agent),
 						parent: agent,
 						signal,
-						workflowEngine: requireAgentWorkflowEngine(agent),
+						workflowEngine: agent.ctx.get("workflowEngine"),
+						llm: ctx.llm,
 						...request.bypassCache === void 0 ? {} : { bypassCache: request.bypassCache }
+					})
+				};
+			}
+			if (endpoint === "route") {
+				const request = parseRouteRequest(payload);
+				const agent = requireLiveAgent(ctx, request.sessionId);
+				return {
+					ok: true,
+					value: await routeAdaptiveTask({
+						cwd: requireWorkspace(agent.session.header.cwd),
+						objective: request.objective,
+						parent: agent,
+						signal,
+						workflowEngine: requireAgentWorkflowEngine(agent),
+						bypassCache: request.bypassCache
 					})
 				};
 			}
@@ -166,8 +189,10 @@ function apply(ctx) {
 				required: true,
 				enum: [
 					"on",
+					"adaptive",
 					"off",
 					"status",
+					"route",
 					"run"
 				]
 			},
@@ -178,6 +203,10 @@ function apply(ctx) {
 					"reviewer",
 					"evaluator"
 				]
+			},
+			objective: {
+				type: "string",
+				description: "Current bounded task objective for adaptive routing."
 			},
 			evidence: {
 				type: "string",
@@ -203,11 +232,20 @@ function apply(ctx) {
 			const cwd = agent?.session.header.cwd;
 			if (cwd === void 0 || agent === void 0) throw new Error("harness_orchestrate requires an agent workspace");
 			if (args.action === "on") return summarize(await setOrchestrationMode(cwd, "enhanced"));
+			if (args.action === "adaptive") return summarize(await setOrchestrationMode(cwd, "adaptive"));
 			if (args.action === "off") return summarize(await setOrchestrationMode(cwd, "standard"));
 			if (args.action === "status") {
 				const snapshot = await loadHarness(cwd);
 				return snapshot === void 0 ? { initialized: false } : summarize(snapshot);
 			}
+			if (args.action === "route") return await routeAdaptiveTask({
+				cwd,
+				objective: args.objective ?? "",
+				parent: agent,
+				signal: exec.signal,
+				workflowEngine: requireAgentWorkflowEngine(agent),
+				bypassCache: args.bypassCache
+			});
 			if (args.role === void 0) throw new Error("role-required");
 			return await runOrchestrationRole({
 				cwd,
@@ -279,7 +317,8 @@ function apply(ctx) {
 				modelKey,
 				parent: agent,
 				signal: exec.signal,
-				workflowEngine: requireAgentWorkflowEngine(agent),
+				workflowEngine: agent.ctx.get("workflowEngine"),
+				llm: ctx.llm,
 				...args.bypassCache === void 0 ? {} : { bypassCache: args.bypassCache }
 			});
 			if (args.action === "feedback") {
@@ -311,13 +350,13 @@ async function executeHarnessCommand(invocation) {
 		text: "当前会话没有工作区。"
 	};
 	const [action = "status", role, ...evidenceParts] = invocation.rawInput.trim().split(/\s+/);
-	if (action === "on" || action === "off") {
+	if (action === "on" || action === "adaptive" || action === "off") {
 		let snapshot = await loadHarness(cwd);
 		if (snapshot === void 0) snapshot = await initHarness(cwd, `Enhanced orchestration for ${cwd.split("/").filter(Boolean).at(-1) ?? "workspace"}`);
-		snapshot = await setOrchestrationMode(cwd, action === "on" ? "enhanced" : "standard");
+		snapshot = await setOrchestrationMode(cwd, action === "on" ? "enhanced" : action === "adaptive" ? "adaptive" : "standard");
 		return {
 			kind: "success",
-			text: `Agent Harness 已切换为${snapshot.run.orchestration.mode === "enhanced" ? "增强" : "标准"}编排。`
+			text: `Agent Harness 已切换为${modeLabel(snapshot.run.orchestration.mode)}编排。`
 		};
 	}
 	if (action === "status") {
@@ -331,7 +370,20 @@ async function executeHarnessCommand(invocation) {
 		const rate = total === 0 ? "暂无" : `${Math.round(orchestration.cacheHits / total * 100)}%`;
 		return {
 			kind: "success",
-			text: `Agent Harness：${orchestration.mode === "enhanced" ? "增强" : "标准"}编排；阶段 ${orchestration.stage}；缓存命中率 ${rate}。`
+			text: `Agent Harness：${modeLabel(orchestration.mode)}编排；阶段 ${orchestration.stage}；缓存命中率 ${rate}。`
+		};
+	}
+	if (action === "route") {
+		const outcome = await routeAdaptiveTask({
+			cwd,
+			objective: [role, ...evidenceParts].filter(Boolean).join(" "),
+			parent: invocation.agent,
+			signal: invocation.signal,
+			workflowEngine: requireAgentWorkflowEngine(invocation.agent)
+		});
+		return {
+			kind: "success",
+			text: `自适应策略：${outcome.decision.strategy}（置信度 ${Math.round(outcome.decision.confidence * 100)}%）；${outcome.planner?.ok === false ? "Planner 失败，已回退标准执行。" : outcome.decision.reasons.join("；")}`
 		};
 	}
 	if (action === "run") {
@@ -361,8 +413,40 @@ async function executeHarnessCommand(invocation) {
 	}
 	return {
 		kind: "error",
-		text: "用法：/harness on | off | status | run planner|reviewer|evaluator [evidence]"
+		text: "用法：/harness on | adaptive | off | status | route <task> | run planner|reviewer|evaluator [evidence]"
 	};
+}
+async function routeAdaptiveTask(input) {
+	const snapshot = await loadHarness(input.cwd);
+	if (snapshot === void 0) throw new Error("harness-not-initialized");
+	if (snapshot.run.orchestration.mode !== "adaptive") throw new Error("adaptive-orchestration-not-enabled");
+	const decision = assessTask(input.objective);
+	await updateOrchestration(input.cwd, {
+		latestDecision: decision,
+		stage: decision.strategy === "direct" ? "executing" : "planning",
+		lastFailure: void 0
+	});
+	if (decision.strategy === "direct") return { decision };
+	const planner = await runOrchestrationRole({
+		cwd: input.cwd,
+		role: "planner",
+		parent: input.parent,
+		signal: input.signal,
+		workflowEngine: input.workflowEngine,
+		objective: decision.objective,
+		...input.bypassCache === void 0 ? {} : { bypassCache: input.bypassCache }
+	});
+	return planner.ok ? {
+		decision,
+		planner
+	} : {
+		decision,
+		planner,
+		fallback: "standard"
+	};
+}
+function modeLabel(mode) {
+	return mode === "enhanced" ? "增强" : mode === "adaptive" ? "自适应" : "标准";
 }
 function summarize(snapshot) {
 	return {
@@ -394,35 +478,71 @@ function currentModelKey(agent) {
 	return `${agent.options.provider ?? "default"}/${agent.options.model ?? "default"}`;
 }
 function requireAgentWorkflowEngine(agent) {
-	try {
-		return agent.ctx.workflowEngine;
-	} catch {
-		throw new Error("workflow-engine-unavailable-for-agent");
-	}
+	const workflowEngine = agent.ctx.get("workflowEngine");
+	if (workflowEngine === void 0) throw new Error("workflow-engine-unavailable-for-agent");
+	return workflowEngine;
 }
-async function dashboardStatus(ctx, sessionId) {
+async function dashboardStatus(ctx, sessionId, period = "7d") {
 	const agent = requireLiveAgent(ctx, sessionId);
 	const cwd = requireWorkspace(agent.session.header.cwd);
 	const modelKey = currentModelKey(agent);
-	const [harness, health] = await Promise.all([loadHarness(cwd), getModelHealth(cwd, modelKey)]);
+	await captureTokenSnapshot(ctx, agent, cwd, modelKey).catch(() => void 0);
+	const [harness, health, observability] = await Promise.all([
+		loadHarness(cwd),
+		getModelHealth(cwd, modelKey),
+		aggregateObservability(cwd, { period })
+	]);
 	return {
 		initialized: harness !== void 0,
 		modelKey,
 		...harness === void 0 ? {} : { harness },
-		health
+		health,
+		observability
 	};
+}
+async function captureTokenSnapshot(ctx, agent, cwd, modelKey) {
+	const usage = ctx.sessionProjections.snapshot(agent.session).values?.liveTokenUsage;
+	if (usage === void 0) return;
+	await recordTokenSnapshot({
+		cwd,
+		sessionId: String(agent.session.id),
+		modelKey,
+		project: cwd.split("/").filter(Boolean).at(-1) ?? "workspace",
+		timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+		estimated: usage.estimated === true,
+		usage
+	});
 }
 function parseSessionRequest(payload) {
 	if (!isRecord(payload) || typeof payload.sessionId !== "string" || payload.sessionId === "") throw new Error("sessionId-required");
-	return { sessionId: payload.sessionId };
+	const period = typeof payload.period === "string" && [
+		"today",
+		"7d",
+		"30d",
+		"month",
+		"all"
+	].includes(payload.period) ? payload.period : void 0;
+	return {
+		sessionId: payload.sessionId,
+		...period === void 0 ? {} : { period }
+	};
 }
 function parseModeRequest(payload) {
 	const request = parseSessionRequest(payload);
-	if (!isRecord(payload) || payload.mode !== "standard" && payload.mode !== "enhanced") throw new Error("mode-required");
+	if (!isRecord(payload) || payload.mode !== "standard" && payload.mode !== "enhanced" && payload.mode !== "adaptive") throw new Error("mode-required");
 	return {
 		...request,
 		mode: payload.mode,
 		...typeof payload.objective === "string" ? { objective: payload.objective } : {}
+	};
+}
+function parseRouteRequest(payload) {
+	const request = parseSessionRequest(payload);
+	if (!isRecord(payload) || typeof payload.objective !== "string" || payload.objective.trim() === "") throw new Error("adaptive-objective-required");
+	return {
+		...request,
+		objective: payload.objective,
+		...typeof payload.bypassCache === "boolean" ? { bypassCache: payload.bypassCache } : {}
 	};
 }
 function parseProbeRequest(payload) {
@@ -444,10 +564,14 @@ function isRecord(value) {
 	return typeof value === "object" && value !== null;
 }
 function safeError(error) {
-	return redactError(error instanceof Error ? error.message : String(error));
+	const message = error instanceof Error ? error.message : String(error);
+	if (message === "workflow-engine-unavailable-for-agent") return "当前会话没有 Workflow Engine；复杂编排需要使用标准、PTC 或创造模式。";
+	if (message === "model-health-probe-unavailable") return "当前模型路由不支持独立健康检测，请先完成几轮对话以积累被动样本。";
+	if (message === "model-health-probe-format-unreadable" || message === "invalid-model-health-probe-result") return "模型已响应，但检测格式不完整。本次结果不会计入健康评分，请稍后重试。";
+	return redactError(message);
 }
 function redactError(message) {
 	return message.replace(/(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(0, 500);
 }
 //#endregion
-export { HARNESS_RPC_CHANNEL, appendProgress, apply, assessModelHealth, cacheKey, cached, createRunRecord, executeHarnessCommand, getModelHealth, harnessContext, harnessContextSync, harnessDir, initHarness, inject, loadHarness, loadHealthStore, name, readCache, recordHealthFeedback, recordHealthSignals, redactSecrets, replaceFeatures, retrieveMemory, runModelHealthProbe, runOrchestrationRole, sanitizeTrajectory, setOrchestrationMode, stableDigest, transitionHarness, updateFeature, updateOrchestration, workspaceFingerprint, writeCache, writeRunRecord };
+export { HARNESS_RPC_CHANNEL, aggregateObservability, appendProgress, apply, assessModelHealth, assessTask, cacheKey, cached, createRunRecord, executeHarnessCommand, getModelHealth, harnessContext, harnessContextSync, harnessDir, initHarness, inject, loadHarness, loadHealthStore, name, readCache, recordHealthFeedback, recordHealthSignals, recordRuntimeEvent, recordTokenSnapshot, redactSecrets, replaceFeatures, retrieveMemory, runModelHealthProbe, runOrchestrationRole, sanitizeTrajectory, setOrchestrationMode, stableDigest, transitionHarness, updateFeature, updateOrchestration, validateAdaptiveDag, workspaceFingerprint, writeCache, writeRunRecord };

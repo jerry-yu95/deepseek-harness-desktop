@@ -1,6 +1,7 @@
+import type { AdaptiveDecision } from './adaptive.ts';
 export type HarnessPhase = 'planning' | 'executing' | 'evaluating' | 'repairing' | 'complete' | 'blocked';
 export type FeatureStatus = 'pending' | 'in_progress' | 'passed' | 'failed';
-export type OrchestrationMode = 'standard' | 'enhanced';
+export type OrchestrationMode = 'standard' | 'enhanced' | 'adaptive';
 export type OrchestrationStage = 'idle' | 'planning' | 'executing' | 'reviewing' | 'evaluating' | 'complete' | 'failed' | 'cancelled';
 export interface HarnessRun {
     version: 2;
@@ -15,6 +16,7 @@ export interface HarnessRun {
         cacheHits: number;
         cacheMisses: number;
         lastFailure?: string;
+        latestDecision?: AdaptiveDecision;
     };
 }
 export interface HarnessFeature {

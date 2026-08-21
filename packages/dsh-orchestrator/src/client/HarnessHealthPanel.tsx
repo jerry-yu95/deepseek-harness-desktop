@@ -8,23 +8,32 @@ import styles from './harness.module.css'
 export interface HarnessFace { api: HarnessClientApi }
 
 type ControlProps = PropsRuntime<'conversation.input.left'> & HarnessFace
+type OrchestrationMode = 'standard' | 'adaptive' | 'enhanced'
+
+const modeOptions: Array<{ mode: OrchestrationMode; label: string; description: string }> = [
+  { mode: 'standard', label: '标准编排', description: '保持官方对话路径，不额外启动规划或复核角色。' },
+  { mode: 'adaptive', label: '自适应编排', description: '自动判断任务复杂度，选择最小够用的编排策略。' },
+  { mode: 'enhanced', label: '增强编排', description: '显式启用 Planner、Reviewer 与 Evaluator 协作。' },
+]
 
 export function HarnessComposerControls(props: ControlProps) {
   const state = useHarnessStatus(props.api, props.sessionId)
-  const [open, setOpen] = useState(false)
+  const [healthOpen, setHealthOpen] = useState(false)
+  const [modeOpen, setModeOpen] = useState(false)
   const mode = state.status?.harness?.run.orchestration.mode ?? 'standard'
   const title = props.useSessions(snapshot => snapshot.byId[props.sessionId]?.displayTitle)
   const health = state.status?.health
   const tone = health === undefined ? 'muted' : healthTone(health.status)
   return (
     <div className={styles.controls}>
-      <button className={styles.pill} disabled={state.busy} onClick={() => { void state.setMode(mode === 'enhanced' ? 'standard' : 'enhanced', title) }} title="切换 Agent 编排模式">
-        <span className={mode === 'enhanced' ? styles.modeOn : styles.modeOff} />{mode === 'enhanced' ? '增强编排' : '标准编排'}
+      <button className={styles.toolbarControl} disabled={state.busy} onClick={() => { setModeOpen(value => !value); setHealthOpen(false) }} aria-expanded={modeOpen} aria-haspopup="menu" title="选择编排模式">
+        <OrchestrationIcon />{modeLabel(mode)}编排 <ChevronIcon />
       </button>
-      <button className={`${styles.pill} ${styles[tone]}`} onClick={() => { setOpen(value => !value) }} aria-expanded={open} title="查看模型健康度">
-        <span className={styles.dot} />模型 {health === undefined ? '检测中' : healthLabel(health.status)}
+      {modeOpen ? <div className={styles.modeMenu} role="menu" aria-label="选择编排模式">{modeOptions.map(option => <button key={option.mode} role="menuitemradio" aria-checked={mode === option.mode} onClick={() => { setModeOpen(false); void state.setMode(option.mode, title) }}><span><b>{option.label}</b><small>{option.description}</small></span><i>{mode === option.mode ? '✓' : ''}</i></button>)}</div> : null}
+      <button className={`${styles.toolbarControl} ${styles[tone]}`} onClick={() => { setHealthOpen(value => !value); setModeOpen(false) }} aria-expanded={healthOpen} aria-haspopup="dialog" title="查看模型健康度">
+        <HealthIcon />模型{health === undefined ? '检测中' : healthLabel(health.status)} <ChevronIcon />
       </button>
-      {open ? <div className={styles.popover}><HealthDashboard state={state} compact /></div> : null}
+      {healthOpen ? <div className={styles.popover}><HealthDashboard state={state} compact /></div> : null}
     </div>
   )
 }
@@ -48,6 +57,7 @@ function SettingsDashboard({ api, sessionId }: { api: HarnessClientApi; sessionI
 type StatusState = ReturnType<typeof useHarnessStatus>
 
 function HealthDashboard({ state, compact = false }: { state: StatusState; compact?: boolean }) {
+  const [tab, setTab] = useState<'overview' | 'health' | 'trace' | 'tokens'>('overview')
   if (state.loading && state.status === undefined) return <div className={styles.empty}>正在读取健康数据…</div>
   if (state.status === undefined) return <div className={styles.error}>暂时无法读取：{state.error ?? '未知错误'} <button onClick={() => { void state.refresh() }}>重试</button></div>
   const { health, harness, modelKey } = state.status
@@ -59,22 +69,75 @@ function HealthDashboard({ state, compact = false }: { state: StatusState; compa
       <div className={styles.summary}>
         <div className={`${styles.score} ${styles[tone]}`}><strong>{health.sampleCount === 0 ? '—' : health.score}</strong><span>{healthLabel(health.status)}</span></div>
         <div className={styles.meta}><b>{modelKey}</b><span>样本 {health.sampleCount} · 基线 {health.baselineScore ?? '待建立'} · 变化 {health.delta === undefined ? '—' : `${health.delta > 0 ? '+' : ''}${health.delta}`}</span></div>
-        <button className={styles.primary} disabled={state.busy} onClick={() => { void state.probe() }}>{state.busy ? '检测中…' : '立即检测'}</button>
+        <button className={styles.diagnosticAction} disabled={state.busy} onClick={() => { void state.probe(true) }}><HealthIcon />{state.busy ? '检测中…' : '立即检测'}</button>
       </div>
       {health.status === 'degraded' ? <div className={styles.alert}>检测到持续质量下降；仅提醒，不会自动切换模型。建议重试任务或运行一次健康检测。</div> : null}
       <div className={styles.orchestration}>
-        <span>编排：<b>{mode === 'enhanced' ? '增强' : '标准'}</b></span>
+        <span>编排：<b>{modeLabel(mode)}</b></span>
         <span>阶段：{harness?.run.orchestration.stage ?? '未初始化'}</span>
         <span>缓存：{hitRate === undefined ? '暂无命中' : `${hitRate}% 命中`}</span>
-        <button disabled={state.busy} onClick={() => { void state.setMode(mode === 'enhanced' ? 'standard' : 'enhanced') }}>切换为{mode === 'enhanced' ? '标准' : '增强'}</button>
+        {(['standard', 'adaptive', 'enhanced'] as const).map(item => <button className={mode === item ? styles.activePeriod : ''} key={item} disabled={state.busy} onClick={() => { void state.setMode(item) }}>{modeLabel(item)}</button>)}
       </div>
-      {!compact ? <>
+      {mode === 'adaptive' && harness?.run.orchestration.latestDecision !== undefined ? <div className={styles.cacheBenefit}>策略 {harness.run.orchestration.latestDecision.strategy} · 置信度 {Math.round(harness.run.orchestration.latestDecision.confidence * 100)}% · 最多 {harness.run.orchestration.latestDecision.budget.maxAgents} Agent / {formatNumber(harness.run.orchestration.latestDecision.budget.maxTotalTokens)} Token</div> : null}
+      {!compact ? <div className={styles.tabs} role="tablist">
+        <button className={tab === 'overview' ? styles.activeTab : ''} onClick={() => { setTab('overview') }}>总览</button>
+        <button className={tab === 'health' ? styles.activeTab : ''} onClick={() => { setTab('health') }}>模型健康</button>
+        <button className={tab === 'trace' ? styles.activeTab : ''} onClick={() => { setTab('trace') }}>Agent 轨迹</button>
+        <button className={tab === 'tokens' ? styles.activeTab : ''} onClick={() => { setTab('tokens') }}>Token 消耗</button>
+      </div> : null}
+      {!compact && tab === 'overview' ? <Overview state={state} /> : null}
+      {!compact && tab === 'health' ? <>
         <div className={styles.dimensions}>{Object.entries(health.dimensions).map(([key, value]) => <div className={styles.dimension} key={key}><span>{dimensionLabel(key as keyof typeof health.dimensions)}</span><div><i style={{ width: `${value.score ?? 0}%` }} /></div><b>{value.score ?? '—'}</b></div>)}</div>
         <div className={styles.trend}><h4>近期趋势</h4>{health.trend.length === 0 ? <p>暂无数据，点击“立即检测”建立首批样本。</p> : <svg viewBox="0 0 240 54" role="img" aria-label="模型健康度趋势"><polyline points={sparklinePoints(health.trend)} /></svg>}</div>
         <div className={styles.feedback}><span>这次模型表现符合预期吗？</span><button disabled={state.busy} onClick={() => { void state.feedback('normal') }}>正常</button><button disabled={state.busy} onClick={() => { void state.feedback('degraded') }}>疑似降智</button><small>正常 {health.feedback.normal} · 降智 {health.feedback.degraded}</small></div>
         {health.anomalies.length > 0 ? <div className={styles.anomalies}><h4>近期异常</h4>{health.anomalies.slice(0, 5).map((item, index) => <p key={`${item.timestamp}-${index}`}><b>{dimensionLabel(item.dimension)}</b> {item.summary}</p>)}</div> : null}
       </> : null}
+      {!compact && tab === 'trace' ? <TraceDashboard state={state} /> : null}
+      {!compact && tab === 'tokens' ? <TokenDashboard state={state} /> : null}
       {state.error !== undefined ? <div className={styles.inlineError}>{state.error}</div> : null}
     </div>
   )
 }
+
+function Overview({ state }: { state: StatusState }) {
+  const data = state.status!.observability
+  return <div className={styles.metricGrid}>
+    <Metric label="总 Token" value={formatNumber(data.tokens.totalTokens)} />
+    <Metric label="模型数量" value={String(data.models.length)} />
+    <Metric label="缓存命中" value={data.cache.hitRate === undefined ? '—' : `${data.cache.hitRate}%`} />
+    <Metric label="节省 Token" value={formatNumber(data.cache.savedTokens)} />
+  </div>
+}
+
+function TraceDashboard({ state }: { state: StatusState }) {
+  const data = state.status!.observability
+  return <div className={styles.panel}>
+    <div className={styles.cacheBenefit}>缓存 {data.cache.hits} 次命中 / {data.cache.misses} 次未命中 · 节省 {formatNumber(data.cache.savedTokens)} Token · {formatDuration(data.cache.savedMs)}</div>
+    {data.traces.length === 0 ? <p className={styles.empty}>暂无增强编排轨迹。</p> : <div className={styles.traceList}>{data.traces.map((trace, index) => <div className={styles.traceRow} key={`${trace.runId}-${trace.stage}-${index}`}><b>{trace.stage}</b><span>{trace.status}</span><span>{formatDuration(trace.durationMs ?? 0)}</span><small>{trace.summary ?? trace.runId}</small></div>)}</div>}
+  </div>
+}
+
+const periods = [['today', '今天'], ['7d', '最近 7 天'], ['30d', '最近 30 天'], ['month', '本月'], ['all', '全部']] as const
+function TokenDashboard({ state }: { state: StatusState }) {
+  const data = state.status!.observability
+  return <div className={styles.panel}>
+    <div className={styles.periods}>{periods.map(([period, label]) => <button className={state.period === period ? styles.activePeriod : ''} key={period} onClick={() => { state.setPeriod(period) }}>{label}</button>)}</div>
+    <div className={styles.metricGrid}>
+      <Metric label="全部模型总计" value={formatNumber(data.tokens.totalTokens)} />
+      <Metric label="输入" value={formatNumber(data.tokens.uncachedInputTokens)} />
+      <Metric label="输出" value={formatNumber(data.tokens.outputTokens)} />
+      <Metric label="缓存读取" value={formatNumber(data.tokens.cacheReadTokens)} />
+    </div>
+    {data.estimatedEvents > 0 ? <p className={styles.estimateNote}>其中 {data.estimatedEvents} 条记录由本地估算；提供商精确 usage 会自动覆盖估算。</p> : null}
+    <div className={styles.modelList}>{data.models.length === 0 ? <p className={styles.empty}>当前周期暂无 Token 记录。</p> : data.models.map(model => <div className={styles.modelRow} key={model.modelKey}><b>{model.modelKey}</b><span>{formatNumber(model.totalTokens)} Token</span><small>{model.calls} 次采样 · 输入 {formatNumber(model.uncachedInputTokens)} · 输出 {formatNumber(model.outputTokens)} · 缓存 {formatNumber(model.cacheReadTokens)}</small></div>)}</div>
+  </div>
+}
+
+function Metric({ label, value }: { label: string; value: string }) { return <div className={styles.metric}><span>{label}</span><strong>{value}</strong></div> }
+function formatNumber(value: number): string { return new Intl.NumberFormat('zh-CN').format(value) }
+function formatDuration(value: number): string { return value < 1000 ? `${value}ms` : `${Math.round(value / 100) / 10}s` }
+function modeLabel(mode: OrchestrationMode): string { return mode === 'enhanced' ? '增强' : mode === 'adaptive' ? '自适应' : '标准' }
+
+function OrchestrationIcon() { return <svg className={styles.lineIcon} viewBox="0 0 20 20" aria-hidden="true"><circle cx="5" cy="5" r="2" /><circle cx="15" cy="5" r="2" /><circle cx="10" cy="15" r="2" /><path d="M6.7 6.1 8.9 13M13.3 6.1 11.1 13M7 5h6" /></svg> }
+function HealthIcon() { return <svg className={styles.lineIcon} viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10h3l1.5-4 3 8 2-5 1.3 3h4.2" /><circle cx="10" cy="10" r="8" /></svg> }
+function ChevronIcon() { return <svg className={styles.chevronIcon} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg> }

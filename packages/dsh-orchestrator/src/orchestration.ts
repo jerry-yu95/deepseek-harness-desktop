@@ -19,6 +19,7 @@ import {
   type OrchestrationRunRecord,
 } from './core.ts'
 import { recordHealthSignals, type HealthDimension, type HealthSignal } from './model-health.ts'
+import { recordRuntimeEvent } from './observability.ts'
 
 const execFileAsync = promisify(execFile)
 const ROLE_CONTRACT = 'orchestration-role-v1'
@@ -37,6 +38,7 @@ export interface RoleRunRequest {
   workflowEngine: WorkflowEngine
   evidence?: string
   bypassCache?: boolean
+  objective?: string
 }
 
 export interface RoleRunOutcome { ok: boolean; cached: boolean; role: OrchestrationRole; result?: RoleResult; fallback?: 'standard'; error?: string }
@@ -86,16 +88,19 @@ export async function workspaceFingerprint(cwd: string): Promise<string> {
 export async function runOrchestrationRole(request: RoleRunRequest): Promise<RoleRunOutcome> {
   const snapshot = await loadHarness(request.cwd)
   if (snapshot === undefined) throw new Error('harness-not-initialized')
-  if (snapshot.run.orchestration.mode !== 'enhanced') throw new Error('enhanced-orchestration-not-enabled')
+  if (snapshot.run.orchestration.mode !== 'enhanced' && snapshot.run.orchestration.mode !== 'adaptive') throw new Error('orchestration-not-enabled')
 
   const stage = request.role === 'planner' ? 'planning' : request.role === 'reviewer' ? 'reviewing' : 'evaluating'
-  const record = createRunRecord(snapshot.run.objective)
+  const objective = request.objective?.trim() || snapshot.run.objective
+  const record = createRunRecord(objective)
   record.stage = stage
   await updateOrchestration(request.cwd, { stage, latestRunId: record.id, lastFailure: undefined })
   await writeRunRecord(request.cwd, record)
+  const started = Date.now()
+  await recordRuntimeEvent(request.cwd, { id: `${record.id}:${request.role}:start`, timestamp: record.startedAt, kind: 'stage', runId: record.id, stage: request.role, status: 'running' })
 
   const fingerprint = await workspaceFingerprint(request.cwd)
-  const roleInput = buildRoleInput(request.role, snapshot.run.objective, snapshot.features, request.evidence)
+  const roleInput = buildRoleInput(request.role, objective, snapshot.features, request.evidence)
   const key = cacheKey(request.role, { fingerprint, roleInput, contract: ROLE_CONTRACT })
   try {
     const execute = () => executeRole(request.workflowEngine, request.parent, request.signal, request.role, roleInput)
@@ -113,6 +118,9 @@ export async function runOrchestrationRole(request: RoleRunRequest): Promise<Rol
       cacheMisses: (current?.run.orchestration.cacheMisses ?? 0) + (outcome.cached ? 0 : 1),
     })
     await writeRunRecord(request.cwd, record)
+    const durationMs = Date.now() - started
+    await recordRuntimeEvent(request.cwd, { id: `${record.id}:${request.role}:complete`, timestamp: record.finishedAt, kind: 'stage', runId: record.id, stage: request.role, status: 'complete', durationMs, summary: summarizeResult(outcome.value) })
+    await recordRuntimeEvent(request.cwd, { id: `${record.id}:${request.role}:cache`, timestamp: record.finishedAt, kind: 'cache', runId: record.id, namespace: request.role, hit: outcome.cached, ...(outcome.cached ? { savedMs: durationMs } : {}) })
     return { ok: true, cached: outcome.cached, role: request.role, result: outcome.value }
   } catch (error) {
     const message = redactSecrets(error instanceof Error ? error.message : String(error))
@@ -121,6 +129,7 @@ export async function runOrchestrationRole(request: RoleRunRequest): Promise<Rol
     record.finishedAt = new Date().toISOString()
     await updateOrchestration(request.cwd, { stage: record.stage, lastFailure: message })
     await writeRunRecord(request.cwd, record)
+    await recordRuntimeEvent(request.cwd, { id: `${record.id}:${request.role}:failed`, timestamp: record.finishedAt, kind: 'stage', runId: record.id, stage: request.role, status: 'failed', durationMs: Date.now() - started, summary: message })
     return { ok: false, cached: false, role: request.role, ...(request.role === 'planner' ? { fallback: 'standard' as const } : {}), error: message }
   }
 }

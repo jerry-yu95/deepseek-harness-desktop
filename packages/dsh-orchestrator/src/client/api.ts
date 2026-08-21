@@ -2,14 +2,15 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type { OrchestrationMode } from '../core.ts'
 import { HARNESS_RPC_CHANNEL, type HarnessDashboardStatus } from '../wire.ts'
 import type { ModelHealthSummary } from '../model-health.ts'
+import type { ObservabilityPeriod } from '../observability.ts'
 
 interface RpcErrorValue { error: string }
 
 export class HarnessClientApi {
   constructor(private readonly connection: ConnectionHandle) {}
 
-  status(sessionId: string, signal?: AbortSignal): Promise<HarnessDashboardStatus> {
-    return this.call('status', { sessionId }, signal)
+  status(sessionId: string, signal?: AbortSignal, period: ObservabilityPeriod = '7d'): Promise<HarnessDashboardStatus> {
+    return this.call('status', { sessionId, period }, signal)
   }
 
   async mode(sessionId: string, mode: OrchestrationMode, objective?: string): Promise<HarnessDashboardStatus> {

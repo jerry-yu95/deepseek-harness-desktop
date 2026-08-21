@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { initHarness, loadHarness, setOrchestrationMode, transitionHarness } from '../src/core.ts'
 import { runOrchestrationRole } from '../src/orchestration.ts'
 import { getModelHealth } from '../src/model-health.ts'
-import { executeHarnessCommand } from '../src/index.ts'
+import { executeHarnessCommand, inject } from '../src/index.ts'
 
 const roots: string[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
@@ -31,6 +31,58 @@ async function setup() {
 }
 
 describe('official workflow orchestration adapter', () => {
+  it('routes a simple adaptive task directly without starting the workflow engine', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'dsh-adaptive-direct-')); roots.push(cwd)
+    await initHarness(cwd, 'Adaptive routing')
+    await setOrchestrationMode(cwd, 'adaptive')
+    const mock = engine({ summary: 'should not run', risks: [], features: [] })
+    const invocation = {
+      rawInput: 'route 解释一下这个配置项是什么意思',
+      signal: new AbortController().signal,
+      agent: { session: { header: { cwd } }, ctx: { get: () => mock.value } },
+    } as unknown as CommandInvocation
+
+    expect(await executeHarnessCommand(invocation)).toMatchObject({ kind: 'success', text: expect.stringContaining('direct') })
+    expect(mock.start).not.toHaveBeenCalled()
+    expect((await loadHarness(cwd))?.run.orchestration.latestDecision?.strategy).toBe('direct')
+  })
+
+  it('routes risky adaptive work through the official planner and persists the decision', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'dsh-adaptive-review-')); roots.push(cwd)
+    await initHarness(cwd, 'Adaptive routing')
+    await setOrchestrationMode(cwd, 'adaptive')
+    const mock = engine({ summary: 'Safe plan', risks: ['credential migration'], features: [{ id: 'F1', title: 'Migrate auth', acceptance: 'security and rollback tests pass' }] })
+    const invocation = {
+      rawInput: 'route 修改登录鉴权和 API key 存储，完成后运行安全测试并验证回滚',
+      signal: new AbortController().signal,
+      agent: { session: { header: { cwd } }, ctx: { get: () => mock.value } },
+    } as unknown as CommandInvocation
+
+    expect(await executeHarnessCommand(invocation)).toMatchObject({ kind: 'success', text: expect.stringContaining('plan-review') })
+    expect(mock.start).toHaveBeenCalledTimes(1)
+    expect((await loadHarness(cwd))?.run.orchestration.latestDecision).toMatchObject({ strategy: 'plan-review', budget: { maxAgents: 2 } })
+  })
+
+  it('resolves the workflow engine from the active agent scope without a host-level dependency', async () => {
+    expect(inject).not.toContain('workflowEngine')
+    const cwd = await setup()
+    const mock = engine({ summary: 'Plan ready', risks: [], features: [{ id: 'F1', title: 'Works', acceptance: 'tests pass' }] })
+    const invocation = {
+      rawInput: 'run planner',
+      signal: new AbortController().signal,
+      agent: {
+        session: { header: { cwd } },
+        ctx: {
+          get: vi.fn((name: string) => name === 'workflowEngine' ? mock.value : undefined),
+          get workflowEngine() { throw new Error('direct service access requires plugin injection') },
+        },
+      },
+    } as unknown as CommandInvocation
+
+    expect(await executeHarnessCommand(invocation)).toMatchObject({ kind: 'success', text: expect.stringContaining('planner 已完成') })
+    expect(mock.start).toHaveBeenCalledTimes(1)
+  })
+
   it('supports the durable /harness fallback command', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'dsh-command-')); roots.push(cwd)
     const invocation = {

@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { BlockAssembler, createUserMessage, type LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { WorkflowEngine } from '@deepseek-ai/dsh-workflow'
 import { cacheKey, cached, harnessDir, redactSecrets } from './core.ts'
 
@@ -118,9 +119,9 @@ function standardDeviation(values: number[]): number {
   return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length)
 }
 
-export async function runModelHealthProbe(input: { cwd: string; modelKey: string; parent: Agent; signal: AbortSignal; workflowEngine: WorkflowEngine; bypassCache?: boolean }): Promise<{ cached: boolean; summary: ModelHealthSummary }> {
+export async function runModelHealthProbe(input: { cwd: string; modelKey: string; parent: Agent; signal: AbortSignal; workflowEngine?: WorkflowEngine; llm?: LlmRuntime; bypassCache?: boolean }): Promise<{ cached: boolean; summary: ModelHealthSummary }> {
   const key = cacheKey('model-health-probe', { modelKey: input.modelKey, contract: PROBE_CONTRACT })
-  const producer = async () => executeProbe(input.workflowEngine, input.parent, input.signal)
+  const producer = async () => input.workflowEngine === undefined ? executeDirectProbe(input.llm, input.parent, input.signal) : executeProbe(input.workflowEngine, input.parent, input.signal)
   const result = input.bypassCache === true ? { value: await producer(), cached: false } : await cached(input.cwd, 'model-health', key, PROBE_CONTRACT, producer, PROBE_TTL)
   if (!result.cached) await recordHealthSignals(input.cwd, gradeProbe(input.modelKey, result.value))
   return { cached: result.cached, summary: await getModelHealth(input.cwd, input.modelKey) }
@@ -144,6 +145,67 @@ async function executeProbe(engine: WorkflowEngine, parent: Agent, signal: Abort
     if (result.stopReason !== 'completed' || result.value === null || typeof result.value !== 'object') throw new Error(result.stopReason === 'error' ? (result.error ?? 'health-probe-failed') : `health-probe-${result.stopReason}`)
     return result.value as ProbeResult
   } finally { await run.dispose() }
+}
+
+async function executeDirectProbe(llm: LlmRuntime | undefined, parent: Agent, signal: AbortSignal): Promise<ProbeResult> {
+  const provider = parent.options.provider
+  const model = parent.options.model
+  if (llm === undefined || provider === undefined || model === undefined) throw new Error('model-health-probe-unavailable')
+  const prompt = 'This is an isolated diagnostic. Return only valid JSON with keys logicAnswer, contextToken, structuredMarker, toolPlan, completenessMarkers. Compute (17*3)-9 as logicAnswer. Preserve H7-KITE-29 exactly. structuredMarker must be structured-ok. toolPlan must be ["inspect","implement","test"]. completenessMarkers must be ["A","B","C"].'
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const assembler = new BlockAssembler()
+    const request = attempt === 0 ? prompt : `${prompt}\nYour previous response was not machine-readable. Output one JSON object and nothing else.`
+    for await (const chunk of llm.stream({ provider, model, messages: [createUserMessage({ content: [{ type: 'text', text: request }], source: { kind: 'user' } })], system: 'Return only the requested JSON object. Do not use markdown fences.', maxTokens: 512, temperature: 0, signal })) assembler.push(chunk)
+    const finish = assembler.finish
+    if (finish.kind === 'error' || finish.kind === 'aborted') throw new Error(finish.failure.message)
+    const text = assembler.blocks().filter((block): block is { type: 'text'; text: string } => block.type === 'text').map(block => block.text).join('').trim()
+    try { return parseProbeResult(text) } catch (error) {
+      if (attempt === 1) throw new Error('model-health-probe-format-unreadable', { cause: error })
+    }
+  }
+  throw new Error('model-health-probe-format-unreadable')
+}
+
+function parseProbeResult(text: string): ProbeResult {
+  const json = extractJsonObject(text)
+  const value = JSON.parse(json) as Record<string, unknown>
+  const toolPlan = stringList(value.toolPlan)
+  const completenessMarkers = stringList(value.completenessMarkers)
+  const recognized = ['logicAnswer', 'contextToken', 'structuredMarker', 'toolPlan', 'completenessMarkers'].filter(key => key in value).length
+  if (recognized < 3) throw new Error('insufficient-probe-fields')
+  return {
+    logicAnswer: scalarString(value.logicAnswer),
+    contextToken: scalarString(value.contextToken),
+    structuredMarker: scalarString(value.structuredMarker) as 'structured-ok',
+    toolPlan,
+    completenessMarkers,
+  }
+}
+
+function extractJsonObject(text: string): string {
+  const start = text.indexOf('{')
+  if (start < 0) throw new Error('probe-json-object-missing')
+  let depth = 0; let quoted = false; let escaped = false
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+    if (quoted) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') quoted = false
+      continue
+    }
+    if (char === '"') quoted = true
+    else if (char === '{') depth += 1
+    else if (char === '}' && --depth === 0) return text.slice(start, index + 1)
+  }
+  throw new Error('probe-json-object-incomplete')
+}
+
+function scalarString(value: unknown): string { return typeof value === 'string' || typeof value === 'number' ? String(value) : '' }
+function stringList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string | number => typeof item === 'string' || typeof item === 'number').map(String)
+  if (typeof value === 'string') return value.split(/[,，]/).map(item => item.trim()).filter(Boolean)
+  return []
 }
 
 function gradeProbe(modelKey: string, result: ProbeResult): HealthSignal[] {

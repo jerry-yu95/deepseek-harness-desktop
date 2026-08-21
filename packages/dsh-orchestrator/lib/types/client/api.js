@@ -4,8 +4,8 @@ export class HarnessClientApi {
     constructor(connection) {
         this.connection = connection;
     }
-    status(sessionId, signal) {
-        return this.call('status', { sessionId }, signal);
+    status(sessionId, signal, period = '7d') {
+        return this.call('status', { sessionId, period }, signal);
     }
     async mode(sessionId, mode, objective) {
         const value = await this.call('mode', { sessionId, mode, ...(objective === undefined ? {} : { objective }) });

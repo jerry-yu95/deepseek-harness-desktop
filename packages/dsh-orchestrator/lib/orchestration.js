@@ -1,5 +1,6 @@
 import { cacheKey, cached, createRunRecord, loadHarness, redactSecrets, replaceFeatures, stableDigest, transitionHarness, updateFeature, updateOrchestration, writeRunRecord } from "./core.js";
 import { recordHealthSignals } from "./model-health.js";
+import { recordRuntimeEvent } from "./observability.js";
 import { readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -139,9 +140,10 @@ async function workspaceFingerprint(cwd) {
 async function runOrchestrationRole(request) {
 	const snapshot = await loadHarness(request.cwd);
 	if (snapshot === void 0) throw new Error("harness-not-initialized");
-	if (snapshot.run.orchestration.mode !== "enhanced") throw new Error("enhanced-orchestration-not-enabled");
+	if (snapshot.run.orchestration.mode !== "enhanced" && snapshot.run.orchestration.mode !== "adaptive") throw new Error("orchestration-not-enabled");
 	const stage = request.role === "planner" ? "planning" : request.role === "reviewer" ? "reviewing" : "evaluating";
-	const record = createRunRecord(snapshot.run.objective);
+	const objective = request.objective?.trim() || snapshot.run.objective;
+	const record = createRunRecord(objective);
 	record.stage = stage;
 	await updateOrchestration(request.cwd, {
 		stage,
@@ -149,8 +151,17 @@ async function runOrchestrationRole(request) {
 		lastFailure: void 0
 	});
 	await writeRunRecord(request.cwd, record);
+	const started = Date.now();
+	await recordRuntimeEvent(request.cwd, {
+		id: `${record.id}:${request.role}:start`,
+		timestamp: record.startedAt,
+		kind: "stage",
+		runId: record.id,
+		stage: request.role,
+		status: "running"
+	});
 	const fingerprint = await workspaceFingerprint(request.cwd);
-	const roleInput = buildRoleInput(request.role, snapshot.run.objective, snapshot.features, request.evidence);
+	const roleInput = buildRoleInput(request.role, objective, snapshot.features, request.evidence);
 	const key = cacheKey(request.role, {
 		fingerprint,
 		roleInput,
@@ -178,6 +189,26 @@ async function runOrchestrationRole(request) {
 			cacheMisses: (current?.run.orchestration.cacheMisses ?? 0) + (outcome.cached ? 0 : 1)
 		});
 		await writeRunRecord(request.cwd, record);
+		const durationMs = Date.now() - started;
+		await recordRuntimeEvent(request.cwd, {
+			id: `${record.id}:${request.role}:complete`,
+			timestamp: record.finishedAt,
+			kind: "stage",
+			runId: record.id,
+			stage: request.role,
+			status: "complete",
+			durationMs,
+			summary: summarizeResult(outcome.value)
+		});
+		await recordRuntimeEvent(request.cwd, {
+			id: `${record.id}:${request.role}:cache`,
+			timestamp: record.finishedAt,
+			kind: "cache",
+			runId: record.id,
+			namespace: request.role,
+			hit: outcome.cached,
+			...outcome.cached ? { savedMs: durationMs } : {}
+		});
 		return {
 			ok: true,
 			cached: outcome.cached,
@@ -194,6 +225,16 @@ async function runOrchestrationRole(request) {
 			lastFailure: message
 		});
 		await writeRunRecord(request.cwd, record);
+		await recordRuntimeEvent(request.cwd, {
+			id: `${record.id}:${request.role}:failed`,
+			timestamp: record.finishedAt,
+			kind: "stage",
+			runId: record.id,
+			stage: request.role,
+			status: "failed",
+			durationMs: Date.now() - started,
+			summary: message
+		});
 		return {
 			ok: false,
 			cached: false,

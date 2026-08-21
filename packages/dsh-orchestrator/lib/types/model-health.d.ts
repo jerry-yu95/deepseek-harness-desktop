@@ -1,4 +1,5 @@
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import { type LlmRuntime } from '@deepseek-ai/dsh-llm';
 import type { WorkflowEngine } from '@deepseek-ai/dsh-workflow';
 export type HealthDimension = 'instruction' | 'context' | 'reasoning' | 'structuredOutput' | 'toolPlanning' | 'completeness';
 export type HealthStatus = 'healthy' | 'volatile' | 'degraded' | 'insufficient-data';
@@ -60,7 +61,8 @@ export declare function runModelHealthProbe(input: {
     modelKey: string;
     parent: Agent;
     signal: AbortSignal;
-    workflowEngine: WorkflowEngine;
+    workflowEngine?: WorkflowEngine;
+    llm?: LlmRuntime;
     bypassCache?: boolean;
 }): Promise<{
     cached: boolean;

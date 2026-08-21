@@ -33,6 +33,7 @@ export interface RoleRunRequest {
     workflowEngine: WorkflowEngine;
     evidence?: string;
     bypassCache?: boolean;
+    objective?: string;
 }
 export interface RoleRunOutcome {
     ok: boolean;

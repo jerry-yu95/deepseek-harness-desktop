@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HarnessDashboardStatus } from '../wire.ts'
+import type { ObservabilityPeriod } from '../observability.ts'
 import type { HarnessClientApi } from './api.ts'
 
 export interface HarnessStatusState {
@@ -7,10 +8,12 @@ export interface HarnessStatusState {
   loading: boolean
   busy: boolean
   error?: string
+  period: ObservabilityPeriod
   refresh: () => Promise<void>
-  setMode: (mode: 'standard' | 'enhanced', objective?: string) => Promise<void>
+  setMode: (mode: 'standard' | 'enhanced' | 'adaptive', objective?: string) => Promise<void>
   probe: (bypassCache?: boolean) => Promise<void>
   feedback: (verdict: 'normal' | 'degraded') => Promise<void>
+  setPeriod: (period: ObservabilityPeriod) => void
 }
 
 export function useHarnessStatus(api: HarnessClientApi, sessionId: string): HarnessStatusState {
@@ -18,20 +21,21 @@ export function useHarnessStatus(api: HarnessClientApi, sessionId: string): Harn
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [period, setPeriod] = useState<ObservabilityPeriod>('7d')
   const request = useRef(0)
 
   const refresh = useCallback(async () => {
     const seq = ++request.current
     const controller = new AbortController()
     try {
-      const value = await api.status(sessionId, controller.signal)
+      const value = await api.status(sessionId, controller.signal, period)
       if (request.current === seq) { setStatus(value); setError(undefined) }
     } catch (cause) {
       if (request.current === seq) setError(messageOf(cause))
     } finally {
       if (request.current === seq) setLoading(false)
     }
-  }, [api, sessionId])
+  }, [api, period, sessionId])
 
   useEffect(() => {
     setLoading(true)
@@ -51,7 +55,7 @@ export function useHarnessStatus(api: HarnessClientApi, sessionId: string): Harn
   }, [])
 
   return {
-    status, loading, busy, ...(error === undefined ? {} : { error }), refresh,
+    status, loading, busy, period, ...(error === undefined ? {} : { error }), refresh, setPeriod,
     setMode: (mode, objective) => action(() => api.mode(sessionId, mode, objective)),
     probe: bypassCache => action(async () => { await api.probe(sessionId, bypassCache); return api.status(sessionId) }),
     feedback: verdict => action(() => api.feedback(sessionId, verdict)),

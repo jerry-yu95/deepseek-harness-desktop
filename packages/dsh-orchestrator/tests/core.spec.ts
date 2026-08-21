@@ -30,7 +30,7 @@ describe('native harness state', () => {
     expect(result).toHaveLength(3); expect(result.join(' ')).not.toContain('unrelated')
   })
 
-  it('migrates v1 state and persists explicit enhanced mode', async () => {
+  it('migrates v1 state and persists explicit enhanced and adaptive modes', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'dsh-harness-')); roots.push(cwd)
     const root = harnessDir(cwd)
     await writeFile(join(cwd, '.placeholder'), '')
@@ -38,6 +38,7 @@ describe('native harness state', () => {
     await writeFile(join(root, 'run.json'), JSON.stringify({ version: 1, objective: 'Legacy goal', phase: 'planning', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }))
     expect((await loadHarness(cwd))?.run.orchestration.mode).toBe('standard')
     expect((await setOrchestrationMode(cwd, 'enhanced')).run.orchestration.mode).toBe('enhanced')
+    expect((await setOrchestrationMode(cwd, 'adaptive')).run.orchestration.mode).toBe('adaptive')
     expect(JSON.parse(await readFile(join(root, 'run.json'), 'utf8')).version).toBe(2)
   })
 
@@ -65,6 +66,8 @@ describe('native harness state', () => {
     expect(calls).toBe(1)
     expect(first.value).toEqual(second.value)
     expect([first.cached, second.cached].sort()).toEqual([false, true])
-    expect(await readFile(join(harnessDir(cwd), '.gitignore'), 'utf8')).toContain('cache/')
+    const harnessIgnore = await readFile(join(harnessDir(cwd), '.gitignore'), 'utf8')
+    expect(harnessIgnore).toContain('cache/')
+    expect(harnessIgnore).toContain('observability.json')
   })
 })

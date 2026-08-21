@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 //#region src/core.ts
@@ -56,7 +56,11 @@ function validateRun(value) {
 		}
 	};
 	const orchestration = run.orchestration;
-	if (orchestration === void 0 || !["standard", "enhanced"].includes(orchestration.mode) || ![
+	if (orchestration === void 0 || ![
+		"standard",
+		"enhanced",
+		"adaptive"
+	].includes(orchestration.mode) || ![
 		"idle",
 		"planning",
 		"executing",
@@ -274,7 +278,7 @@ async function cached(cwd, namespace, key, contract, producer, ttlMs) {
 	}
 }
 async function ensureHarnessIgnore(cwd) {
-	const content = "# Generated Harness runtime data\ncache/\nruns/\nmodel-health.json\n";
+	const content = "# Generated Harness runtime data\ncache/\nruns/\nmodel-health.json\nobservability.json\n";
 	const target = paths(cwd).ignore;
 	try {
 		if (await readFile(target, "utf8") === content) return;
@@ -380,10 +384,13 @@ function harnessContextSync(cwd) {
 		const run = validateRun(JSON.parse(readFileSync(target.run, "utf8")));
 		const features = validateFeatures(JSON.parse(readFileSync(target.features, "utf8")));
 		const pending = features.filter((item) => item.status !== "passed").slice(0, 8);
+		const adaptive = run.orchestration.mode === "adaptive" ? ["Adaptive orchestration is enabled. For a non-trivial task, call harness_orchestrate with action=\"route\" and a bounded objective before execution. Proceed directly for simple conversation or explanation.", ...run.orchestration.latestDecision === void 0 ? [] : [`Latest route: ${run.orchestration.latestDecision.strategy}; confidence ${Math.round(run.orchestration.latestDecision.confidence * 100)}%; budget ${run.orchestration.latestDecision.budget.maxAgents} agents / ${run.orchestration.latestDecision.budget.maxTotalTokens} tokens.`]] : [];
 		return [
 			"Harness project state (project-local source of truth):",
 			`Objective: ${run.objective}`,
 			`Phase: ${run.phase}`,
+			`Orchestration: ${run.orchestration.mode}`,
+			...adaptive,
 			`Acceptance: ${features.filter((item) => item.status === "passed").length}/${features.length} passed`,
 			...pending.map((item) => `- ${item.id} [${item.status}] ${item.title}: ${item.acceptance}`),
 			"Use harness_state to update evidence and transitions. Do not claim complete until every feature passed with evidence."

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { WorkflowEngine } from '@deepseek-ai/dsh-workflow'
+import type { LlmRuntime, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assessModelHealth, getModelHealth, recordHealthFeedback, recordHealthSignals, runModelHealthProbe, type HealthSignal } from '../src/model-health.ts'
 
@@ -39,5 +40,46 @@ describe('model health regression monitor', () => {
     expect(start).toHaveBeenCalledTimes(1)
     expect(dispose).toHaveBeenCalledTimes(1)
     expect((await getModelHealth(cwd, 'route/model')).sampleCount).toBe(6)
+  })
+
+  it('falls back to a direct official LLM probe when the session has no Workflow Engine', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'dsh-health-direct-')); roots.push(cwd)
+    const payload = JSON.stringify({ logicAnswer: '42', contextToken: 'H7-KITE-29', structuredMarker: 'structured-ok', toolPlan: ['inspect', 'implement', 'test'], completenessMarkers: ['A', 'B', 'C'] })
+    const stream = vi.fn(async function * (): AsyncIterable<StreamChunk> {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'text-delta', index: 0, text: payload }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })
+    const result = await runModelHealthProbe({ cwd, modelKey: 'route/model', parent: { options: { provider: 'route', model: 'model' } } as Agent, signal: new AbortController().signal, llm: { stream } as unknown as LlmRuntime })
+    expect(result.cached).toBe(false)
+    expect(stream).toHaveBeenCalledTimes(1)
+    expect(result.summary.sampleCount).toBe(6)
+  })
+
+  it('extracts a probe object from explanatory markdown and normalizes harmless type drift', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'dsh-health-tolerant-')); roots.push(cwd)
+    const payload = 'Diagnostic result:\n```json\n{"logicAnswer":42,"contextToken":"H7-KITE-29","structuredMarker":"structured-ok","toolPlan":"inspect, implement, test","completenessMarkers":["A","B","C"]}\n```\nDone.'
+    const stream = vi.fn(async function * (): AsyncIterable<StreamChunk> {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'text-delta', index: 0, text: payload }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })
+    const result = await runModelHealthProbe({ cwd, modelKey: 'route/model', parent: { options: { provider: 'route', model: 'model' } } as Agent, signal: new AbortController().signal, llm: { stream } as unknown as LlmRuntime })
+    expect(result.summary.score).toBe(100)
+    expect(stream).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries once when the provider returns no machine-readable probe result', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'dsh-health-retry-')); roots.push(cwd)
+    const valid = JSON.stringify({ logicAnswer: '42', contextToken: 'H7-KITE-29', structuredMarker: 'structured-ok', toolPlan: ['inspect', 'implement', 'test'], completenessMarkers: ['A', 'B', 'C'] })
+    let call = 0
+    const stream = vi.fn(async function * (): AsyncIterable<StreamChunk> {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'text-delta', index: 0, text: call++ === 0 ? 'I cannot format that response.' : valid }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })
+    const result = await runModelHealthProbe({ cwd, modelKey: 'route/model', parent: { options: { provider: 'route', model: 'model' } } as Agent, signal: new AbortController().signal, llm: { stream } as unknown as LlmRuntime })
+    expect(result.summary.score).toBe(100)
+    expect(stream).toHaveBeenCalledTimes(2)
   })
 })

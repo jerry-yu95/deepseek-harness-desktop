@@ -22,6 +22,12 @@ const status: HarnessDashboardStatus = {
     features: [], progress: '',
   },
   health: { modelKey: 'deepseek-official/deepseek-v4-flash', status: 'healthy', score: 95, baselineScore: 94, delta: 1, sampleCount: 12, dimensions, anomalies: [], trend: [{ timestamp: '2026-08-21T00:00:00.000Z', score: 95, dimension: 'instruction', source: 'probe' }], feedback: { normal: 1, degraded: 0 } },
+  observability: {
+    period: '7d', tokens: { uncachedInputTokens: 1200, outputTokens: 300, cacheReadTokens: 800, cacheWriteTokens: 20, totalTokens: 2320 }, estimatedEvents: 0,
+    models: [{ modelKey: 'deepseek-official/deepseek-v4-flash', uncachedInputTokens: 1200, outputTokens: 300, cacheReadTokens: 800, cacheWriteTokens: 20, totalTokens: 2320, calls: 4 }],
+    daily: [{ date: '2026-08-21', totalTokens: 2320 }], traces: [{ timestamp: '2026-08-21T00:00:00.000Z', runId: 'R1', stage: 'planner', status: 'complete', durationMs: 1200, summary: 'Plan ready' }],
+    cache: { hits: 3, misses: 1, hitRate: 75, savedMs: 1600, savedTokens: 500 },
+  },
 }
 
 function api(): HarnessClientApi {
@@ -58,9 +64,46 @@ describe('health presentation', () => {
 
   it('shows a clickable health summary from the composer control', async () => {
     render(<HarnessComposerControls {...standardProps('S1') as never} api={api()} sessionId={'S1' as never} session={{} as never} input={{} as never} />)
-    await waitFor(() => { expect(screen.getByText(/模型 健康/)).toBeTruthy() })
-    fireEvent.click(screen.getByText(/模型 健康/))
+    const trigger = await screen.findByRole('button', { name: /模型健康/ })
+    fireEvent.click(trigger)
     expect(screen.getByText('deepseek-official/deepseek-v4-flash')).toBeTruthy()
     expect(screen.getByText((_text, element) => element?.textContent === '缓存：75% 命中')).toBeTruthy()
+  })
+
+  it('uses borderless toolbar controls for orchestration and model health', async () => {
+    render(<HarnessComposerControls {...standardProps('S1') as never} api={api()} sessionId={'S1' as never} session={{} as never} input={{} as never} />)
+    const orchestration = await screen.findByRole('button', { name: /增强编排/ })
+    const health = screen.getByRole('button', { name: /模型健康/ })
+    expect(orchestration.className).toContain('toolbarControl')
+    expect(health.className).toContain('toolbarControl')
+    expect(orchestration.querySelector('svg')).toBeTruthy()
+    expect(health.querySelector('svg')).toBeTruthy()
+  })
+
+  it('opens an accessible orchestration menu with descriptions and selects one mode', async () => {
+    const client = api()
+    render(<HarnessComposerControls {...standardProps('S1') as never} api={client} sessionId={'S1' as never} session={{} as never} input={{} as never} />)
+    const trigger = await screen.findByRole('button', { name: /增强编排/ })
+    fireEvent.click(trigger)
+    expect(screen.getByText('自动判断任务复杂度，选择最小够用的编排策略。')).toBeTruthy()
+    expect(screen.getByText('显式启用 Planner、Reviewer 与 Evaluator 协作。')).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /自适应编排/ }))
+    await waitFor(() => { expect(client.mode).toHaveBeenCalledWith('S1', 'adaptive', 'Harness test') })
+  })
+
+  it('renders four runtime-health tabs and period-filtered token details', async () => {
+    render(<HarnessSettingsCard {...standardProps('S1') as never} api={api()} />)
+    await waitFor(() => { expect(screen.getByRole('button', { name: 'Token 消耗' })).toBeTruthy() })
+    expect(screen.getByRole('button', { name: '总览' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '模型健康' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Agent 轨迹' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Token 消耗' }))
+    expect(screen.getByText('2,320')).toBeTruthy()
+    expect(screen.getAllByText('deepseek-official/deepseek-v4-flash')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '最近 30 天' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Agent 轨迹' }))
+    expect(screen.getByText(/planner/)).toBeTruthy()
+    expect(screen.getByText(/1.2s/)).toBeTruthy()
+    expect(screen.getByText(/节省 500 Token/)).toBeTruthy()
   })
 })
