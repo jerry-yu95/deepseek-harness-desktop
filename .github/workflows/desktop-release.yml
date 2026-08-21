@@ -39,6 +39,8 @@ jobs:
             apps/dsh-desktop/dist/latest.yml
 
   macos:
+    env:
+      HAS_MAC_CERT: ${{ secrets.MAC_CSC_LINK != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -64,12 +66,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm desktop:test
       - name: Build unsigned macOS package
-        if: ${{ secrets.MAC_CSC_LINK == '' }}
+        if: env.HAS_MAC_CERT != 'true'
         run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Build signed macOS package
-        if: ${{ secrets.MAC_CSC_LINK != '' }}
+        if: env.HAS_MAC_CERT == 'true'
         run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}

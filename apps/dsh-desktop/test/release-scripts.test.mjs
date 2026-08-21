@@ -28,8 +28,10 @@ test('release checksums cover installers and update ZIPs in stable filename orde
 
 test('macOS release keeps unsigned and certificate-backed builds mutually exclusive', async () => {
   const workflow = await readFile(new URL('../../../.github/workflows/desktop-release.yml', import.meta.url), 'utf8')
-  assert.match(workflow, /name: Build unsigned macOS package[\s\S]*secrets\.MAC_CSC_LINK == ''/)
-  assert.match(workflow, /name: Build signed macOS package[\s\S]*secrets\.MAC_CSC_LINK != ''/)
+  assert.match(workflow, /HAS_MAC_CERT: \$\{\{ secrets\.MAC_CSC_LINK != '' \}\}/)
+  assert.match(workflow, /name: Build unsigned macOS package[\s\S]*env\.HAS_MAC_CERT != 'true'/)
+  assert.match(workflow, /name: Build signed macOS package[\s\S]*env\.HAS_MAC_CERT == 'true'/)
+  assert.doesNotMatch(workflow, /if: \$\{\{ secrets\./)
 
   const unsignedStep = workflow.match(/- name: Build unsigned macOS package[\s\S]*?(?=\n\s+- name: Build signed macOS package)/)?.[0]
   assert.ok(unsignedStep)
