@@ -1,0 +1,15 @@
+{
+  "name": "@linxin666/dsh-im-bundle",
+  "version": "0.1.0",
+  "description": "Bundle carrier for the upstream @xmanrui/dsh-im multi-channel bot plugin.",
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@xmanrui/dsh-im": "0.13.0"
+  }
+}

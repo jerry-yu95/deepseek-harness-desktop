@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>Extension Dock</title>
+    <link rel="stylesheet" href="./extensions.css">
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">DSH DESKTOP / EXTENSION DOCK</p>
+        <h1>扩展坞</h1>
+      </div>
+      <p class="intro">管理社区插件与本地技能。内置能力受到保护，所有改动只作用于 desktop profile。</p>
+    </header>
+
+    <nav aria-label="Extension type">
+      <button type="button" class="tab active" data-tab="plugins">插件 <span id="plugin-count">0</span></button>
+      <button type="button" class="tab" data-tab="skills">技能 <span id="skill-count">0</span></button>
+      <button type="button" class="tab" data-tab="skins">皮肤 <span>9</span></button>
+      <button type="button" class="tab" data-tab="updates">检查更新</button>
+      <span class="line"></span>
+      <button type="button" class="refresh" id="refresh">刷新 / Refresh</button>
+    </nav>
+
+    <main>
+      <section id="plugins" class="panel active" aria-labelledby="plugin-heading">
+        <div class="panel-head">
+          <div><p class="index">01</p><h2 id="plugin-heading">Cordis 插件</h2></div>
+          <p>安装注册表中的 DSH bundle。安装前请确认来源可信；插件拥有宿主进程权限。</p>
+        </div>
+        <details class="advanced-install">
+          <summary>高级功能：从 NPM 安装社区插件</summary>
+          <form id="plugin-form">
+            <label for="plugin-spec">NPM PACKAGE SPEC</label>
+            <div class="field-row">
+              <input id="plugin-spec" name="spec" placeholder="@scope/dsh-plugin@1.0.0" autocomplete="off" spellcheck="false" required>
+              <button type="submit">安装并重启</button>
+            </div>
+          </form>
+          <p class="update-footnote">仅供知道插件包名的高级用户使用，这不是应用更新入口。</p>
+        </details>
+        <div class="list" id="plugin-list" aria-live="polite"></div>
+      </section>
+
+      <section id="skills" class="panel" aria-labelledby="skill-heading" hidden>
+        <div class="panel-head">
+          <div><p class="index">02</p><h2 id="skill-heading">技能目录</h2></div>
+          <p>遵循官方五级优先顺序扫描。导入后由 DSH watcher 自动刷新，无需重启。</p>
+        </div>
+        <div class="skill-actions">
+          <button type="button" id="import-skill">导入技能目录</button>
+          <button type="button" class="secondary" id="open-skill-root">打开用户技能目录</button>
+        </div>
+        <div class="list" id="skill-list" aria-live="polite"></div>
+      </section>
+
+      <section id="skins" class="panel" aria-labelledby="skin-heading" hidden>
+        <div class="panel-head">
+          <div><p class="index">03</p><h2 id="skin-heading">皮肤中心</h2></div>
+          <p>桌面版已内置 9 款 dsh-web-ui 皮肤。进入 Harness 后打开“设置 → 插件配置 → Web UI 插件 → 皮肤中心”，可以先试穿，再决定是否应用。</p>
+        </div>
+        <div class="skin-proof"><b>已随安装包提供</b><span>@linxin666/dsh-skins</span><span>@linxin666/dsh-client-ui-skin-center</span></div>
+        <div class="skin-grid">
+          <article><i class="swatch xp"></i><b>Windows XP</b><small>Luna 经典桌面</small></article>
+          <article><i class="swatch minecraft"></i><b>Minecraft</b><small>方块世界</small></article>
+          <article><i class="swatch fantasy"></i><b>Blue Fantasy</b><small>蓝色幻想</small></article>
+          <article><i class="swatch whale"></i><b>Whale Song</b><small>鲸吟深海</small></article>
+          <article><i class="swatch miku"></i><b>Miku</b><small>电子歌姬</small></article>
+          <article><i class="swatch trading"></i><b>Trading</b><small>交易终端</small></article>
+          <article><i class="swatch qq"></i><b>QQ 2008</b><small>水晶蓝怀旧</small></article>
+          <article><i class="swatch ths"></i><b>同花顺</b><small>行情工作台</small></article>
+          <article><i class="swatch dragon"></i><b>龙的传人</b><small>朱砂龙印</small></article>
+        </div>
+        <p class="update-footnote">皮肤只改变呈现层，不会更换模型、Agent 预设、工具或权限。若皮肤中心没有出现，先在“Web UI 插件”中确认它已启用。</p>
+      </section>
+
+      <section id="updates" class="panel" aria-labelledby="update-heading" hidden>
+        <div class="panel-head">
+          <div><p class="index">04</p><h2 id="update-heading">官方内核更新</h2></div>
+          <p>npm 运行时可以备份后更新；GitHub 源码会先下载到独立快照目录并校验，不会直接覆盖当前运行时。</p>
+        </div>
+        <div class="update-card">
+          <div class="update-version">
+            <p class="update-label">正在使用</p>
+            <strong id="current-version">读取中</strong>
+            <span id="runtime-source" class="badge">—</span>
+          </div>
+          <div class="update-version">
+            <p class="update-label">npm 最新运行时</p>
+            <strong id="latest-version">尚未检查</strong>
+            <span id="checked-at" class="update-note">—</span>
+          </div>
+          <div class="update-version">
+            <p class="update-label">GitHub 源码 master</p>
+            <strong id="source-version">尚未检查</strong>
+            <span id="source-commit" class="update-note">—</span>
+          </div>
+          <div class="update-actions">
+            <button type="button" id="check-update">检查并更新</button>
+            <button type="button" id="stage-source-update" class="secondary" hidden>同步 GitHub 源码</button>
+            <button type="button" id="install-update" hidden>备份并更新</button>
+            <button type="button" id="rollback-update" class="secondary" hidden>回退上一版</button>
+          </div>
+        </div>
+        <p id="update-summary" class="update-summary" hidden></p>
+        <div class="safety-flow" aria-label="更新安全流程">
+          <span>01 检查版本</span><i></i><span>02 下载到独立目录</span><i></i><span>03 验证启动</span><i></i><span>04 切换 / 可回退</span>
+        </div>
+        <p class="update-footnote">如果 npm 新内核无法启动，桌面端会自动切回上一版。GitHub 源码同步后仍停留在隔离快照中，后续还需完成构建、健康检查和运行时切换。</p>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script type="module" src="./extensions.mjs"></script>
+  </body>
+</html>

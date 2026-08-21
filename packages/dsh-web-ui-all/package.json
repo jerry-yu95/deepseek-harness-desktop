@@ -1,0 +1,30 @@
+{
+  "name": "@linxin666/dsh-web-ui-all",
+  "description": "DSH Web UI 全家桶：任务、Git、远程控制、消息渠道、实时统计、设置与自适应图片主题。",
+  "version": "0.1.3",
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@harness-design/dsh-orchestrator": "workspace:*",
+    "@linxin666/dsh-web-ui-compat": "workspace:*",
+    "@linxin666/dsh-client-ui-aionui-panel": "workspace:*",
+    "@linxin666/dsh-client-ui-task-board": "workspace:*",
+    "@linxin666/dsh-client-ui-git-graph": "workspace:*",
+    "@linxin666/dsh-pet": "workspace:*",
+    "@linxin666/dsh-remote-web-ui": "workspace:*",
+    "@linxin666/dsh-im-bundle": "workspace:*",
+    "@linxin666/dsh-live-stats": "workspace:*",
+    "@linxin666/dsh-ssh": "workspace:*",
+    "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
+    "@linxin666/dsh-skins": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhu1090093659/dsh-web-ui.git"
+  }
+}

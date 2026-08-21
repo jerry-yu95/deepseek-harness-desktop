@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>Harness Design Desktop</title>
+    <link rel="stylesheet" href="./startup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="identity" aria-label="Harness Design Desktop">
+        <p class="eyebrow">DEEPSEEK HARNESS / DESKTOP SURFACE</p>
+        <h1>把完整 Harness<br>装进桌面。</h1>
+        <p class="lede">Original Web surface. Native lifecycle. Zero feature loss.</p>
+        <div class="depth-map" aria-hidden="true">
+          <span>LOCAL HOST</span><i></i><span>CORDIS PROFILE</span><i></i><span>WEB SURFACE</span>
+        </div>
+      </section>
+
+      <section class="instrument" aria-live="polite">
+        <div class="sonar" aria-hidden="true">
+          <span class="ring ring-one"></span>
+          <span class="ring ring-two"></span>
+          <span class="sweep"></span>
+          <span class="core"></span>
+        </div>
+        <div class="readout">
+          <p class="sequence" id="sequence">BOOT SEQUENCE / 01</p>
+          <h2 id="status-title">正在校准本地运行时</h2>
+          <p id="status-detail">Preparing the isolated desktop profile and official DSH host.</p>
+          <div class="meter"><span id="meter-fill"></span></div>
+          <pre id="error-log" hidden></pre>
+          <div class="actions" id="actions" hidden>
+            <button type="button" data-action="retry">重试 / Retry</button>
+            <button type="button" data-action="repair">修复 Profile</button>
+            <button type="button" class="quiet" data-action="open-logs">打开日志</button>
+            <button type="button" class="quiet" data-action="exit">退出</button>
+          </div>
+        </div>
+        <footer>
+          <span id="version">DESKTOP</span>
+          <span>LOOPBACK ONLY</span>
+        </footer>
+      </section>
+    </main>
+    <script type="module" src="./startup.mjs"></script>
+  </body>
+</html>

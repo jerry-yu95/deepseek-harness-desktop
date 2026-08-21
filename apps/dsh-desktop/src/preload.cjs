@@ -1,0 +1,37 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+const api = Object.freeze({
+  getInfo: () => ipcRenderer.invoke('desktop:info'),
+  getStatus: () => ipcRenderer.invoke('desktop:status'),
+  action: (action) => ipcRenderer.invoke('desktop:action', action),
+  enableRemote: (mode) => ipcRenderer.invoke('desktop:remote-enable', mode),
+  getRemoteStatus: () => ipcRenderer.invoke('desktop:remote-status'),
+  readClipboardImage: () => ipcRenderer.invoke('clipboard:read-image'),
+  revealPath: (root, relativePath, isDirectory) => ipcRenderer.invoke('desktop:reveal-path', root, relativePath, isDirectory),
+  listExtensions: () => ipcRenderer.invoke('extensions:list'),
+  installPlugin: (spec) => ipcRenderer.invoke('extensions:plugin-install', spec),
+  removePlugin: (name) => ipcRenderer.invoke('extensions:plugin-remove', name),
+  importSkill: () => ipcRenderer.invoke('extensions:skill-import'),
+  openSkill: (id) => ipcRenderer.invoke('extensions:skill-open', id),
+  openSkillRoot: () => ipcRenderer.invoke('extensions:skill-root'),
+  getUpdateStatus: () => ipcRenderer.invoke('updates:status'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  checkAndInstallUpdate: () => ipcRenderer.invoke('updates:check-interactive'),
+  installUpdate: (version) => ipcRenderer.invoke('updates:install', version),
+  rollbackUpdate: () => ipcRenderer.invoke('updates:rollback'),
+  stageSourceUpdate: (commit) => ipcRenderer.invoke('updates:stage-source', commit),
+  onStatus(callback) {
+    if (typeof callback !== 'function') throw new TypeError('status callback must be a function')
+    const listener = (_event, status) => callback(status)
+    ipcRenderer.on('desktop:status', listener)
+    return () => ipcRenderer.removeListener('desktop:status', listener)
+  },
+  onUpdateStatus(callback) {
+    if (typeof callback !== 'function') throw new TypeError('update callback must be a function')
+    const listener = (_event, status) => callback(status)
+    ipcRenderer.on('updates:status', listener)
+    return () => ipcRenderer.removeListener('updates:status', listener)
+  },
+})
+
+contextBridge.exposeInMainWorld('dshDesktop', api)

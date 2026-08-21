@@ -1,0 +1,3 @@
+- insert:
+    - id: harness-orchestrator
+      name: '@harness-design/dsh-orchestrator'

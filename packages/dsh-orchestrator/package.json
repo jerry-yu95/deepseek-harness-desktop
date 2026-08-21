@@ -1,0 +1,33 @@
+{
+  "name": "@harness-design/dsh-orchestrator",
+  "version": "0.1.0",
+  "description": "Native DSH orchestration foundation: project state machine, acceptance ledger, bounded memory context, and persistent cognitive-role definitions.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
+    "./core": { "types": "./lib/types/core.d.ts", "default": "./lib/core.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": { "build": "tsc -b && tsdown", "prepare": "tsdown", "test": "vitest run", "typecheck": "tsc -b --pretty false" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@types/node": "^22.20.0",
+    "tsdown": "^0.22.2",
+    "typescript": "~5.7.2",
+    "vitest": "^4.1.8"
+  },
+  "files": ["lib", "roles", "cordis.patch.yml", "README.md", "LICENSE"],
+  "license": "BSD-3-Clause"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@linxin666/dsh-skins",
+  "description": "DSH 自定义皮肤聚合插件：上传本地图片，自动生成可读的明暗模式、强调色和半透明界面。",
+  "version": "0.2.0",
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@linxin666/dsh-client-ui-skin-center": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhu1090093659/dsh-web-ui.git",
+    "directory": "packages/dsh-skins"
+  }
+}

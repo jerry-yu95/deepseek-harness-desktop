@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepSeek Harness Desktop - 项目缘起</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #eef4f7; }
+    body {
+      width: 1200px;
+      color: #17313d;
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    article {
+      margin: 38px;
+      padding: 58px 66px 62px;
+      background: #ffffff;
+      border: 1px solid #cfdee5;
+      border-top: 8px solid #168eaa;
+      border-radius: 18px;
+      box-shadow: 0 16px 45px rgba(15, 52, 67, 0.09);
+    }
+    .eyebrow {
+      margin: 0 0 15px;
+      color: #168eaa;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    h1 {
+      margin: 0 0 34px;
+      color: #092a38;
+      font-size: 44px;
+      line-height: 1.28;
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      margin: 43px 0 18px;
+      color: #0c5369;
+      font-size: 31px;
+      line-height: 1.35;
+    }
+    p, li {
+      font-size: 27px;
+      line-height: 1.72;
+    }
+    p { margin: 0 0 24px; }
+    ul { margin: 14px 0 0; padding-left: 1.25em; }
+    li { margin: 12px 0; padding-left: 0.2em; }
+    code {
+      padding: 0.08em 0.3em;
+      border-radius: 6px;
+      background: #eaf3f6;
+      color: #0b6078;
+      font-family: Consolas, monospace;
+      font-size: 0.9em;
+    }
+    .note {
+      margin-top: 34px;
+      padding: 24px 28px;
+      border-left: 6px solid #5fb8c9;
+      border-radius: 8px;
+      background: #f2f8fa;
+    }
+  </style>
+</head>
+<body>
+  <article>
+    <p class="eyebrow">DEEPSEEK HARNESS DESKTOP 0.1.1</p>
+    <h1>把原来的网页端装进 EXE，但不重写它</h1>
+
+    <p>佬友们好，前段时间一直在使用 DeepSeek Harness 的网页端。功能很完整，但每次都要先启动本地主机、再打开浏览器；插件、技能和不同 profile 多起来以后，管理起来也有些零散。</p>
+
+    <p>所以我做了一个 Windows 桌面版。它不是仿照网页重新写一套界面，而是在本机回环地址启动官方 <code>@deepseek-ai/dsh</code> 运行时，再把原版 Web UI 无损加载进 Electron 窗口。网页端已有的交互、插件和皮肤都继续使用同一套实现。</p>
+
+    <h2>现在保留了什么</h2>
+    <ul>
+      <li>任务看板、Git 图谱、右侧文件与变更面板、SSH、移动端远程、实时统计和宠物等原有功能；</li>
+      <li>21 个 UI 插件和 9 款可选皮肤，包括 Miku、Trading、Windows XP、Minecraft 等主题；</li>
+      <li>原版插件机制，以及项目技能、DSH 技能和 Agents 技能的发现与导入；</li>
+      <li>官方 DSH、pnpm 和原生依赖随安装包提供，不要求用户另装 Node.js。</li>
+    </ul>
+
+    <p class="note">桌面版使用独立的 <code>desktop</code> profile，不会覆盖已经存在的 DSH 配置；本地主机默认只监听回环地址。</p>
+  </article>
+</body>
+</html>

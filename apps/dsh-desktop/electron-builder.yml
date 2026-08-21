@@ -1,0 +1,60 @@
+appId: studio.harness.design.desktop
+productName: Harness Design Desktop
+copyright: Copyright (c) 2026 Harness Design Desktop contributors
+
+asar: true
+npmRebuild: false
+asarUnpack:
+  - node_modules/**
+compression: normal
+afterPack: scripts/after-pack.cjs
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - src/**
+  - package.json
+  - '!**/*.map'
+  - '!**/test/**'
+
+win:
+  icon: build/icon.ico
+  requestedExecutionLevel: asInvoker
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+mac:
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+
+dmg:
+  artifactName: Harness-Design-Desktop-${version}-${arch}.${ext}
+  title: Harness Design Desktop ${version}
+
+nsis:
+  artifactName: Harness-Design-Desktop-Setup-${version}-${arch}.${ext}
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Harness Design Desktop
+
+publish:
+  provider: github
+  owner: jerry-yu95
+  repo: deepseek-harness-desktop
