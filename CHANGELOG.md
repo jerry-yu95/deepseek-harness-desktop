@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.21 - 2026-08-21
+
+- Changed unsigned macOS application updates to a clear GitHub Release handoff instead of attempting an unreliable automatic installation.
+- Added Chinese and English installation guides for artifact selection, checksum verification, Gatekeeper, and SmartScreen.
+- Normalized the repository identity and source-build links around `jerry-yu95/deepseek-harness-desktop` while preserving third-party attribution.
+- Prepared a version newer than 0.1.20 so the first public update path can be tested end to end.
+
 ## 0.1.20 - 2026-08-20
 
 - Fixed custom wallpaper images being hidden by stacked theme and surface overlays.

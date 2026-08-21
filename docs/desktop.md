@@ -36,7 +36,7 @@ The large installed size is intentional: the release keeps the official DSH runt
 
 ## Installation
 
-Download the Windows x64, macOS Intel, or macOS Apple Silicon artifact from GitHub Releases and verify its SHA-256 against `SHA256SUMS.txt`. Builds are currently unsigned, so SmartScreen or Gatekeeper may display an unknown publisher. On Windows, the default per-user location is recommended and custom installation roots should be kept short because some transitive native tooling still depends on the legacy Win32 260-character path limit.
+Download the Windows x64, macOS Intel, or macOS Apple Silicon artifact from GitHub Releases and verify its SHA-256 against `SHA256SUMS.txt`. Builds are currently unsigned, so SmartScreen or Gatekeeper may display an unknown publisher. Follow the user-facing steps in [安装指南](install.md) or [Installation Guide](install.en.md). On Windows, the default per-user location is recommended and custom installation roots should be kept short because some transitive native tooling still depends on the legacy Win32 260-character path limit.
 
 No separate Node.js or pnpm installation is required for release users.
 
@@ -63,4 +63,4 @@ pnpm --filter @harness-design/desktop pack:verify
 
 Use Node.js 24 and pnpm 11.21.0. The installer is written to `apps/dsh-desktop/dist`. Tagged releases must use `desktop-v<package version>`; GitHub Actions builds Windows x64 on `windows-latest`, Apple Silicon on `macos-15`, and Intel on `macos-15-intel`, then publishes one checksummed release after all audits pass.
 
-macOS background installation requires Developer ID signing and notarization. The release workflow accepts `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` repository secrets when they become available. Unsigned builds still detect releases and offer the GitHub download page as a fallback.
+macOS background installation requires Developer ID signing and notarization. The release workflow accepts `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` repository secrets when they become available. Current unsigned macOS builds deliberately use manual installation: they detect a newer version and open the verified GitHub Release page without downloading or executing an update inside the app.

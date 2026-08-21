@@ -22,6 +22,21 @@ async function showFailure({ dialog, manager, getWindow, openReleasePage }) {
 }
 
 async function offerUpdate({ dialog, manager, getWindow, openReleasePage, status }) {
+  if (status.installMode === 'manual') {
+    const manual = await dialog.showMessageBox(getWindow(), {
+      type: 'info',
+      title: '发现应用更新',
+      message: `${status.currentVersion} → ${status.availableVersion}`,
+      detail: '当前 macOS 版本未使用付费 Developer ID 签名，需要从 GitHub Releases 手动下载安装。下载后请核对 SHA-256；现有配置和会话不会被覆盖。',
+      buttons: ['打开安全下载页', '稍后'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (manual.response !== 0) return { action: 'cancelled', status }
+    await openReleasePage(status.releaseUrl)
+    return { action: 'opened-release', status }
+  }
+
   const first = await dialog.showMessageBox(getWindow(), {
     type: 'info',
     title: '发现应用更新',

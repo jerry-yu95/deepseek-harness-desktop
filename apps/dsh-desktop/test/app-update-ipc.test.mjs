@@ -57,6 +57,27 @@ test('interactive update downloads and installs only after both confirmations', 
   registration.dispose()
 })
 
+test('manual updates open the release page without downloading', async () => {
+  const { handlers, manager, opened, registration } = fixture([0])
+  manager.value = {
+    phase: 'available',
+    currentVersion: '0.1.20',
+    availableVersion: '0.1.21',
+    updateAvailable: true,
+    supported: true,
+    installMode: 'manual',
+    releaseUrl: 'https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest',
+  }
+  let downloads = 0
+  manager.download = async () => { downloads += 1 }
+
+  const result = await handlers.get('app-updates:check-interactive')()
+  assert.equal(result.action, 'opened-release')
+  assert.equal(downloads, 0)
+  assert.deepEqual(opened, ['https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest'])
+  registration.dispose()
+})
+
 test('status events are published without exposing updater internals', () => {
   const { manager, sent, registration } = fixture()
   manager.emit('status', { phase: 'downloading', progress: { percent: 25 } })

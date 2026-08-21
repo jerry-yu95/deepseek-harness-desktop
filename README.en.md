@@ -1,4 +1,4 @@
-# dsh-web-ui · DSH Web UI
+# DeepSeek Harness Desktop
 
 [中文](README.md) | English
 
@@ -8,7 +8,7 @@
 
 DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows and macOS applications. It does not rewrite the interface: a hardened Electron window launches the official `@deepseek-ai/dsh` host locally and loads this repository's desktop extensions. Releases are built separately for Windows x64, macOS Intel, and macOS Apple Silicon.
 
-[Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
+[Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
 | Lossless original surface | Desktop Extension Dock |
 | --- | --- |
@@ -20,9 +20,9 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 - Adds a dock for transactional community DSH bundle management and safe discovery/import of project, DSH, and Agents skills;
 - Bundles official DSH, pnpm, and native dependencies, so users do not need a separate Node.js installation.
 
-The public build is not yet signed with a commercial code-signing certificate, so Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Download only from this project's Releases and verify SHA-256. Seamless macOS installation requires Developer ID signing and notarization; unsigned builds can still detect a release and open its official download page.
+The public build does not use paid code-signing certificates, so Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Download only from this project's Releases and verify SHA-256. Windows supports in-app updates; macOS detects new versions and opens this project's Release page for manual installation. See the [installation guide](docs/install.en.md).
 
-dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, the right panel, mobile remote control, remote connection, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
+This repository also maintains a collection of DeepSeek Harness (DSH) Web UI extensions: a task board, Git graph, right panel, mobile remote control, remote connection, whale-girl pet, live token statistics, and custom image themes. Desktop installers already include these capabilities; the standalone plugin instructions below are for developers with an existing DSH environment.
 
 ![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
 
@@ -52,7 +52,7 @@ When a project session is open, two panels appear to the right of the chat area 
 - **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and plain text, with source/preview switching, split-screen editing and saving;
 - **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
 - Panel widths are draggable (double-click a handle to reset), and the collapsed state plus widths persist per project;
-- All nine selectable skins adapt the right panel — switching skins restyles the panels to match the theme.
+- Custom image themes adapt the right panel while automatically preserving readable contrast.
 
 ![Right panel](docs/screenshots/19-right-panel.png)
 
@@ -122,8 +122,8 @@ The packages are already on npm; installing from this repository is only for dev
 
 ```sh
 # 1. Clone the repository
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 
 # 2. Install dependencies and build
 pnpm install

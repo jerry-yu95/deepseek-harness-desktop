@@ -1,4 +1,4 @@
-# dsh-web-ui · DSH Web UI
+# DeepSeek Harness Desktop
 
 中文 | [English](README.en.md)
 
@@ -8,7 +8,7 @@
 
 DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 应用：不是重写页面，而是用安全的 Electron 窗口启动官方 `@deepseek-ai/dsh` 本地主机，再加载本仓库的桌面扩展。发布流程分别生成 Windows x64、macOS Intel 和 macOS Apple Silicon 安装包。
 
-[下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
+[下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
 | 原版界面无损加载 | 桌面扩展坞 |
 | --- | --- |
@@ -20,9 +20,9 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 - 扩展坞支持社区 DSH bundle 安装/回滚，以及项目、DSH、Agents 技能发现与安全导入；
 - 安装包自带官方 DSH、pnpm 与原生依赖，无需另外安装 Node.js。
 
-当前公开构建未使用商业代码签名证书，Windows SmartScreen 或 macOS Gatekeeper 可能显示未知发布者。请只从本项目 Releases 下载并核对 SHA-256。macOS 无感自动安装需要 Developer ID 签名与公证；未签名阶段仍可检测新版并跳转到官方 Release 页。
+当前公开构建未使用付费代码签名证书，Windows SmartScreen 或 macOS Gatekeeper 可能显示未知发布者。请只从本项目 Releases 下载并核对 SHA-256。Windows 支持应用内更新；macOS 会检测新版并打开本项目 Release 页，由用户手动安装。具体步骤见[安装指南](docs/install.md)。
 
-dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务看板、Git 图谱、右侧面板、移动端远程、远程连接、鲸鱼娘宠物、实时令牌统计，以及皮肤中心。所有插件既可独立安装，也可通过聚合包一次装齐。
+本仓库同时维护 DeepSeek Harness（DSH）Web UI 扩展集合：任务看板、Git 图谱、右侧面板、移动端远程、远程连接、鲸鱼娘宠物、实时令牌统计和自定义图片皮肤。桌面安装包已经包含这些能力；以下独立插件说明面向已有 DSH 环境的开发者。
 
 ![DSH Web UI 主界面](docs/screenshots/13-hero-main.png)
 
@@ -52,7 +52,7 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 - **预览**：多标签预览 markdown、HTML、代码、diff、CSV、PDF、Office、图片与文本等格式，支持源码 / 预览切换、分屏编辑与保存；
 - **变更（SCM）**：真实 git 变更面板，支持 stage / unstage / discard；
 - 面板宽度可拖拽调整，双击把手复位默认宽度，折叠状态与宽度按项目持久化；
-- 8 款皮肤全部适配右侧面板，换肤后面板随之融入主题。
+- 自定义图片皮肤会统一适配右侧面板，并自动维持文字对比度。
 
 ![右侧面板](docs/screenshots/19-right-panel.png)
 
@@ -122,8 +122,8 @@ dsh plugin --profile web add @linxin666/dsh-web-ui-all
 
 ```sh
 # 1. 克隆仓库
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 
 # 2. 安装依赖并构建
 pnpm install

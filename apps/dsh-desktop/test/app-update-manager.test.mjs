@@ -62,6 +62,17 @@ test('packaged builds publish available, progress, and downloaded states', async
   assert.equal(updater.installs, 1)
 })
 
+test('unsigned macOS builds detect updates but require manual installation', async () => {
+  const updater = new FakeUpdater({ updateInfo: { version: '0.1.21' } })
+  const manager = new AppUpdateManager({ updater, currentVersion: '0.1.20', packaged: true, platform: 'darwin' })
+
+  const checked = await manager.check()
+  assert.equal(checked.updateAvailable, true)
+  assert.equal(checked.installMode, 'manual')
+  await assert.rejects(() => manager.download(), /manual installation/)
+  assert.equal(updater.downloads, 0)
+})
+
 test('updater errors are reduced to a serializable public message', async () => {
   const updater = new FakeUpdater()
   updater.checkForUpdates = async () => {

@@ -1,6 +1,6 @@
 appId: studio.harness.design.desktop
 productName: Harness Design Desktop
-copyright: Copyright (c) 2026 Harness Design Desktop contributors
+copyright: Copyright (c) 2026 jerry-yu95 and contributors
 
 asar: true
 npmRebuild: false

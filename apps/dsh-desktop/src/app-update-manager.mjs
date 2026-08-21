@@ -19,13 +19,21 @@ function progressValue(progress = {}) {
 }
 
 export class AppUpdateManager extends EventEmitter {
-  constructor({ updater, currentVersion, packaged, platform, releaseUrl = 'https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest' }) {
+  constructor({
+    updater,
+    currentVersion,
+    packaged,
+    platform,
+    automaticInstall = platform === 'win32',
+    releaseUrl = 'https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest',
+  }) {
     super()
     if (!updater) throw new TypeError('an electron updater adapter is required')
     this.updater = updater
     this.currentVersion = currentVersion
     this.packaged = Boolean(packaged)
     this.platform = platform
+    this.automaticInstall = Boolean(automaticInstall)
     this.releaseUrl = releaseUrl
     this.state = {
       phase: 'idle',
@@ -79,6 +87,7 @@ export class AppUpdateManager extends EventEmitter {
       currentVersion: this.currentVersion,
       platform: this.platform,
       supported: this.packaged && SUPPORTED_PLATFORMS.has(this.platform),
+      installMode: this.automaticInstall ? 'automatic' : 'manual',
       releaseUrl: this.releaseUrl,
       ...structuredClone(this.state),
     }
@@ -103,6 +112,7 @@ export class AppUpdateManager extends EventEmitter {
   }
 
   async download() {
+    if (!this.automaticInstall) throw new Error('this build requires manual installation from GitHub Releases')
     if (!this.state.updateAvailable) throw new Error('no desktop update is available')
     this.#set({ phase: 'downloading', progress: progressValue() })
     try {
@@ -115,6 +125,7 @@ export class AppUpdateManager extends EventEmitter {
   }
 
   install() {
+    if (!this.automaticInstall) throw new Error('this build requires manual installation from GitHub Releases')
     if (this.state.phase !== 'downloaded') throw new Error('desktop update is not ready to install')
     this.#set({ phase: 'installing' })
     this.updater.quitAndInstall(false, true)
