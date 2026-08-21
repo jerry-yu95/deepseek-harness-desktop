@@ -111,7 +111,7 @@ test('stageSource downloads an immutable commit into an isolated snapshot', asyn
       return { ok: true, headers: { get: () => undefined }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }
     },
     runner: async (_executable, args, options) => {
-      assert.equal(_executable, 'tar')
+      assert.equal(_executable, process.platform === 'win32' ? 'tar.exe' : 'tar')
       assert.equal(args[0], '-xzf')
       await mkdir(options.cwd, { recursive: true })
       await writeFile(join(options.cwd, 'package.json'), '{"name":"deepseek-harness","version":"0.1.0-rc.7"}\n')
