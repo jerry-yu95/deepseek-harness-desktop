@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.29 - 2026-08-21
+
+- Added an extensible Connector Center for custom MCP stdio and Streamable HTTP registrations, health checks, environment-based credentials, and safe profile reloads through the official DSH MCP client.
+- Added a standalone Skill Studio that creates validated `SKILL.md` bundles in the user DSH skill root for automatic discovery without mixing Skills into the Cordis runtime plugin list.
+- Added atomic connector persistence, guarded command checks, profile rendering, IPC boundaries, and regression coverage for connector and Skill creation workflows.
+
+## 0.1.28 - 2026-08-21
+
+- Replaced filled composer pills with borderless line-icon controls for orchestration and model health, while retaining accessible descriptive dropdowns and keyboard focus states.
+- Made direct model-health probes tolerant of explanatory text, Markdown fences, scalar type drift, and comma-separated lists before scoring individual dimensions.
+- Added one bounded retry for completely unreadable probe output and ensured protocol failures are never counted as model degradation.
+- Replaced internal probe error codes with a user-facing retry message and forced manual checks to bypass cached probe results.
+- Added regression coverage for tolerant parsing, retry behavior, line-icon controls, and dropdown interaction.
+
+## 0.1.27 - 2026-08-21
+
+- Replaced the composer orchestration cycle button with an accessible dropdown matching the official preset selector, including concise Standard, Adaptive, and Enhanced descriptions and a visible selected state.
+- Made manual model-health probes independent of the selected orchestration mode: sessions without Workflow Engine now use the same official DSH LLM route for a bounded isolated diagnostic.
+- Kept Workflow Engine probes as the preferred path when that Agent-scoped capability is present, with no automatic mode or model switching.
+- Corrected the misleading Workflow Engine error copy and added direct-probe and dropdown-selection regressions.
+
+## 0.1.26 - 2026-08-21
+
+- Added opt-in Adaptive orchestration that deterministically scores task complexity and selects direct, plan-execute, plan-review, or bounded parallel-DAG strategies.
+- Added inspectable routing reasons, confidence, typed DAGs, Agent/Token/time budgets, cycle validation, and fail-closed fallback without replacing the official DSH Agent Loop or Workflow Engine.
+- Simple explanations stay on the direct path; complex or risky work is planned through the Agent-scoped official Workflow Engine.
+- Fixed Workflow Engine lookup to use the active Agent service scope, removing the false `workflow-engine-unavailable-for-agent` diagnostic.
+- Added visible Standard, Adaptive, and Enhanced controls plus the latest adaptive decision and budget in the Agent Harness dashboard.
+- Retained local-first model-health, cache, trace, and Token analytics with no automatic model switching.
+- Verified 27 Agent Harness tests, 66 desktop tests including a real official Host startup, all workspace type checks, production builds, and aggregate consistency.
+
+## 0.1.25 - 2026-08-21
+
+- Added a project-local observability ledger that records deduplicated Token deltas without storing API keys, full prompts, full responses, or hidden reasoning.
+- Added an Agent Harness dashboard with Overview, Model Health, Agent Trace, and Token Usage views.
+- Added Token totals and per-model rankings for today, the last 7 days, the last 30 days, the current month, and all recorded time.
+- Connected official live token projections, orchestration-stage traces, and cache events while keeping normal conversations free from background model calls.
+- Added atomic ledger writes, bounded retention, secret redaction, and project-local Git ignore protection for observability data.
+- Verified all 24 workspace packages, 66 desktop tests, 20 orchestrator tests, type checks, production builds, bundle consistency, and the real desktop dashboard.
+
 ## 0.1.24 - 2026-08-21
 
 - Added explicit Standard/Enhanced Agent Harness orchestration backed by the official DSH Workflow engine, with planner, grounding-reviewer, and completion-evaluator roles.
