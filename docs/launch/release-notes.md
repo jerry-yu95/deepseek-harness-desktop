@@ -1,4 +1,4 @@
-# Harness Design Desktop 0.1.22
+# Harness Design Desktop 0.1.23
 
 This release turns the community desktop shell into a three-platform distribution while keeping DeepSeek Harness itself independently recoverable.
 
@@ -21,9 +21,9 @@ This release turns the community desktop shell into a three-platform distributio
 
 Download the artifact matching your system and verify it against `SHA256SUMS.txt`:
 
-- `Harness-Design-Desktop-Setup-0.1.22-x64.exe`
-- `Harness-Design-Desktop-0.1.22-x64.dmg`
-- `Harness-Design-Desktop-0.1.22-arm64.dmg`
+- `Harness-Design-Desktop-Setup-0.1.23-x64.exe`
+- `Harness-Design-Desktop-0.1.23-x64.dmg`
+- `Harness-Design-Desktop-0.1.23-arm64.dmg`
 
 The current community builds are unsigned. Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Follow the linked installation guide and verify `SHA256SUMS.txt`. Unsigned macOS builds intentionally use a Release-page handoff instead of attempting automatic installation.
 

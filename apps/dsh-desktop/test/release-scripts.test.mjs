@@ -37,3 +37,15 @@ test('macOS release keeps unsigned and certificate-backed builds mutually exclus
   assert.ok(unsignedStep)
   assert.doesNotMatch(unsignedStep, /(?:^|\n)\s+(?:CSC_LINK|CSC_KEY_PASSWORD|APPLE_ID):/)
 })
+
+test('package verification paths are portable across PowerShell and POSIX shells', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  const verificationScripts = Object.entries(manifest.scripts)
+    .filter(([name]) => name.startsWith('pack:verify'))
+
+  assert.equal(verificationScripts.length, 3)
+  for (const [name, command] of verificationScripts) {
+    assert.match(command, /verify-package\.mjs \"dist\//, `${name} must quote its path with portable double quotes`)
+    assert.doesNotMatch(command, /verify-package\.mjs '/, `${name} must not pass literal apostrophes on Windows`)
+  }
+})

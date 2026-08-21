@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.23 - 2026-08-21
+
+- Fixed Windows package verification by using command arguments that preserve paths correctly across PowerShell and POSIX shells.
+- Added a regression test that rejects shell-specific single-quoted package paths.
+- Supersedes the failed, unpublished `desktop-v0.1.22` release attempt; no 0.1.22 installation artifacts were published.
+
 ## 0.1.22 - 2026-08-21
 
 - Fixed GitHub Actions macOS releases without Apple certificates by keeping unsigned and certificate-backed build steps mutually exclusive.
