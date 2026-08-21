@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22 - 2026-08-21
+
+- Fixed GitHub Actions macOS releases without Apple certificates by keeping unsigned and certificate-backed build steps mutually exclusive.
+- Added a regression test that prevents empty signing secrets from being forwarded to electron-builder.
+- Supersedes the failed, unpublished `desktop-v0.1.21` release attempt; no 0.1.21 installation artifacts were published.
+
 ## 0.1.21 - 2026-08-21
 
 - Changed unsigned macOS application updates to a clear GitHub Release handoff instead of attempting an unreliable automatic installation.

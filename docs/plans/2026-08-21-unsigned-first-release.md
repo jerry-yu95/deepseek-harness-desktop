@@ -47,7 +47,7 @@
 2. Point source-build clone instructions to `jerry-yu95/deepseek-harness-desktop`.
 3. Preserve third-party package attribution and licenses.
 
-### Task 4: Prepare and validate release 0.1.21
+### Task 4: Prepare and validate release 0.1.22
 
 **Files:**
 - Modify: `apps/dsh-desktop/package.json`
@@ -55,7 +55,7 @@
 - Modify: `CHANGELOG.md`
 - Modify: `docs/launch/release-notes.md`
 
-1. Bump the desktop version so an installed 0.1.20 build can exercise update detection.
+1. Bump the desktop version so an installed 0.1.20 build can exercise update detection. Version 0.1.22 supersedes an unpublished 0.1.21 tag whose macOS job exposed empty signing-secret handling.
 2. Run focused tests, the full desktop suite, lockfile verification, and package audit.
 3. Commit and push only after all checks pass.
-4. Create `desktop-v0.1.21` only after the pushed CI succeeds.
+4. Create `desktop-v0.1.22` only after the pushed CI succeeds.

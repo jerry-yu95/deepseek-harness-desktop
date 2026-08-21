@@ -63,9 +63,15 @@ jobs:
       - run: node apps/dsh-desktop/scripts/verify-release-tag.mjs "$GITHUB_REF_NAME"
       - run: pnpm install --frozen-lockfile
       - run: pnpm desktop:test
-      - run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
+      - name: Build unsigned macOS package
+        if: ${{ secrets.MAC_CSC_LINK == '' }}
+        run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Build signed macOS package
+        if: ${{ secrets.MAC_CSC_LINK != '' }}
+        run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
+        env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
