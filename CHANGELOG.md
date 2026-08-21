@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.24 - 2026-08-21
+
+- Added explicit Standard/Enhanced Agent Harness orchestration backed by the official DSH Workflow engine, with planner, grounding-reviewer, and completion-evaluator roles.
+- Added project-local, versioned cache entries with workspace fingerprints, TTL invalidation, corruption recovery, in-flight de-duplication, and visible cache-hit statistics.
+- Added route-specific model-health monitoring with relative baselines, six quality dimensions, sustained-regression warnings, isolated manual probes, trend history, and false-positive feedback.
+- Added a clickable composer health indicator, a detailed Agent Harness settings dashboard, and `/harness on|off|status|run` command fallbacks.
+- Fixed duplicate IM plugin registration and made generated CSS module identifiers portable across macOS, Windows, and CI workspaces.
+- Verified the real official DSH Host startup, 66 desktop tests, 16 orchestrator tests, cross-platform type checks, production builds, and generated bundle consistency.
+
 ## 0.1.23 - 2026-08-21
 
 - Fixed Windows package verification by using command arguments that preserve paths correctly across PowerShell and POSIX shells.

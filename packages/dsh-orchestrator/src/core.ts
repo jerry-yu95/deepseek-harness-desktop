@@ -1,20 +1,56 @@
 import { readFileSync } from 'node:fs'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { createHash, randomUUID } from 'node:crypto'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
 export type HarnessPhase = 'planning' | 'executing' | 'evaluating' | 'repairing' | 'complete' | 'blocked'
 export type FeatureStatus = 'pending' | 'in_progress' | 'passed' | 'failed'
 
-export interface HarnessRun { version: 1; objective: string; phase: HarnessPhase; createdAt: string; updatedAt: string }
+export type OrchestrationMode = 'standard' | 'enhanced'
+export type OrchestrationStage = 'idle' | 'planning' | 'executing' | 'reviewing' | 'evaluating' | 'complete' | 'failed' | 'cancelled'
+interface HarnessRunV1 { version: 1; objective: string; phase: HarnessPhase; createdAt: string; updatedAt: string }
+export interface HarnessRun {
+  version: 2
+  objective: string
+  phase: HarnessPhase
+  createdAt: string
+  updatedAt: string
+  orchestration: {
+    mode: OrchestrationMode
+    stage: OrchestrationStage
+    latestRunId?: string
+    cacheHits: number
+    cacheMisses: number
+    lastFailure?: string
+  }
+}
 export interface HarnessFeature { id: string; title: string; acceptance: string; status: FeatureStatus; evidence: string[] }
 export interface HarnessSnapshot { run: HarnessRun; features: HarnessFeature[]; progress: string }
+
+export interface OrchestrationRunRecord {
+  version: 1
+  id: string
+  objective: string
+  startedAt: string
+  finishedAt?: string
+  stage: OrchestrationStage
+  cache: { hits: number; misses: number }
+  roles: Partial<Record<'planner' | 'reviewer' | 'evaluator', { cached: boolean; summary: string }>>
+  failure?: string
+}
+
+export interface CacheRead<T> { hit: boolean; value?: T }
+interface CacheEnvelope<T> { version: 1; contract: string; key: string; createdAt: string; expiresAt?: string; value: T }
 
 const TRANSITIONS: Record<HarnessPhase, readonly HarnessPhase[]> = {
   planning: ['executing', 'blocked'], executing: ['evaluating', 'blocked'], evaluating: ['repairing', 'complete', 'blocked'],
   repairing: ['executing', 'evaluating', 'blocked'], complete: [], blocked: ['planning', 'executing', 'repairing'],
 }
 export const harnessDir = (cwd: string): string => join(cwd, '.dsh-harness')
-const paths = (cwd: string) => ({ root: harnessDir(cwd), run: join(harnessDir(cwd), 'run.json'), features: join(harnessDir(cwd), 'feature-list.json'), progress: join(harnessDir(cwd), 'progress.md') })
+const paths = (cwd: string) => ({
+  root: harnessDir(cwd), run: join(harnessDir(cwd), 'run.json'), features: join(harnessDir(cwd), 'feature-list.json'), progress: join(harnessDir(cwd), 'progress.md'),
+  cache: join(harnessDir(cwd), 'cache'), runs: join(harnessDir(cwd), 'runs'), ignore: join(harnessDir(cwd), '.gitignore'),
+})
 
 async function atomicWrite(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
@@ -23,8 +59,16 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 }
 async function readJson<T>(path: string): Promise<T> { return JSON.parse(await readFile(path, 'utf8')) as T }
 
-function validateRun(run: HarnessRun): HarnessRun {
-  if (run?.version !== 1 || typeof run.objective !== 'string' || !Object.hasOwn(TRANSITIONS, run.phase)) throw new Error('invalid-harness-run')
+function validateRun(value: unknown): HarnessRun {
+  const run = value as HarnessRun | HarnessRunV1
+  if ((run?.version !== 1 && run?.version !== 2) || typeof run.objective !== 'string' || !Object.hasOwn(TRANSITIONS, run.phase)) throw new Error('invalid-harness-run')
+  if (run.version === 1) return {
+    ...run,
+    version: 2,
+    orchestration: { mode: 'standard', stage: 'idle', cacheHits: 0, cacheMisses: 0 },
+  }
+  const orchestration = run.orchestration
+  if (orchestration === undefined || !['standard', 'enhanced'].includes(orchestration.mode) || !['idle', 'planning', 'executing', 'reviewing', 'evaluating', 'complete', 'failed', 'cancelled'].includes(orchestration.stage) || !Number.isSafeInteger(orchestration.cacheHits) || !Number.isSafeInteger(orchestration.cacheMisses)) throw new Error('invalid-harness-run')
   return run
 }
 function validateFeatures(features: HarnessFeature[]): HarnessFeature[] {
@@ -52,13 +96,121 @@ export async function initHarness(cwd: string, objective: string, featureTitles:
   if (objective.trim() === '') throw new Error('objective-required')
   const existing = await loadHarness(cwd); if (existing !== undefined) return existing
   const now = new Date().toISOString()
-  const run: HarnessRun = { version: 1, objective: objective.trim(), phase: 'planning', createdAt: now, updatedAt: now }
+  const run: HarnessRun = { version: 2, objective: objective.trim(), phase: 'planning', createdAt: now, updatedAt: now, orchestration: { mode: 'standard', stage: 'idle', cacheHits: 0, cacheMisses: 0 } }
   const features = featureTitles.map((title, index) => ({ id: `F${index + 1}`, title, acceptance: title, status: 'pending' as const, evidence: [] }))
   const target = paths(cwd); await mkdir(target.root, { recursive: true })
   await atomicWrite(target.run, `${JSON.stringify(run, null, 2)}\n`)
   await atomicWrite(target.features, `${JSON.stringify(features, null, 2)}\n`)
   await atomicWrite(target.progress, `# Harness progress\n\nInitialized ${now}\n`)
+  await ensureHarnessIgnore(cwd)
   return { run, features, progress: `# Harness progress\n\nInitialized ${now}\n` }
+}
+
+export async function setOrchestrationMode(cwd: string, mode: OrchestrationMode): Promise<HarnessSnapshot> {
+  const snapshot = await loadHarness(cwd); if (snapshot === undefined) throw new Error('harness-not-initialized')
+  snapshot.run = { ...snapshot.run, updatedAt: new Date().toISOString(), orchestration: { ...snapshot.run.orchestration, mode, ...(mode === 'standard' ? { stage: 'idle' as const } : {}) } }
+  await atomicWrite(paths(cwd).run, `${JSON.stringify(snapshot.run, null, 2)}\n`)
+  return snapshot
+}
+
+export async function updateOrchestration(cwd: string, update: Partial<HarnessRun['orchestration']>): Promise<HarnessSnapshot> {
+  const snapshot = await loadHarness(cwd); if (snapshot === undefined) throw new Error('harness-not-initialized')
+  const next = { ...snapshot.run.orchestration, ...update }
+  snapshot.run = { ...snapshot.run, updatedAt: new Date().toISOString(), orchestration: next }
+  await atomicWrite(paths(cwd).run, `${JSON.stringify(snapshot.run, null, 2)}\n`)
+  return snapshot
+}
+
+export function createRunRecord(objective: string): OrchestrationRunRecord {
+  return { version: 1, id: randomUUID(), objective: redactSecrets(objective.trim()), startedAt: new Date().toISOString(), stage: 'planning', cache: { hits: 0, misses: 0 }, roles: {} }
+}
+
+export async function writeRunRecord(cwd: string, record: OrchestrationRunRecord): Promise<void> {
+  await atomicWrite(join(paths(cwd).runs, `${safeSegment(record.id)}.json`), `${JSON.stringify(sanitizeRunRecord(record), null, 2)}\n`)
+}
+
+function sanitizeRunRecord(record: OrchestrationRunRecord): OrchestrationRunRecord {
+  return {
+    ...record,
+    objective: redactSecrets(record.objective).slice(0, 2000),
+    roles: Object.fromEntries(Object.entries(record.roles).map(([key, value]) => [key, value === undefined ? value : { ...value, summary: redactSecrets(value.summary).slice(0, 4000) }])),
+    ...(record.failure === undefined ? {} : { failure: redactSecrets(record.failure).slice(0, 2000) }),
+  }
+}
+
+export function stableDigest(value: unknown): string {
+  return createHash('sha256').update(stableJson(value)).digest('hex')
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value !== null && typeof value === 'object') return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(',')}}`
+  return JSON.stringify(value) ?? 'null'
+}
+
+export function cacheKey(namespace: string, inputs: unknown): string {
+  return stableDigest({ namespace, inputs })
+}
+
+function cachePath(cwd: string, namespace: string, key: string): string {
+  return join(paths(cwd).cache, safeSegment(namespace), `${safeSegment(key)}.json`)
+}
+
+function safeSegment(value: string): string {
+  const safe = value.replace(/[^a-zA-Z0-9._-]/g, '_')
+  if (safe === '' || safe === '.' || safe === '..') throw new Error('invalid-path-segment')
+  return safe
+}
+
+export async function readCache<T>(cwd: string, namespace: string, key: string, contract: string, now = Date.now()): Promise<CacheRead<T>> {
+  const target = cachePath(cwd, namespace, key)
+  try {
+    const envelope = await readJson<CacheEnvelope<T>>(target)
+    if (envelope.version !== 1 || envelope.key !== key || envelope.contract !== contract || (envelope.expiresAt !== undefined && Date.parse(envelope.expiresAt) <= now)) {
+      await rm(target, { force: true })
+      return { hit: false }
+    }
+    return { hit: true, value: envelope.value }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') await rm(target, { force: true }).catch(() => undefined)
+    return { hit: false }
+  }
+}
+
+export async function writeCache<T>(cwd: string, namespace: string, key: string, contract: string, value: T, ttlMs?: number): Promise<void> {
+  const now = Date.now()
+  const envelope: CacheEnvelope<T> = { version: 1, contract, key, createdAt: new Date(now).toISOString(), ...(ttlMs === undefined ? {} : { expiresAt: new Date(now + ttlMs).toISOString() }), value }
+  await atomicWrite(cachePath(cwd, namespace, key), `${JSON.stringify(envelope, null, 2)}\n`)
+  await ensureHarnessIgnore(cwd)
+}
+
+const inFlight = new Map<string, Promise<unknown>>()
+export async function cached<T>(cwd: string, namespace: string, key: string, contract: string, producer: () => Promise<T>, ttlMs?: number): Promise<{ value: T; cached: boolean }> {
+  const found = await readCache<T>(cwd, namespace, key, contract)
+  if (found.hit) return { value: found.value as T, cached: true }
+  const identity = `${cwd}\0${namespace}\0${key}\0${contract}`
+  const existing = inFlight.get(identity) as Promise<T> | undefined
+  if (existing !== undefined) return { value: await existing, cached: true }
+  const pending = producer()
+  inFlight.set(identity, pending)
+  try {
+    const value = await pending
+    await writeCache(cwd, namespace, key, contract, value, ttlMs)
+    return { value, cached: false }
+  } finally {
+    if (inFlight.get(identity) === pending) inFlight.delete(identity)
+  }
+}
+
+async function ensureHarnessIgnore(cwd: string): Promise<void> {
+  const content = '# Generated Harness runtime data\ncache/\nruns/\nmodel-health.json\n'
+  const target = paths(cwd).ignore
+  try {
+    if (await readFile(target, 'utf8') === content) return
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  await atomicWrite(target, content)
 }
 
 export async function transitionHarness(cwd: string, phase: HarnessPhase): Promise<HarnessSnapshot> {
@@ -77,6 +229,16 @@ export async function updateFeature(cwd: string, id: string, status: FeatureStat
   snapshot.features[index] = { ...item, status, evidence: evidence?.trim() ? [...item.evidence, redactSecrets(evidence.trim())] : item.evidence }
   snapshot.run = { ...snapshot.run, updatedAt: new Date().toISOString() }
   await atomicWrite(paths(cwd).features, `${JSON.stringify(snapshot.features, null, 2)}\n`)
+  await atomicWrite(paths(cwd).run, `${JSON.stringify(snapshot.run, null, 2)}\n`)
+  return snapshot
+}
+
+export async function replaceFeatures(cwd: string, features: Array<Pick<HarnessFeature, 'id' | 'title' | 'acceptance'>>): Promise<HarnessSnapshot> {
+  const snapshot = await loadHarness(cwd); if (snapshot === undefined) throw new Error('harness-not-initialized')
+  const next = validateFeatures(features.map(item => ({ ...item, status: 'pending' as const, evidence: [] })))
+  snapshot.features = next
+  snapshot.run = { ...snapshot.run, updatedAt: new Date().toISOString() }
+  await atomicWrite(paths(cwd).features, `${JSON.stringify(next, null, 2)}\n`)
   await atomicWrite(paths(cwd).run, `${JSON.stringify(snapshot.run, null, 2)}\n`)
   return snapshot
 }

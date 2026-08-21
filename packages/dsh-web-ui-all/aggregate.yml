@@ -9,11 +9,14 @@ patchFrom:
   - ../dsh-git-graph
   - ../dsh-pet
   - ../dsh-remote-web-ui
-  - ../dsh-im-bundle
   - ../dsh-live-stats
   - ../dsh-ssh
   - ../dsh-web-ui-settings
   - ../dsh-skins
+rows:
+  # dsh-im-bundle deliberately has an empty patch: dependency auto-loading its
+  # patch as well as this aggregate row would register the same plugin twice.
+  - xmanrui-dsh-im=@xmanrui/dsh-im
 deps:
   - ../dsh-orchestrator
   - ../dsh-web-ui-compat

@@ -1,0 +1,27 @@
+.controls { position: relative; display: flex; gap: 6px; align-items: center; }
+.pill { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); background: color-mix(in srgb, currentColor 7%, transparent); color: inherit; border-radius: 999px; padding: 5px 9px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pill:disabled { opacity: .55; cursor: wait; }
+.dot, .modeOn, .modeOff { width: 7px; height: 7px; border-radius: 50%; background: #89919e; }
+.modeOn { background: #5c8dff; box-shadow: 0 0 0 3px color-mix(in srgb, #5c8dff 18%, transparent); }
+.modeOff { background: #89919e; }
+.good .dot { background: #22a06b; }.warn .dot { background: #d99000; }.bad .dot { background: #e5484d; }.muted .dot { background: #89919e; }
+.popover { position: absolute; z-index: 30; bottom: calc(100% + 10px); left: 0; width: min(430px, 78vw); padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); background: var(--color-bg, #fff); color: var(--color-text, #18202a); box-shadow: 0 18px 50px rgb(0 0 0 / .2); }
+.settingsCard { border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 16px; padding: 22px; margin: 8px 0; background: color-mix(in srgb, currentColor 2%, transparent); }
+.settingsCard header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.settingsCard h3 { margin: 0 0 4px; font-size: 18px; }.settingsCard header p { margin: 0; opacity: .62; }
+.dashboard { display: grid; gap: 18px; }.compact { gap: 12px; }
+.summary { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.score { width: 66px; height: 66px; border-radius: 18px; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, currentColor 8%, transparent); }
+.score strong { font-size: 24px; line-height: 1; }.score span { font-size: 11px; margin-top: 5px; }.score.good { color: #16865b; }.score.warn { color: #b06c00; }.score.bad { color: #cf3439; }.score.muted { color: #6f7782; }
+.meta { min-width: 0; display: grid; gap: 5px; }.meta b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.meta span { font-size: 12px; opacity: .64; }
+.primary, .orchestration button, .feedback button, .error button { border: 0; border-radius: 9px; padding: 8px 12px; background: #3374e8; color: white; cursor: pointer; font: inherit; }
+.primary:disabled, .orchestration button:disabled, .feedback button:disabled { opacity: .55; cursor: wait; }
+.alert { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #e5484d 13%, transparent); color: #c52d33; font-size: 13px; }
+.orchestration { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 11px 12px; border-radius: 10px; background: color-mix(in srgb, currentColor 5%, transparent); font-size: 13px; }.orchestration button { margin-left: auto; background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; }
+.dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.dimension { display: grid; grid-template-columns: 88px 1fr 28px; align-items: center; gap: 8px; font-size: 12px; }.dimension > div { height: 7px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, currentColor 9%, transparent); }.dimension i { height: 100%; display: block; background: linear-gradient(90deg, #587cf6, #22a06b); border-radius: inherit; }
+.trend h4, .anomalies h4 { margin: 0 0 8px; }.trend p { margin: 0; opacity: .58; font-size: 13px; }.trend svg { width: 100%; height: 64px; overflow: visible; }.trend polyline { fill: none; stroke: #5c8dff; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.feedback { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }.feedback button { padding: 6px 10px; background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; }.feedback small { margin-left: auto; opacity: .58; }
+.anomalies { border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); padding-top: 12px; }.anomalies p { margin: 6px 0; font-size: 12px; color: #c52d33; }
+.empty, .error { padding: 20px; border-radius: 12px; background: color-mix(in srgb, currentColor 5%, transparent); opacity: .75; }.inlineError { font-size: 12px; color: #c52d33; }
+@media (max-width: 720px) { .dimensions { grid-template-columns: 1fr; }.summary { grid-template-columns: auto 1fr; }.summary .primary { grid-column: 1 / -1; }.settingsCard { padding: 14px; } }

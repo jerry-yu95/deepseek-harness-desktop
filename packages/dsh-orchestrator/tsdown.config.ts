@@ -1,14 +1,7 @@
-import { defineConfig } from 'tsdown'
+import { clientBundle } from '../../shared/tsdown.client.ts'
 
-export default defineConfig({
-  name: '@harness-design/dsh-orchestrator',
-  entry: ['src/index.ts', 'src/core.ts'],
-  outDir: 'lib',
-  format: 'esm',
-  platform: 'node',
-  target: 'es2024',
-  fixedExtension: false,
-  dts: false,
-  clean: false,
-  external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-agent', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-tools'],
-})
+export default clientBundle(
+  '@harness-design/dsh-orchestrator',
+  ['src/index.ts', 'src/core.ts', 'src/orchestration.ts', 'src/model-health.ts', 'src/wire.ts'],
+  { lib: { external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-agent', '@deepseek-ai/dsh-client-connection', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-tools', '@deepseek-ai/dsh-workflow'] } },
+)

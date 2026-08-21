@@ -37,11 +37,6 @@
     - id: remote-web-ui
       name: '@linxin666/dsh-remote-web-ui'
 
-# from ../dsh-im-bundle
-- insert:
-    - id: xmanrui-dsh-im
-      name: '@xmanrui/dsh-im'
-
 # from ../dsh-live-stats
 - insert:
     - id: live-stats
@@ -61,3 +56,8 @@
 - insert:
     - id: ui-skin-center
       name: '@linxin666/dsh-client-ui-skin-center'
+
+# from explicit rows
+- insert:
+    - id: xmanrui-dsh-im
+      name: '@xmanrui/dsh-im'

@@ -16,6 +16,8 @@
  *
  *   patchFrom:
  *     - ../skins/skin-center
+ *   rows:
+ *     - plugin-id=@scope/package
  *   deps:
  *     - ../skins/skin-center
  *     - ../qq98
@@ -23,6 +25,8 @@
  *   - patchFrom entries contribute their child's cordis.patch.yml insert rows
  *     to the aggregate patch (nested aggregates expand recursively, in
  *     patchFrom order, with per-source comment headers);
+ *   - rows entries add an explicit plugin row when a dependency carrier must
+ *     keep its own patch empty to avoid duplicate loader registration;
  *   - deps entries are resolved to each child's package.json "name" and
  *     written into the aggregate's dependencies as "workspace:*".
  *
@@ -83,9 +87,9 @@ function findAggregates() {
  * belong to the current section.
  */
 function parseManifest(ymlPath) {
-  const manifest = { patchFrom: [], deps: [] }
+  const manifest = { patchFrom: [], rows: [], deps: [] }
   let section = null
-  for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
+  for (const [i, raw] of readFileSync(ymlPath, 'utf8').split(/\r?\n/).entries()) {
     const line = raw.trim()
     if (!line || line.startsWith('#')) continue
     const sectionMatch = line.match(/^[A-Za-z0-9_-]+:\s*$/)
@@ -97,6 +101,13 @@ function parseManifest(ymlPath) {
     if (!entryMatch) continue
     const entry = entryMatch[1].trim().replace(/\s+#.*$/, '')
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
+    else if (section === 'rows') {
+      const separator = entry.indexOf('=')
+      if (separator <= 0 || separator === entry.length - 1) {
+        throw new Error(`${ymlPath}:${i + 1}: rows entries must use plugin-id=package-name`)
+      }
+      manifest.rows.push({ id: entry.slice(0, separator), name: entry.slice(separator + 1) })
+    }
     else if (section === 'deps') manifest.deps.push(entry)
   }
   return manifest
@@ -244,6 +255,7 @@ for (const { pkgDir, ymlPath } of aggregates) {
     }
     collectRows(target, entry, [], visited, errors, blocks)
   }
+  if (manifest.rows.length > 0) blocks.push({ entry: 'explicit rows', via: [], rows: manifest.rows })
   if (manifest.patchFrom.length === 0) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
