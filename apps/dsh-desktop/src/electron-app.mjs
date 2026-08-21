@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 
 import { BoundedLogStore } from './log-store.mjs'
+import { AppUpdateManager, loadElectronUpdater } from './app-update-manager.mjs'
+import { registerAppUpdateIpc } from './app-update-ipc.mjs'
 import { serializeClipboardImage } from './clipboard-image.mjs'
 import { buildNativeImagePasteScript } from './native-image-paste.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
@@ -65,6 +67,12 @@ export async function startElectronApp(metadata) {
     profileDir: profile.profileDir,
     pnpmCli: resolvePnpmCliPath(),
     packaged: packagedRuntime(),
+  })
+  const appUpdateManager = new AppUpdateManager({
+    updater: await loadElectronUpdater(),
+    currentVersion: app.getVersion(),
+    packaged: app.isPackaged,
+    platform: process.platform,
   })
   const activeRuntime = await updateManager.activeRuntime()
   if (activeRuntime.source === 'downloaded') await ensureProfile(activeRuntime.cliPath)
@@ -266,13 +274,24 @@ export async function startElectronApp(metadata) {
     getWindow: () => extensionWindow ?? mainWindow,
     getWindows: () => [mainWindow, extensionWindow],
   })
+  const appUpdateIpc = registerAppUpdateIpc({
+    ipcMain,
+    dialog,
+    manager: appUpdateManager,
+    getWindow: () => extensionWindow ?? mainWindow,
+    getWindows: () => [mainWindow, extensionWindow],
+    openReleasePage: url => shell.openExternal(url),
+  })
   const openLogs = () => shell.openPath(logsDirectory)
   installApplicationMenu({
     Menu,
     app,
     shell,
     controller,
-    openExtensions: () => void createExtensionWindow(),
+    openExtensions: (tab) => void createExtensionWindow(tab),
+    checkAppUpdates: () => void appUpdateIpc.checkInteractively().catch(error => {
+      void logStore.append(`[app-update] ${error.message}`)
+    }),
     openLogs,
   })
 
@@ -308,6 +327,11 @@ export async function startElectronApp(metadata) {
     if (status.state !== 'ready') return
     controller.off('status', checkAfterFirstReady)
     void updateManager.check().then(() => updateIpc.publish()).catch(() => {})
+    setTimeout(() => {
+      void appUpdateIpc.checkQuietly().catch(error => {
+        void logStore.append(`[app-update] ${error.message}`)
+      })
+    }, 3_000)
   }
   controller.on('status', checkAfterFirstReady)
   if (process.env.DSH_DESKTOP_HOLD_STARTUP !== '1') void controller.start().catch(() => {})
@@ -335,6 +359,7 @@ export async function startElectronApp(metadata) {
         unregisterIpc()
         unregisterExtensionIpc()
         updateIpc.dispose()
+        appUpdateIpc.dispose()
         ipcMain.removeHandler('clipboard:insert-text')
         ipcMain.removeHandler('clipboard:read-image')
         mainWindow?.webContents?.removeListener('before-input-event', onBeforeInputEvent)

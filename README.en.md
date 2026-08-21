@@ -4,9 +4,9 @@
 
 ![dsh-web-ui](docs/dsh-web-ui-banner.png)
 
-## Windows Desktop
+## Cross-platform Desktop
 
-DeepSeek Harness Desktop brings the complete DSH Web surface to a Windows EXE. It does not rewrite the interface: a hardened Electron window launches the official `@deepseek-ai/dsh` host locally and loads every plugin and skin from this repository unchanged.
+DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows and macOS applications. It does not rewrite the interface: a hardened Electron window launches the official `@deepseek-ai/dsh` host locally and loads this repository's desktop extensions. Releases are built separately for Windows x64, macOS Intel, and macOS Apple Silicon.
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
@@ -14,13 +14,13 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to a Windows EXE. I
 | --- | --- |
 | ![Desktop startup](docs/screenshots/desktop-startup.png) | ![Plugin and skill Extension Dock](docs/screenshots/desktop-extension-dock.png) |
 
-- Keeps the task board, Git graph, right panel, SSH, mobile remote, live stats, pet, and every skin;
+- Keeps the task board, Git graph, right panel, SSH, mobile remote, live stats, pet, and custom image themes;
 - Uses an isolated `desktop` profile without overwriting an existing DSH setup, and binds only to loopback;
 - Adds crash recovery, sanitized rotating logs, window-state restore, strict navigation, and denied-by-default permissions;
 - Adds a dock for transactional community DSH bundle management and safe discovery/import of project, DSH, and Agents skills;
 - Bundles official DSH, pnpm, and native dependencies, so users do not need a separate Node.js installation.
 
-The public build is not signed with a commercial code-signing certificate, so Windows SmartScreen may report an unknown publisher. Download only from this project's Releases and verify SHA-256. The default install location is tested; avoid unusually long custom paths because legacy Win32 components may still hit the 260-character limit.
+The public build is not yet signed with a commercial code-signing certificate, so Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Download only from this project's Releases and verify SHA-256. Seamless macOS installation requires Developer ID signing and notarization; unsigned builds can still detect a release and open its official download page.
 
 dsh-web-ui is a collection of plugins and skins for the DeepSeek Harness (DSH) Web UI: a task board, a Git graph, the right panel, mobile remote control, remote connection, a whale-girl pet, live token statistics, and the Skin Center. Every plugin can be installed individually, or all at once through the aggregate packages.
 
@@ -96,47 +96,9 @@ All family plugins' toggles and parameters live under "Settings > Plugin config"
 
 ![Plugin config hub](docs/screenshots/02-settings-web-ui-plugins.png)
 
-## Skins
+## Custom image theme
 
-The skin center ships nine selectable skins, each supporting try-on before applying: preview applies instantly and reverts fully on exit; once you are satisfied, apply it with one click.
-
-![Skin center](docs/screenshots/03-settings-skin-center.png)
-
-### Windows XP (Luna)
-
-A faithful recreation of the classic Luna interface: blue gradient window chrome, a green Start button, the Bliss blue-sky desktop, and square corners throughout.
-
-![Windows XP skin](docs/screenshots/16-skin-xp-light.png)
-
-### Minecraft Voxel
-
-Inspired by the Minecraft main menu: a pixel-art panorama skybox rotates slowly behind the interface, buttons adopt the gray stone slab style, and inputs become wooden sign posts.
-
-![Minecraft skin](docs/screenshots/15-skin-minecraft-light.png)
-
-### Blue Fantasy
-
-Whale artwork lies beneath translucent panes, wrapped in a periwinkle-indigo palette — particularly striking in dark mode.
-
-![Blue Fantasy dark](docs/screenshots/17-skin-blue-fantasy-dark.png)
-
-### Whale Song
-
-The deep-sea whale-goddess theme: a text-free ambience painting (a blue-haired goddess with a whale pod on the left, an ice-blue constellation grid with gold-thread accents, and generous open water on the right) sits beneath translucent panes, wrapped in an ice-blue / cyan / navy / cobalt palette — with a night-cruise dark variant.
-
-![Whale Song light](docs/screenshots/24-skin-whale-song-light.png) · ![Whale Song dark](docs/screenshots/25-skin-whale-song-dark.png)
-
-### Hatsune Miku
-
-An electronic-idol surface with cyan notes, a waveform status bar, and translucent stage panels, designed to keep both light/dark modes and every feature plugin readable.
-
-### Trading Terminal
-
-A live-data stock-trading skin: a scrolling ticker tape (A-shares / HK / US / indices / crypto / FX, 红涨绿跌), live quote chips in the title bar, and a status bar with A-share / HK / US trading sessions plus HK/US index cells. With `dsh-fun-ticker` installed the tape follows your watchlist (served through its same-origin proxy); with `dsh-longbridge` installed the index cells render the broker snapshot. With neither plugin installed the skin still works standalone on public feeds (Tencent / Binance / Frankfurter) — and every fetch path fails safe to `--` cells.
-
-![Trading Terminal light](docs/screenshots/26-skin-trading-light.png) · ![Trading Terminal dark](docs/screenshots/27-skin-trading-dark.png)
-
-Three more: QQ2008 Retro (crystal blue with penguin motifs), Tonghuashun Trading (market elements woven into the interface), and Dragon Heir (cinnabar dragon seal theme).
+The desktop profile no longer enables the fragile preset skins by default. Upload an image under **Settings → Plugin config → Web UI plugins → Custom theme** and the app derives readable light/dark colors, contrast, and an adjustable background overlay. The image and generated theme remain local, and one click restores the official appearance.
 
 ## Installation
 

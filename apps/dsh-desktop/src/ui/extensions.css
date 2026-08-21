@@ -88,6 +88,7 @@ button.secondary { color: var(--muted); border-color: var(--line); background: t
 .swatch.minecraft { background: linear-gradient(90deg, #5b833c, #a37b49); }.swatch.fantasy { background: linear-gradient(90deg, #252e8c, #73abff); }.swatch.whale { background: linear-gradient(90deg, #071e46, #68ddff); }.swatch.miku { background: linear-gradient(90deg, #30d6ce, #4667e8); }.swatch.trading { background: linear-gradient(90deg, #ed4c4c, #31ba70); }.swatch.qq { background: linear-gradient(90deg, #4b9eed, #d9f5ff); }.swatch.ths { background: linear-gradient(90deg, #d92626, #ffd165); }.swatch.dragon { background: linear-gradient(90deg, #941d17, #eabf6b); }
 
 .update-card { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 1px; border: 1px solid var(--line); background: var(--line); }
+.app-update-card { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; margin-bottom: 34px; }
 .update-version, .update-actions { min-height: 142px; padding: 24px; background: var(--surface); }
 .update-label { margin: 0 0 15px; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
 .update-version strong { display: block; margin-bottom: 12px; font: 500 26px "Cascadia Mono", Consolas, monospace; }

@@ -20,6 +20,10 @@ const api = Object.freeze({
   installUpdate: (version) => ipcRenderer.invoke('updates:install', version),
   rollbackUpdate: () => ipcRenderer.invoke('updates:rollback'),
   stageSourceUpdate: (commit) => ipcRenderer.invoke('updates:stage-source', commit),
+  getAppUpdateStatus: () => ipcRenderer.invoke('app-updates:status'),
+  checkAppUpdates: () => ipcRenderer.invoke('app-updates:check-interactive'),
+  downloadAppUpdate: () => ipcRenderer.invoke('app-updates:download'),
+  installAppUpdate: () => ipcRenderer.invoke('app-updates:install'),
   onStatus(callback) {
     if (typeof callback !== 'function') throw new TypeError('status callback must be a function')
     const listener = (_event, status) => callback(status)
@@ -31,6 +35,12 @@ const api = Object.freeze({
     const listener = (_event, status) => callback(status)
     ipcRenderer.on('updates:status', listener)
     return () => ipcRenderer.removeListener('updates:status', listener)
+  },
+  onAppUpdateStatus(callback) {
+    if (typeof callback !== 'function') throw new TypeError('app update callback must be a function')
+    const listener = (_event, status) => callback(status)
+    ipcRenderer.on('app-updates:status', listener)
+    return () => ipcRenderer.removeListener('app-updates:status', listener)
   },
 })
 

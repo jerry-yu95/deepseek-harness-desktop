@@ -19,7 +19,7 @@
     <nav aria-label="Extension type">
       <button type="button" class="tab active" data-tab="plugins">插件 <span id="plugin-count">0</span></button>
       <button type="button" class="tab" data-tab="skills">技能 <span id="skill-count">0</span></button>
-      <button type="button" class="tab" data-tab="skins">皮肤 <span>9</span></button>
+      <button type="button" class="tab" data-tab="skins">皮肤</button>
       <button type="button" class="tab" data-tab="updates">检查更新</button>
       <span class="line"></span>
       <button type="button" class="refresh" id="refresh">刷新 / Refresh</button>
@@ -59,29 +59,35 @@
 
       <section id="skins" class="panel" aria-labelledby="skin-heading" hidden>
         <div class="panel-head">
-          <div><p class="index">03</p><h2 id="skin-heading">皮肤中心</h2></div>
-          <p>桌面版已内置 9 款 dsh-web-ui 皮肤。进入 Harness 后打开“设置 → 插件配置 → Web UI 插件 → 皮肤中心”，可以先试穿，再决定是否应用。</p>
+          <div><p class="index">03</p><h2 id="skin-heading">自定义皮肤</h2></div>
+          <p>进入 Harness 后打开“设置 → 插件配置 → Web UI 插件 → 自定义皮肤”，上传图片后由桌面端自动选择可读配色与遮罩。</p>
         </div>
-        <div class="skin-proof"><b>已随安装包提供</b><span>@linxin666/dsh-skins</span><span>@linxin666/dsh-client-ui-skin-center</span></div>
-        <div class="skin-grid">
-          <article><i class="swatch xp"></i><b>Windows XP</b><small>Luna 经典桌面</small></article>
-          <article><i class="swatch minecraft"></i><b>Minecraft</b><small>方块世界</small></article>
-          <article><i class="swatch fantasy"></i><b>Blue Fantasy</b><small>蓝色幻想</small></article>
-          <article><i class="swatch whale"></i><b>Whale Song</b><small>鲸吟深海</small></article>
-          <article><i class="swatch miku"></i><b>Miku</b><small>电子歌姬</small></article>
-          <article><i class="swatch trading"></i><b>Trading</b><small>交易终端</small></article>
-          <article><i class="swatch qq"></i><b>QQ 2008</b><small>水晶蓝怀旧</small></article>
-          <article><i class="swatch ths"></i><b>同花顺</b><small>行情工作台</small></article>
-          <article><i class="swatch dragon"></i><b>龙的传人</b><small>朱砂龙印</small></article>
-        </div>
-        <p class="update-footnote">皮肤只改变呈现层，不会更换模型、Agent 预设、工具或权限。若皮肤中心没有出现，先在“Web UI 插件”中确认它已启用。</p>
+        <div class="skin-proof"><b>图片驱动</b><span>自动适配亮色 / 暗色</span><span>一键恢复默认</span></div>
+        <p class="update-footnote">自定义皮肤只改变背景、配色与遮罩，不会更换模型、Agent 预设、工具或权限。</p>
       </section>
 
       <section id="updates" class="panel" aria-labelledby="update-heading" hidden>
         <div class="panel-head">
-          <div><p class="index">04</p><h2 id="update-heading">官方内核更新</h2></div>
-          <p>npm 运行时可以备份后更新；GitHub 源码会先下载到独立快照目录并校验，不会直接覆盖当前运行时。</p>
+          <div><p class="index">04</p><h2 id="update-heading">更新中心</h2></div>
+          <p>桌面应用跟随本项目 GitHub Releases；官方 DSH 内核使用独立备份、验证与回滚流程。</p>
         </div>
+        <h3>Harness Design Desktop 应用</h3>
+        <div class="update-card app-update-card">
+          <div class="update-version">
+            <p class="update-label">当前应用</p>
+            <strong id="app-current-version">读取中</strong>
+            <span id="app-update-phase" class="badge">—</span>
+          </div>
+          <div class="update-version">
+            <p class="update-label">GitHub 最新版本</p>
+            <strong id="app-latest-version">尚未检查</strong>
+            <span id="app-update-progress" class="update-note">—</span>
+          </div>
+          <div class="update-actions">
+            <button type="button" id="check-app-update">检查应用更新</button>
+          </div>
+        </div>
+        <h3>DeepSeek Harness 官方内核</h3>
         <div class="update-card">
           <div class="update-version">
             <p class="update-label">正在使用</p>

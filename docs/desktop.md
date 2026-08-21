@@ -11,12 +11,13 @@ The managed profile lives at `~/.dsh/profiles/desktop`. It composes `@deepseek-a
 | Area | Behavior |
 | --- | --- |
 | Runtime | Official DSH host, random loopback port, HTTP readiness probe, graceful stop, bounded automatic restart |
-| Web surface | Original DSH Web application and complete dsh-web-ui plugin/skin aggregate |
+| Web surface | Original DSH Web application plus desktop plugins and a local custom-image theme |
 | Recovery | Startup status, sanitized recent error, retry, profile repair, logs, exit |
 | Mobile remote | One-time QR pairing; loopback runtime plus opt-in personal-device tunnel; durable post-restart intent, background reconnect with backoff, and desktop diagnostics for runtime, pairing route, and tunnel state |
 | Plugins | Registry package syntax only, protected built-ins, serialized pnpm changes, DSH bundle validation, rollback |
 | Skills | Project/DSH/Agents root discovery, official precedence, shadow reporting, safe folder import |
 | Window | Single instance, persisted visible geometry, native menu, download destination prompt |
+| Updates | GitHub Releases for the desktop application; separately backed up and rollback-safe official DSH runtime updates |
 | Security | Sandbox, context isolation, no Node integration, loopback navigation allowlist, denied permissions |
 
 ## Performance and size
@@ -31,11 +32,11 @@ Reference measurements on the Windows 11 development machine for version 0.1.0:
 | Fresh profile and cold file scan | about 30.5 seconds |
 | Warm application start | about 7.1 seconds |
 
-The large installed size is intentional: the release keeps the official DSH runtime, Chromium, terminal/native modules, SSH, remote UI, all plugin packages, and all skins. The first start may be slower while Windows scans newly installed files and the desktop profile is created. Later starts reuse both the installed files and profile links.
+The large installed size is intentional: the release keeps the official DSH runtime, Chromium, terminal/native modules, SSH, remote UI, and desktop plugin packages. The first start may be slower while the operating system scans newly installed files and the desktop profile is created. Later starts reuse both the installed files and profile links.
 
 ## Installation
 
-Download the x64 installer from GitHub Releases and verify its SHA-256 against `SHA256SUMS.txt`. The build is currently unsigned, so SmartScreen may display an unknown publisher. The default per-user location is recommended. Custom installation roots should be kept short because some transitive native tooling still depends on the legacy Win32 260-character path limit.
+Download the Windows x64, macOS Intel, or macOS Apple Silicon artifact from GitHub Releases and verify its SHA-256 against `SHA256SUMS.txt`. Builds are currently unsigned, so SmartScreen or Gatekeeper may display an unknown publisher. On Windows, the default per-user location is recommended and custom installation roots should be kept short because some transitive native tooling still depends on the legacy Win32 260-character path limit.
 
 No separate Node.js or pnpm installation is required for release users.
 
@@ -45,7 +46,7 @@ Open `Tools > Extension Dock` from the native menu.
 
 Plugin installation accepts an npm registry package such as `@scope/dsh-bundle@1.2.3`. URL, path, whitespace, shell metacharacter, and option-like input is rejected. The package must declare a DSH bundle patch. Built-in packages cannot be removed.
 
-The Official Core tab checks npm and the upstream DeepSeek Harness repository separately. npm versions can be installed with a profile backup and runtime rollback. A GitHub commit can be synchronized into an isolated source snapshot after manifest validation; it is not activated automatically and is not yet a source build/install path.
+The Update Center has two independent cards. The application card checks this project's GitHub Releases and asks before download and installation. The Official Core card checks npm and the upstream DeepSeek Harness repository; npm versions can be installed with a profile backup and runtime rollback. A GitHub commit can be synchronized into an isolated source snapshot after manifest validation; it is not activated automatically and is not yet a source build/install path.
 
 Skill discovery scans project `.dsh/skills`, project `.agents/skills`, user DSH skills, and user Agents skills in precedence order. Import copies one validated skill folder into `~/.dsh/skills` without overwriting an existing name.
 
@@ -60,4 +61,6 @@ pnpm desktop:pack
 pnpm --filter @harness-design/desktop pack:verify
 ```
 
-Use Node.js 24 and pnpm 11.21.0. The installer is written to `apps/dsh-desktop/dist`.
+Use Node.js 24 and pnpm 11.21.0. The installer is written to `apps/dsh-desktop/dist`. Tagged releases must use `desktop-v<package version>`; GitHub Actions builds Windows x64 on `windows-latest`, Apple Silicon on `macos-15`, and Intel on `macos-15-intel`, then publishes one checksummed release after all audits pass.
+
+macOS background installation requires Developer ID signing and notarization. The release workflow accepts `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` repository secrets when they become available. Unsigned builds still detect releases and offer the GitHub download page as a fallback.

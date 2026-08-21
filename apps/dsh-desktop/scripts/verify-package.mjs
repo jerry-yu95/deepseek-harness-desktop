@@ -12,6 +12,8 @@ import {
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const resources = resolve(process.argv[2] || join(appDir, 'dist', 'win-unpacked', 'resources'))
+const targetPlatform = process.argv[3] || process.platform
+const targetArch = process.argv[4] || process.arch
 const unpackedModules = join(resources, 'app.asar.unpacked', 'node_modules')
 const requiredPackages = [...new Set([
   ...DSH_BOOT_RUNTIME_PACKAGES,
@@ -20,11 +22,18 @@ const requiredPackages = [...new Set([
   ...resolveRuntimePackages().keys(),
 ])].toSorted()
 
-const nativePayloadPackages = [
-  '@img/sharp-darwin-arm64',
-  '@img/sharp-libvips-darwin-arm64',
-  '@koromix/koffi-darwin-arm64',
-]
+const nativePayloadPackages = targetPlatform === 'darwin'
+  ? [
+      `@img/sharp-darwin-${targetArch}`,
+      `@img/sharp-libvips-darwin-${targetArch}`,
+      `@koromix/koffi-darwin-${targetArch}`,
+    ]
+  : targetPlatform === 'win32'
+    ? [
+        `@img/sharp-win32-${targetArch}`,
+        `@koromix/koffi-win32-${targetArch}`,
+      ]
+    : []
 
 for (const packageName of requiredPackages) {
   const manifestPath = join(unpackedModules, ...packagePathSegments(packageName), 'package.json')
@@ -40,7 +49,8 @@ for (const packageName of nativePayloadPackages) {
 
 await access(join(unpackedModules, '@deepseek-ai', 'dsh', 'lib', 'bin.js'))
 await access(join(unpackedModules, 'pnpm', 'bin', 'pnpm.mjs'))
-await access(join(unpackedModules, 'cloudflared', 'bin', 'cloudflared'))
+const cloudflaredExecutable = targetPlatform === 'win32' ? 'cloudflared.exe' : 'cloudflared'
+await access(join(unpackedModules, 'cloudflared', 'bin', cloudflaredExecutable))
 await access(join(resources, 'app.asar'))
 
 // A package manifest is not enough for native modules: electron-builder can
@@ -50,9 +60,15 @@ await access(join(resources, 'app.asar'))
 const packagedRequire = createRequire(join(unpackedModules, '__native-verifier.cjs'))
 const sharp = packagedRequire('sharp')
 const koffi = packagedRequire('koffi')
-const cloudflared = packagedRequire('cloudflared')
 if (typeof sharp !== 'function') throw new Error('packaged sharp runtime did not load')
 if (typeof koffi?.load !== 'function') throw new Error('packaged koffi runtime did not load')
-await access(cloudflared.bin)
 
-console.log(`verified ${requiredPackages.length} packaged runtime packages and native payloads in ${resources}`)
+// Native modules can only be loaded when the verification host matches the
+// package target. cloudflared is verified by its target-specific executable
+// path above because requiring it would resolve against the host platform.
+if (targetPlatform === process.platform && targetArch === process.arch) {
+  const cloudflared = packagedRequire('cloudflared')
+  await access(cloudflared.bin)
+}
+
+console.log(`verified ${requiredPackages.length} packaged runtime packages and ${targetPlatform}-${targetArch} native payloads in ${resources}`)

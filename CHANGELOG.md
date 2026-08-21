@@ -5,6 +5,8 @@
 - Fixed custom wallpaper images being hidden by stacked theme and surface overlays.
 - Added a live 35%-100% wallpaper visibility control with local persistence and backward-compatible defaults for existing themes.
 - Added runtime and real Electron regression coverage for upload preview, vivid wallpaper rendering, and the saved visibility setting.
+- Added separate desktop-application updates backed by this repository's GitHub Releases while preserving official DSH runtime backup and rollback.
+- Added native Windows x64, macOS Intel, and macOS Apple Silicon release jobs, merged macOS updater metadata, target-specific native audits, and release checksums.
 
 ## 0.1.19 - 2026-08-20
 

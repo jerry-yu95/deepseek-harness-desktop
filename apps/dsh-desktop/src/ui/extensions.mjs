@@ -13,6 +13,24 @@ const checkedAt = document.querySelector('#checked-at')
 const installUpdate = document.querySelector('#install-update')
 const rollbackUpdate = document.querySelector('#rollback-update')
 const stageSourceUpdate = document.querySelector('#stage-source-update')
+const appCurrentVersion = document.querySelector('#app-current-version')
+const appLatestVersion = document.querySelector('#app-latest-version')
+const appUpdatePhase = document.querySelector('#app-update-phase')
+const appUpdateProgress = document.querySelector('#app-update-progress')
+
+function renderAppUpdate(status) {
+  appCurrentVersion.textContent = status.currentVersion
+  appLatestVersion.textContent = status.availableVersion ?? (status.phase === 'current' ? status.currentVersion : '尚未检查')
+  const labels = {
+    idle: '等待检查', checking: '正在检查', available: '发现新版', current: '已是最新',
+    downloading: '正在下载', downloaded: '等待安装', installing: '正在安装',
+    unavailable: '仅正式版可用', error: '检查失败',
+  }
+  appUpdatePhase.textContent = labels[status.phase] ?? status.phase
+  appUpdateProgress.textContent = status.phase === 'downloading'
+    ? `${Math.round(status.progress?.percent ?? 0)}%`
+    : (status.error ?? (status.supported ? 'GitHub Releases' : '开发模式'))
+}
 
 function escapeHtml(value) {
   const element = document.createElement('span')
@@ -78,15 +96,17 @@ function renderUpdate(status) {
 async function refresh() {
   document.body.dataset.busy = 'true'
   try {
-    const [inventory, updateStatus] = await Promise.all([
+    const [inventory, updateStatus, appUpdateStatus] = await Promise.all([
       window.dshDesktop.listExtensions(),
       window.dshDesktop.getUpdateStatus(),
+      window.dshDesktop.getAppUpdateStatus(),
     ])
     pluginCount.textContent = inventory.plugins.length
     skillCount.textContent = inventory.skills.length
     pluginList.innerHTML = inventory.plugins.length ? inventory.plugins.map(pluginMarkup).join('') : '<p class="empty">暂无插件</p>'
     skillList.innerHTML = inventory.skills.length ? inventory.skills.map(skillMarkup).join('') : '<p class="empty">尚未发现技能</p>'
     renderUpdate(updateStatus)
+    renderAppUpdate(appUpdateStatus)
   } catch (error) {
     notify(error.message, true)
   } finally {
@@ -175,6 +195,19 @@ document.querySelector('#check-update').addEventListener('click', async (event) 
     event.currentTarget.disabled = false
   }
 })
+document.querySelector('#check-app-update').addEventListener('click', async (event) => {
+  event.currentTarget.disabled = true
+  try {
+    const result = await window.dshDesktop.checkAppUpdates()
+    renderAppUpdate(result.status)
+    if (result.action === 'current') notify('桌面应用已是最新版本')
+    else if (result.action === 'downloaded') notify('应用更新已下载，将在稍后安装')
+  } catch (error) {
+    notify(`应用更新失败：${error.message}`, true)
+  } finally {
+    event.currentTarget.disabled = false
+  }
+})
 stageSourceUpdate.addEventListener('click', async () => {
   stageSourceUpdate.disabled = true
   try {
@@ -212,5 +245,6 @@ rollbackUpdate.addEventListener('click', async () => {
   }
 })
 window.dshDesktop.onUpdateStatus(renderUpdate)
+window.dshDesktop.onAppUpdateStatus(renderAppUpdate)
 
 await refresh()

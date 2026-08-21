@@ -32,13 +32,10 @@ mac:
   category: public.app-category.developer-tools
   hardenedRuntime: false
   gatekeeperAssess: false
+  artifactName: Harness-Design-Desktop-${version}-${arch}.${ext}
   target:
-    - target: dmg
-      arch:
-        - arm64
-    - target: zip
-      arch:
-        - arm64
+    - dmg
+    - zip
 
 dmg:
   artifactName: Harness-Design-Desktop-${version}-${arch}.${ext}

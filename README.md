@@ -4,9 +4,9 @@
 
 ![dsh-web-ui](docs/dsh-web-ui-banner.png)
 
-## Windows 桌面版
+## 跨平台桌面版
 
-DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows EXE：不是重写页面，而是用安全的 Electron 窗口启动官方 `@deepseek-ai/dsh` 本地主机，再原样加载本仓库的全部插件与皮肤。
+DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 应用：不是重写页面，而是用安全的 Electron 窗口启动官方 `@deepseek-ai/dsh` 本地主机，再加载本仓库的桌面扩展。发布流程分别生成 Windows x64、macOS Intel 和 macOS Apple Silicon 安装包。
 
 [下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
@@ -14,13 +14,13 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows EXE：不�
 | --- | --- |
 | ![桌面启动界面](docs/screenshots/desktop-startup.png) | ![插件与技能扩展坞](docs/screenshots/desktop-extension-dock.png) |
 
-- 保留任务看板、Git 图谱、右侧面板、SSH、移动端远程、实时统计、宠物与全部皮肤；
+- 保留任务看板、Git 图谱、右侧面板、SSH、移动端远程、实时统计、宠物与自定义皮肤；
 - 独立 `desktop` profile，不覆盖既有 DSH 配置，运行时仅监听回环地址；
 - 内置崩溃恢复、日志脱敏与轮转、窗口状态恢复、严格导航与权限策略；
 - 扩展坞支持社区 DSH bundle 安装/回滚，以及项目、DSH、Agents 技能发现与安全导入；
 - 安装包自带官方 DSH、pnpm 与原生依赖，无需另外安装 Node.js。
 
-当前公开构建未使用商业代码签名证书，Windows SmartScreen 可能显示“未知发布者”。请只从本项目 Releases 下载并核对 SHA-256。默认安装路径已经过验证；自定义安装路径不宜过长，以免触发传统 Win32 的 260 字符限制。
+当前公开构建未使用商业代码签名证书，Windows SmartScreen 或 macOS Gatekeeper 可能显示未知发布者。请只从本项目 Releases 下载并核对 SHA-256。macOS 无感自动安装需要 Developer ID 签名与公证；未签名阶段仍可检测新版并跳转到官方 Release 页。
 
 dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务看板、Git 图谱、右侧面板、移动端远程、远程连接、鲸鱼娘宠物、实时令牌统计，以及皮肤中心。所有插件既可独立安装，也可通过聚合包一次装齐。
 
@@ -96,47 +96,9 @@ dsh-web-ui 是 DeepSeek Harness（DSH）Web UI 的插件与皮肤集合：任务
 
 ![插件配置中心](docs/screenshots/02-settings-web-ui-plugins.png)
 
-## 皮肤
+## 自定义皮肤
 
-皮肤中心提供 9 款可选皮肤，均支持先试穿再应用：试穿即时生效、退出完全还原，确认满意后一键应用。
-
-![皮肤中心](docs/screenshots/03-settings-skin-center.png)
-
-### Windows XP（Luna）
-
-还原 Luna 经典界面：蓝色渐变窗口条、绿色「开始」按钮、Bliss 蓝天桌面，全局直角风格。
-
-![Windows XP 皮肤](docs/screenshots/16-skin-xp-light.png)
-
-### Minecraft 方块世界
-
-以《我的世界》主界面为灵感：像素全景天空盒在界面后方缓慢旋转，按钮为灰石板样式，输入框为木告示牌样式。
-
-![Minecraft 皮肤](docs/screenshots/15-skin-minecraft-light.png)
-
-### Blue Fantasy 蓝色幻想
-
-鲸鱼插画铺于半透明面板之下，靛蓝色调色板贯穿全局，暗色主题下效果尤为突出。
-
-![Blue Fantasy 暗色](docs/screenshots/17-skin-blue-fantasy-dark.png)
-
-### 鲸吟（Whale Song）
-
-深海鲸语女神主题：无文字纯氛围背景画（蓝发女神与鲸群居左、冰蓝星座网格与金色细线点缀、右侧大量留白）垫在半透明面板之下，冰蓝 / 浅青 / 深海军蓝 / 钴蓝冷色体系贯穿全局，暗色变体为深海夜航调。
-
-![鲸吟 亮色](docs/screenshots/24-skin-whale-song-light.png) · ![鲸吟 暗色](docs/screenshots/25-skin-whale-song-dark.png)
-
-### 初音未来（Miku）
-
-电子歌姬主题以青蓝音符、声波状态栏与半透明舞台面板重塑完整界面，同时保持亮色、暗色模式和功能插件可读性。
-
-### 交易终端（Trading Terminal）
-
-带实时行情的炒股皮肤：顶栏滚动跑马灯（A股 / 港股 / 美股 / 指数 / 加密 / 外汇，红涨绿跌），标题栏行情快签，状态栏展示 A股 / 港股 / 美股交易时段与港美股指数。已安装 `dsh-fun-ticker` 时跑马灯跟随你的自选列表（同源代理取数），已安装 `dsh-longbridge` 时指数格渲染长桥券商快照；两个插件都没装也能直接走公共行情源（腾讯 / 币安 / Frankfurter）独立工作，所有路径失败都安全降级为 `--`。
-
-![交易终端 亮色](docs/screenshots/26-skin-trading-light.png) · ![交易终端 暗色](docs/screenshots/27-skin-trading-dark.png)
-
-其余三款：QQ2008 怀旧版（水晶蓝配色与企鹅元素）、同花顺风格（行情元素融入界面）、龙的传人（朱砂龙印主题）。
+桌面版不再默认启用易导致可读性问题的预设皮肤。在「设置 → 插件配置 → Web UI 插件 → 自定义皮肤」中上传图片后，应用会自动生成亮/暗色配色、对比度与背景遮罩，并可调整图片可见度或一键恢复官方外观。图片与主题配置只保存在本机。
 
 ## 安装
 

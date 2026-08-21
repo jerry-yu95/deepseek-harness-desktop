@@ -9,9 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  windows-x64:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,23 +21,102 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - run: node apps/dsh-desktop/scripts/verify-release-tag.mjs $env:GITHUB_REF_NAME
       - run: pnpm install --frozen-lockfile
       - run: pnpm desktop:test
       - run: pnpm desktop:pack
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - run: pnpm --filter @harness-design/desktop pack:verify
-      - name: Write checksums
-        shell: pwsh
-        run: |
-          $installer = Get-Item apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe
-          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
-          "$hash  $($installer.Name)" | Set-Content -Encoding ascii apps/dsh-desktop/dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-x64
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe
+            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe.blockmap
+            apps/dsh-desktop/dist/latest.yml
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            verify: pack:verify:mac:arm64
+          - arch: x64
+            runner: macos-15-intel
+            verify: pack:verify:mac:x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: node apps/dsh-desktop/scripts/verify-release-tag.mjs "$GITHUB_REF_NAME"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:test
+      - run: pnpm --filter @harness-design/desktop "pack:mac:${{ matrix.arch }}"
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - run: pnpm --filter @harness-design/desktop "${{ matrix.verify }}"
+      - run: mv apps/dsh-desktop/dist/latest-mac.yml "apps/dsh-desktop/dist/latest-mac-${{ matrix.arch }}.yml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-${{ matrix.arch }}
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            apps/dsh-desktop/dist/Harness-Design-Desktop-*.dmg
+            apps/dsh-desktop/dist/Harness-Design-Desktop-*.dmg.blockmap
+            apps/dsh-desktop/dist/Harness-Design-Desktop-*.zip
+            apps/dsh-desktop/dist/Harness-Design-Desktop-*.zip.blockmap
+            apps/dsh-desktop/dist/latest-mac-${{ matrix.arch }}.yml
+
+  publish:
+    needs: [windows-x64, macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @harness-design/desktop --prod
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - run: node apps/dsh-desktop/scripts/merge-mac-update-metadata.mjs release-assets/latest-mac-arm64.yml release-assets/latest-mac-x64.yml release-assets/latest-mac.yml
+      - run: node apps/dsh-desktop/scripts/write-release-checksums.mjs release-assets
       - uses: softprops/action-gh-release@v2
         with:
           body_path: docs/launch/release-notes.md
+          fail_on_unmatched_files: true
           overwrite_files: false
           files: |
-            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe
-            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe.blockmap
-            apps/dsh-desktop/dist/SHA256SUMS.txt
+            release-assets/Harness-Design-Desktop-Setup-*.exe
+            release-assets/Harness-Design-Desktop-Setup-*.exe.blockmap
+            release-assets/Harness-Design-Desktop-*.dmg
+            release-assets/Harness-Design-Desktop-*.dmg.blockmap
+            release-assets/Harness-Design-Desktop-*.zip
+            release-assets/Harness-Design-Desktop-*.zip.blockmap
+            release-assets/latest.yml
+            release-assets/latest-mac.yml
+            release-assets/SHA256SUMS.txt

@@ -1,9 +1,10 @@
-export function installApplicationMenu({ Menu, app, shell, controller, openExtensions, openLogs }) {
+export function installApplicationMenu({ Menu, app, shell, controller, openExtensions, checkAppUpdates, openLogs }) {
   const template = [
     {
       label: '应用 / App',
       submenu: [
         { label: '扩展坞 / Extension Dock', accelerator: 'CmdOrCtrl+Shift+X', click: openExtensions },
+        { label: '检查应用更新 / Check App Updates', click: checkAppUpdates },
         { label: '官方内核更新 / Official Core Update', accelerator: 'CmdOrCtrl+Shift+U', click: () => openExtensions('updates') },
         { type: 'separator' },
         { role: 'quit', label: '退出 / Quit' },

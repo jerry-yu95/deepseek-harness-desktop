@@ -1,35 +1,30 @@
-# DeepSeek Harness Desktop 0.1.2
+# Harness Design Desktop 0.1.20
 
-DeepSeek Harness Desktop packages the original DSH Web surface as a native Windows application while retaining the official runtime and complete dsh-web-ui plugin, skin, and skill collection.
+This release turns the community desktop shell into a three-platform distribution while keeping DeepSeek Harness itself independently recoverable.
 
-## Fixed in 0.1.2
+## Highlights
 
-- Replaced the Windows native folder-dialog worker with the official DSH in-app directory browser. This resolves `win32 folder dialog worker exited before reporting a result` while preserving directory navigation, path editing, hidden folders, and folder creation.
-- Added deterministic profile migration so existing desktop profiles receive the reliable picker automatically without changing official DSH source.
-- Replaced the desktop, shortcut, and installer artwork with a cute anthropomorphic DeepSeek whale-girl icon in multi-resolution PNG and ICO formats.
-
-## Installation performance
-
-- Packaged file count: 17,489 to 13,173, down 24.7%.
-- Installer size: 190.84 MiB to 183.78 MiB.
-- Pruned payload: 4,316 non-runtime files and 30.71 MiB of declarations, published source, development material, duplicate pnpm artifacts, and non-x64 native files.
-- Reference full-extraction run on the same Windows 11 machine: 93.00 seconds for the published 0.1.1 installer and 59.25 seconds for 0.1.2. Antivirus and disk-cache state can affect individual runs.
-
-The complete DSH host, Web UI, 21 UI plugins, 9 skins, plugin installer, skill discovery/import, SSH, terminal, cloudflared, ripgrep, and x64 native modules remain included.
+- Windows x64, macOS Intel, and macOS Apple Silicon packages are built on native GitHub-hosted runners.
+- The application now checks this repository's GitHub Releases, asks before downloading, and asks again before restarting to install.
+- Application updates and official DeepSeek Harness runtime updates are presented as two separate tracks. The existing runtime backup, health check, and rollback flow remains intact.
+- macOS updater metadata combines both architectures so each machine selects the correct ZIP automatically.
+- Every release publishes SHA-256 checksums, updater metadata, installers, ZIP payloads, and block maps only after target-specific package verification passes.
+- Custom image themes replace the fragile preset-skin experience, with automatic readable palettes, overlay control, local persistence, and one-click restore.
 
 ## Verification
 
-- 32 desktop tests passed.
-- 43 required packaged runtime packages passed the release audit.
-- The packaged pnpm 11.21.0 plugin-management runtime executed successfully.
-- Clean-profile startup, native window chrome, and the official in-app directory browser passed real packaged-EXE tests.
+- 62 desktop tests passed, including a real official DSH host startup.
+- The local Apple Silicon package audit verified 211 runtime packages plus Sharp, Koffi, Cloudflare Tunnel, pnpm, and the official DSH CLI.
+- The packaged Cloudflare Tunnel executable was confirmed as native arm64 rather than a cross-architecture payload.
 
-## Download
+## Installation notes
 
-Download `Harness-Design-Desktop-Setup-0.1.2-x64.exe` and verify it using the adjacent `SHA256SUMS.txt`.
+Download the artifact matching your system and verify it against `SHA256SUMS.txt`:
 
-Installer SHA-256: `27045baffa89cf58cf3e103063faa61551c6b7aac860c07b543c3c5168392d71`
+- `Harness-Design-Desktop-Setup-0.1.20-x64.exe`
+- `Harness-Design-Desktop-0.1.20-x64.dmg`
+- `Harness-Design-Desktop-0.1.20-arm64.dmg`
 
-This community build is not signed with a commercial code-signing certificate. Windows SmartScreen may display an unknown publisher. Download only from this repository's Release page and use the default installation location when possible.
+The current community builds are unsigned. Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Seamless macOS installation will be enabled after Developer ID signing and notarization secrets are configured; until then, update detection can direct users to this Release page.
 
 This is a community release and is not an official DeepSeek distribution.
