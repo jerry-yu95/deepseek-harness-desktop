@@ -1,6 +1,6 @@
-# Harness Design Desktop 0.1.30
+# Harness Design Desktop 0.1.31
 
-This release brings the Skills catalog and the Connector Center into the official DSH web GUI as a first-class sidebar surface, while preserving the official DeepSeek Harness runtime, Agent Loop, Workflow Engine, permissions, and standard conversation path.
+This patch release fixes the Skills and Connectors sidebar entries so their extension-center panel renders on the first click. It retains all extension-center, connector, Skill Studio, Agent Harness, update, and cross-platform packaging capabilities introduced in 0.1.30.
 
 ## Highlights
 
@@ -20,8 +20,8 @@ This release brings the Skills catalog and the Connector Center into the officia
 
 ## Verification
 
-- 15 extension-center vitest cases passed, covering bridge availability probing and form-to-payload mapping for skill and connector creation.
-- 72 desktop tests passed, including a real official DSH Host startup and unsigned-release workflow coverage.
+- 16 extension-center vitest cases passed, including the React external-store callback regression plus bridge availability and form-to-payload mapping.
+- 73 desktop tests passed, including a real official DSH Host startup and unsigned-release workflow coverage.
 - 32 Agent Harness tests passed across adaptive routing and DAG validation, tolerant model-health probes, state migration, cache behavior, official Workflow execution, observability aggregation, slash commands, and UI interactions.
 - Workspace type checks, production builds, plugin aggregation (13 aggregate rows), skin-center generation, and Gallery generation passed.
 - Emoji-free scan across all new content per repository policy.
@@ -30,9 +30,9 @@ This release brings the Skills catalog and the Connector Center into the officia
 
 Download the artifact matching your system and verify it against `SHA256SUMS.txt`:
 
-- `Harness-Design-Desktop-Setup-0.1.30-x64.exe`
-- `Harness-Design-Desktop-0.1.30-x64.dmg`
-- `Harness-Design-Desktop-0.1.30-arm64.dmg`
+- `Harness-Design-Desktop-Setup-0.1.31-x64.exe`
+- `Harness-Design-Desktop-0.1.31-x64.dmg`
+- `Harness-Design-Desktop-0.1.31-arm64.dmg`
 
 The current community builds are unsigned. Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Follow the linked installation guide and verify `SHA256SUMS.txt`. Unsigned macOS builds intentionally use a Release-page handoff instead of attempting automatic installation.
 

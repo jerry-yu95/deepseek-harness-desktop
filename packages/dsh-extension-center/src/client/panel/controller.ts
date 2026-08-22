@@ -24,11 +24,13 @@ export class PanelController {
   /** Cached snapshot: useSyncExternalStore requires a stable reference between state changes. */
   private snapshot: PanelControllerSnapshot = { panelOpen: false, tab: 'skills' }
 
-  getSnapshot(): PanelControllerSnapshot {
+  /** Stable callback for React useSyncExternalStore (must retain this instance). */
+  getSnapshot = (): PanelControllerSnapshot => {
     return this.snapshot
   }
 
-  subscribe(fn: () => void): () => void {
+  /** Stable callback for React useSyncExternalStore (must retain this instance). */
+  subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn)
     return () => { this.listeners.delete(fn) }
   }

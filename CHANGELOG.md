@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.31 - 2026-08-22
+
+- Fixed the Skills and Connectors sidebar entries opening an empty extension-center view because React received unbound external-store callbacks.
+- Added a regression test that invokes the panel controller subscription and snapshot functions exactly as React does, preventing the first-render crash from returning.
+
 ## 0.1.30 - 2026-08-22
 
 - Added the extension-center web UI plugin: Skills and Connectors entries in the official DSH sidebar, a shared center-column panel riding the official design tokens, and desktop-bridge detection with a desktop-only notice in plain browser sessions.

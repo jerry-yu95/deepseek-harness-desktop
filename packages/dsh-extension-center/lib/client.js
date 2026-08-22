@@ -911,15 +911,17 @@ window.__ModuleLoader__.load({
 				panelOpen: false,
 				tab: "skills"
 			};
-			getSnapshot() {
+			/** Stable callback for React useSyncExternalStore (must retain this instance). */
+			getSnapshot = () => {
 				return this.snapshot;
-			}
-			subscribe(fn) {
+			};
+			/** Stable callback for React useSyncExternalStore (must retain this instance). */
+			subscribe = (fn) => {
 				this.listeners.add(fn);
 				return () => {
 					this.listeners.delete(fn);
 				};
-			}
+			};
 			/** Open the panel on a tab (reopening on the same tab is a no-op). */
 			open(tab) {
 				if (!(!this.panelOpen || this.tab !== tab)) return;
