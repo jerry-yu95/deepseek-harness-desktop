@@ -39,6 +39,22 @@ test('MCP connectors render as official dsh-mcp-client Cordis entries', () => {
   assert.doesNotMatch(patch, /docs-api/)
 })
 
+test('MCP connectors render imported env and streamable HTTP header bindings without secrets', () => {
+  const patch = renderMcpConnectorPatch([{
+    id: 'tapd', name: 'TAPD', kind: 'mcp', transport: 'stdio', command: 'npx', args: ['-y', 'tapd-mcp'],
+    plainEnv: { REGION: 'cn' },
+    secretBindings: [{ location: 'env', targetKey: 'TAPD_TOKEN', credentialRef: 'DSH_CONNECTOR_TAPD_TAPD_TOKEN', template: '${secret}' }],
+  }, {
+    id: 'docs', name: 'Docs', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp',
+    plainHeaders: { 'X-Region': 'cn' },
+    secretBindings: [{ location: 'header', targetKey: 'Authorization', credentialRef: 'DSH_CONNECTOR_DOCS_AUTHORIZATION', template: 'Bearer ${secret}' }],
+  }])
+  assert.match(patch, /REGION: "cn"/)
+  assert.match(patch, /TAPD_TOKEN: !!js process\.env\.DSH_CONNECTOR_TAPD_TAPD_TOKEN/)
+  assert.match(patch, /"Authorization": !!js '`Bearer \$\{process\.env\.DSH_CONNECTOR_DOCS_AUTHORIZATION\}`'/)
+  assert.doesNotMatch(patch, /literal-secret|YOUR_TOKEN|DOCS_TOKEN/)
+})
+
 test('connector store persists, updates, removes and checks without executing MCP commands', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-'))
   try {

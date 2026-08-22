@@ -6,6 +6,9 @@ const CONNECTOR_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const CONNECTOR_KINDS = new Set(['mcp', 'http'])
 const MCP_TRANSPORTS = new Set(['stdio', 'streamable-http'])
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/
+const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/
+const SECRET_TEMPLATES = new Set(['${secret}', 'Bearer ${secret}'])
+const SOURCE_KINDS = new Set(['custom', 'json', 'preset'])
 
 function text(value, field, { required = true, max = 2_000 } = {}) {
   if (!required && (value === undefined || value === null || value === '')) return ''
@@ -19,6 +22,56 @@ function stringList(value, field, maxItems = 64) {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.length > maxItems) throw new TypeError(`${field} must be a string array`)
   return value.map((item) => text(item, field, { max: 500 }))
+}
+
+function stringRecord(value, field, { keys = 'env' } = {}) {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${field} must be an object`)
+  const entries = Object.entries(value)
+  if (entries.length > 128) throw new TypeError(`${field} has too many keys`)
+  const result = {}
+  for (const [key, rawValue] of entries) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') throw new TypeError(`${field} contains a forbidden prototype key`)
+    const normalizedKey = text(key, `${field} key`, { max: 500 })
+    if (keys === 'env' && !ENV_KEY_PATTERN.test(normalizedKey)) throw new TypeError(`${field} keys must use shell variable names`)
+    if (keys === 'header' && /[\r\n]/u.test(normalizedKey)) throw new TypeError(`${field} keys must not contain newlines`)
+    result[normalizedKey] = text(rawValue, `${field}.${normalizedKey}`, { max: 8_192 })
+  }
+  return result
+}
+
+function secretBindings(value) {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > 64) throw new TypeError('secret bindings must be an array')
+  return value.map((binding, index) => {
+    if (!binding || typeof binding !== 'object' || Array.isArray(binding)) throw new TypeError(`secret binding ${index} must be an object`)
+    const location = text(binding.location, `secret binding ${index} location`, { max: 16 })
+    if (!['env', 'header'].includes(location)) throw new TypeError(`secret binding ${index} has unsupported location`)
+    const targetKey = text(binding.targetKey, `secret binding ${index} target`, { max: 500 })
+    if (location === 'env' && !ENV_KEY_PATTERN.test(targetKey)) throw new TypeError(`secret binding ${index} environment key is invalid`)
+    if (location === 'header' && /[\r\n]/u.test(targetKey)) throw new TypeError(`secret binding ${index} header key is invalid`)
+    const credentialRef = text(binding.credentialRef, `secret binding ${index} credential reference`, { max: 128 })
+    if (!CREDENTIAL_REF_PATTERN.test(credentialRef)) throw new TypeError(`secret binding ${index} credential reference is invalid`)
+    const template = text(binding.template, `secret binding ${index} template`, { max: 64 })
+    if (!SECRET_TEMPLATES.has(template)) throw new TypeError(`secret binding ${index} template is unsupported`)
+    return {
+      location,
+      targetKey,
+      credentialRef,
+      template,
+      ...(typeof binding.placeholder === 'string' ? { placeholder: text(binding.placeholder, `secret binding ${index} placeholder`, { max: 128 }) } : {}),
+    }
+  })
+}
+
+function source(value) {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('connector source must be an object')
+  const kind = text(value.kind, 'connector source kind', { max: 16 })
+  if (!SOURCE_KINDS.has(kind)) throw new TypeError('unsupported connector source')
+  const presetId = value.presetId === undefined ? undefined : text(value.presetId, 'connector source preset id', { max: 100 })
+  if (kind === 'preset' && presetId === undefined) throw new TypeError('preset connector source requires a preset id')
+  return { kind, ...(presetId ? { presetId } : {}) }
 }
 
 function validateUrl(value, field) {
@@ -46,6 +99,14 @@ export function validateConnectorInput(value) {
     capabilities: stringList(value.capabilities, 'capabilities', 32),
     secretEnvKeys,
   }
+  const plainEnv = stringRecord(value.plainEnv, 'plain environment', { keys: 'env' })
+  const plainHeaders = stringRecord(value.plainHeaders, 'plain headers', { keys: 'header' })
+  const bindings = secretBindings(value.secretBindings)
+  const connectorSource = source(value.source)
+  if (plainEnv !== undefined) base.plainEnv = plainEnv
+  if (plainHeaders !== undefined) base.plainHeaders = plainHeaders
+  if (bindings !== undefined) base.secretBindings = bindings
+  if (connectorSource !== undefined) base.source = connectorSource
   if (kind === 'http') {
     return { ...base, transport: 'http', url: validateUrl(value.url, 'connector URL') }
   }
@@ -57,6 +118,7 @@ export function validateConnectorInput(value) {
       transport,
       command: text(value.command, 'MCP command', { max: 500 }),
       args: stringList(value.args, 'MCP arguments'),
+      ...(value.cwd === undefined ? {} : { cwd: text(value.cwd, 'MCP working directory', { max: 2_000 }) }),
     }
   }
   return { ...base, transport, url: validateUrl(value.url, 'MCP URL') }
@@ -77,12 +139,29 @@ export function renderMcpConnectorPatch(connectors) {
     if (connector.transport === 'stdio') {
       lines.push(`    command: ${yamlValue(connector.command)}`)
       if (connector.args.length) lines.push(`    args: ${yamlValue(connector.args)}`)
-      if (connector.secretEnvKeys.length) {
+      if (connector.cwd) lines.push(`    cwd: ${yamlValue(connector.cwd)}`)
+      const plainEnv = Object.entries(connector.plainEnv ?? {})
+      const envBindings = (connector.secretBindings ?? []).filter((binding) => binding.location === 'env')
+      const legacyEnv = connector.secretEnvKeys.map((key) => ({ targetKey: key, credentialRef: key, template: '${secret}' }))
+      if (plainEnv.length || envBindings.length || legacyEnv.length) {
         lines.push('    env:')
-        for (const key of connector.secretEnvKeys) lines.push(`      ${key}: !!js process.env.${key}`)
+        for (const [key, value] of plainEnv) lines.push(`      ${key}: ${yamlValue(value)}`)
+        for (const binding of [...envBindings, ...legacyEnv]) lines.push(`      ${binding.targetKey}: !!js process.env.${binding.credentialRef}`)
       }
     } else {
       lines.push(`    url: ${yamlValue(connector.url)}`)
+      const plainHeaders = Object.entries(connector.plainHeaders ?? {})
+      const headerBindings = (connector.secretBindings ?? []).filter((binding) => binding.location === 'header')
+      if (plainHeaders.length || headerBindings.length) {
+        lines.push('    headers:')
+        for (const [key, value] of plainHeaders) lines.push(`      ${yamlValue(key)}: ${yamlValue(value)}`)
+        for (const binding of headerBindings) {
+          const expression = binding.template === 'Bearer ${secret}'
+            ? `!!js '\`Bearer \${process.env.${binding.credentialRef}}\`'`
+            : `!!js process.env.${binding.credentialRef}`
+          lines.push(`      ${yamlValue(binding.targetKey)}: ${expression}`)
+        }
+      }
     }
     lines.push('    failOnStartupError: false')
   }
