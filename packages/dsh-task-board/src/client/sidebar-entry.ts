@@ -112,10 +112,15 @@ export function mountSidebarEntry(controller: BoardController): () => void {
   })
 
   // Reflect the board's open state on the row (active highlight).
-  const unsubscribe = controller.subscribe(() => {
-    entry.dataset.active = controller.getSnapshot().boardOpen ? 'true' : undefined
-  })
-  entry.dataset.active = controller.getSnapshot().boardOpen ? 'true' : undefined
+  // removeAttribute on close: assigning undefined to dataset stores the
+  // string "undefined", which the presence-matched [data-active] CSS still
+  // highlights — the entry would look selected after any board toggle.
+  const applyEntryState = (): void => {
+    if (controller.getSnapshot().boardOpen) entry.setAttribute('data-active', 'true')
+    else entry.removeAttribute('data-active')
+  }
+  const unsubscribe = controller.subscribe(applyEntryState)
+  applyEntryState()
 
   tryPlace()
 

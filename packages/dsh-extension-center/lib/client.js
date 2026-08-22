@@ -835,6 +835,9 @@ window.__ModuleLoader__.load({
 		*/
 		const CONVERSATION_COLUMN_SELECTOR = "[data-pane=\"conversation\"]";
 		const ACTIVE_ATTR = "data-dsh-extension-active";
+		/** Sibling center-column panels: opening one panel must release the column from the others. */
+		const SIBLING_PANEL_ATTRS = ["data-dsh-ssh-active", "data-dsh-taskboard-active"];
+		const SIBLING_ENTRY_SELECTOR = "[data-dsh-ssh-entry], [data-dsh-taskboard-entry]";
 		/** Find the center column, or undefined while the frame is not mounted. */
 		function conversationColumn() {
 			return document.querySelector(CONVERSATION_COLUMN_SELECTOR) ?? void 0;
@@ -877,8 +880,11 @@ window.__ModuleLoader__.load({
 				subtree: true
 			});
 			const applyActive = () => {
-				if (controller.getSnapshot().panelOpen) document.documentElement.setAttribute(ACTIVE_ATTR, "");
-				else document.documentElement.removeAttribute(ACTIVE_ATTR);
+				if (controller.getSnapshot().panelOpen) {
+					for (const attr of SIBLING_PANEL_ATTRS) document.documentElement.removeAttribute(attr);
+					document.querySelectorAll(SIBLING_ENTRY_SELECTOR).forEach((element) => element.removeAttribute("data-active"));
+					document.documentElement.setAttribute(ACTIVE_ATTR, "");
+				} else document.documentElement.removeAttribute(ACTIVE_ATTR);
 			};
 			const unsubscribe = controller.subscribe(applyActive);
 			applyActive();
@@ -900,11 +906,13 @@ window.__ModuleLoader__.load({
 			panelOpen = false;
 			tab = "skills";
 			listeners = /* @__PURE__ */ new Set();
+			/** Cached snapshot: useSyncExternalStore requires a stable reference between state changes. */
+			snapshot = {
+				panelOpen: false,
+				tab: "skills"
+			};
 			getSnapshot() {
-				return {
-					panelOpen: this.panelOpen,
-					tab: this.tab
-				};
+				return this.snapshot;
 			}
 			subscribe(fn) {
 				this.listeners.add(fn);
@@ -930,6 +938,10 @@ window.__ModuleLoader__.load({
 				else this.open(tab);
 			}
 			notify() {
+				this.snapshot = {
+					panelOpen: this.panelOpen,
+					tab: this.tab
+				};
 				for (const fn of [...this.listeners]) fn();
 			}
 		};
@@ -1030,10 +1042,12 @@ window.__ModuleLoader__.load({
 				const current = root;
 				if (entries.some((entry) => !current.contains(entry))) placed = placeEntries(current, entries);
 			});
-			const unsubscribe = controller.subscribe(() => {
-				const snapshot = controller.getSnapshot();
-				for (const [tab, entry] of byTab) entry.dataset.active = snapshot.panelOpen && snapshot.tab === tab ? "true" : void 0;
-			});
+			const applyEntryStates = () => {
+				const current = controller.getSnapshot();
+				for (const [tab, entry] of byTab) if (current.panelOpen && current.tab === tab) entry.setAttribute("data-active", "true");
+				else entry.removeAttribute("data-active");
+			};
+			const unsubscribe = controller.subscribe(applyEntryStates);
 			tryPlace();
 			return () => {
 				waitObserver.disconnect();

@@ -21,9 +21,11 @@ export class PanelController {
   private panelOpen = false
   private tab: ExtensionTab = 'skills'
   private listeners = new Set<() => void>()
+  /** Cached snapshot: useSyncExternalStore requires a stable reference between state changes. */
+  private snapshot: PanelControllerSnapshot = { panelOpen: false, tab: 'skills' }
 
   getSnapshot(): PanelControllerSnapshot {
-    return { panelOpen: this.panelOpen, tab: this.tab }
+    return this.snapshot
   }
 
   subscribe(fn: () => void): () => void {
@@ -53,6 +55,7 @@ export class PanelController {
   }
 
   private notify(): void {
+    this.snapshot = { panelOpen: this.panelOpen, tab: this.tab }
     for (const fn of [...this.listeners]) fn()
   }
 }

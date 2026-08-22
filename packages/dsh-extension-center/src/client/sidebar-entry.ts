@@ -135,12 +135,17 @@ export function mountSidebarEntries(controller: PanelController): () => void {
   })
 
   // Reflect the panel's open state on the matching row (active highlight).
-  const unsubscribe = controller.subscribe(() => {
-    const snapshot = controller.getSnapshot()
+  // removeAttribute on close: assigning undefined to dataset stores the
+  // string "undefined", which the presence-matched [data-active] CSS still
+  // highlights — every entry would look selected after any panel toggle.
+  const applyEntryStates = (): void => {
+    const current = controller.getSnapshot()
     for (const [tab, entry] of byTab) {
-      entry.dataset.active = snapshot.panelOpen && snapshot.tab === tab ? 'true' : undefined
+      if (current.panelOpen && current.tab === tab) entry.setAttribute('data-active', 'true')
+      else entry.removeAttribute('data-active')
     }
-  })
+  }
+  const unsubscribe = controller.subscribe(applyEntryStates)
 
   tryPlace()
 

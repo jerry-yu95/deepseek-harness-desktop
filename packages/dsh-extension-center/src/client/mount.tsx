@@ -20,6 +20,9 @@ export const PANEL_VIEW_SELECTOR = '[data-dsh-extension-view]'
 
 const CONVERSATION_COLUMN_SELECTOR = '[data-pane="conversation"]'
 const ACTIVE_ATTR = 'data-dsh-extension-active'
+/** Sibling center-column panels: opening one panel must release the column from the others. */
+const SIBLING_PANEL_ATTRS: ReadonlyArray<string> = ['data-dsh-ssh-active', 'data-dsh-taskboard-active']
+const SIBLING_ENTRY_SELECTOR = '[data-dsh-ssh-entry], [data-dsh-taskboard-entry]'
 
 /** Find the center column, or undefined while the frame is not mounted. */
 function conversationColumn(): HTMLElement | undefined {
@@ -62,6 +65,12 @@ export function mountPanel(controller: PanelController, bridge: DesktopBridge | 
 
   const applyActive = (): void => {
     if (controller.getSnapshot().panelOpen) {
+      // Center-column takeover is exclusive across panels: clear the sibling
+      // panels' html attributes so their hide rules release the conversation
+      // column immediately (their controllers keep session state), and clear
+      // their stale entry highlights.
+      for (const attr of SIBLING_PANEL_ATTRS) document.documentElement.removeAttribute(attr)
+      document.querySelectorAll(SIBLING_ENTRY_SELECTOR).forEach((element) => element.removeAttribute('data-active'))
       document.documentElement.setAttribute(ACTIVE_ATTR, '')
     } else {
       document.documentElement.removeAttribute(ACTIVE_ATTR)

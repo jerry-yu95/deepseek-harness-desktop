@@ -7,6 +7,7 @@
 - Registered extension-center as a desktop built-in runtime package and as a dsh-web-ui-all aggregate member; the Extension Dock keeps its tabs during the transition and both surfaces share one desktop IPC backend.
 - Added bridge-layer regression coverage for availability probing and form-to-payload mapping.
 - Fixed stdio connector health checks on Windows by resolving bare commands through executable extensions (.exe/.cmd/.bat), and made the command-probe tests platform-neutral.
+- Fixed sidebar entry highlights across center panels: closing a panel now removes its data-active attribute (a dataset assignment of undefined kept every entry looking selected), and opening one center panel (task board, SSH, extension center) now releases the conversation column from the sibling panels instead of fighting over it.
 
 ## 0.1.29 - 2026-08-21
 
