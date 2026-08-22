@@ -129,43 +129,45 @@ function yamlValue(value) {
 }
 
 export function renderMcpConnectorPatch(connectors) {
-  const lines = []
+  const entries = []
   for (const connector of connectors.map(validateConnectorInput).filter((item) => item.enabled && item.kind === 'mcp')) {
-    lines.push(`- id: ${yamlValue(`desktop-mcp-${connector.id}`)}`)
-    lines.push(`  name: '@deepseek-ai/dsh-mcp-client'`)
-    lines.push('  config:')
-    lines.push(`    serverName: ${yamlValue(connector.id)}`)
-    lines.push(`    transport: ${yamlValue(connector.transport)}`)
+    const lines = []
+    lines.push(`  - id: ${yamlValue(`desktop-mcp-${connector.id}`)}`)
+    lines.push(`    name: '@deepseek-ai/dsh-mcp-client'`)
+    lines.push('    config:')
+    lines.push(`      serverName: ${yamlValue(connector.id)}`)
+    lines.push(`      transport: ${yamlValue(connector.transport)}`)
     if (connector.transport === 'stdio') {
-      lines.push(`    command: ${yamlValue(connector.command)}`)
-      if (connector.args.length) lines.push(`    args: ${yamlValue(connector.args)}`)
-      if (connector.cwd) lines.push(`    cwd: ${yamlValue(connector.cwd)}`)
+      lines.push(`      command: ${yamlValue(connector.command)}`)
+      if (connector.args.length) lines.push(`      args: ${yamlValue(connector.args)}`)
+      if (connector.cwd) lines.push(`      cwd: ${yamlValue(connector.cwd)}`)
       const plainEnv = Object.entries(connector.plainEnv ?? {})
       const envBindings = (connector.secretBindings ?? []).filter((binding) => binding.location === 'env')
       const legacyEnv = connector.secretEnvKeys.map((key) => ({ targetKey: key, credentialRef: key, template: '${secret}' }))
       if (plainEnv.length || envBindings.length || legacyEnv.length) {
-        lines.push('    env:')
-        for (const [key, value] of plainEnv) lines.push(`      ${key}: ${yamlValue(value)}`)
-        for (const binding of [...envBindings, ...legacyEnv]) lines.push(`      ${binding.targetKey}: !!js process.env.${binding.credentialRef}`)
+        lines.push('      env:')
+        for (const [key, value] of plainEnv) lines.push(`        ${key}: ${yamlValue(value)}`)
+        for (const binding of [...envBindings, ...legacyEnv]) lines.push(`        ${binding.targetKey}: !!js process.env.${binding.credentialRef}`)
       }
     } else {
-      lines.push(`    url: ${yamlValue(connector.url)}`)
+      lines.push(`      url: ${yamlValue(connector.url)}`)
       const plainHeaders = Object.entries(connector.plainHeaders ?? {})
       const headerBindings = (connector.secretBindings ?? []).filter((binding) => binding.location === 'header')
       if (plainHeaders.length || headerBindings.length) {
-        lines.push('    headers:')
-        for (const [key, value] of plainHeaders) lines.push(`      ${yamlValue(key)}: ${yamlValue(value)}`)
+        lines.push('      headers:')
+        for (const [key, value] of plainHeaders) lines.push(`        ${yamlValue(key)}: ${yamlValue(value)}`)
         for (const binding of headerBindings) {
           const expression = binding.template === 'Bearer ${secret}'
             ? `!!js '\`Bearer \${process.env.${binding.credentialRef}}\`'`
             : `!!js process.env.${binding.credentialRef}`
-          lines.push(`      ${yamlValue(binding.targetKey)}: ${expression}`)
+          lines.push(`        ${yamlValue(binding.targetKey)}: ${expression}`)
         }
       }
     }
-    lines.push('    failOnStartupError: false')
+    lines.push('      failOnStartupError: false')
+    entries.push(lines.join('\n'))
   }
-  return lines.length ? `${lines.join('\n')}\n` : ''
+  return entries.length ? `- insert:\n${entries.join('\n')}\n` : ''
 }
 
 async function atomicJsonWrite(path, data) {

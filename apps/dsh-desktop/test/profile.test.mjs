@@ -103,6 +103,43 @@ test('profile bootstrap activates saved MCP connectors through the official brid
   }
 })
 
+test('profile bootstrap renders imported MCP environment and HTTP header bindings without secrets', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-imported-mcp-'))
+  try {
+    await mkdir(join(root, 'desktop'), { recursive: true })
+    await writeFile(join(root, 'desktop', 'connectors.json'), JSON.stringify([
+      {
+        id: 'tapd', name: 'TAPD', description: '', kind: 'mcp', enabled: true, capabilities: [], secretEnvKeys: [],
+        transport: 'stdio', command: 'npx', args: ['-y', 'tapd-mcp'], plainEnv: { REGION: 'cn' },
+        secretBindings: [{ location: 'env', targetKey: 'TAPD_TOKEN', credentialRef: 'DSH_CONNECTOR_TAPD_TAPD_TOKEN', template: '${secret}' }],
+        source: { kind: 'json' },
+      },
+      {
+        id: 'docs', name: 'Docs', description: '', kind: 'mcp', enabled: true, capabilities: [], secretEnvKeys: [],
+        transport: 'streamable-http', url: 'https://example.com/mcp', plainHeaders: { 'X-Region': 'cn' },
+        secretBindings: [{ location: 'header', targetKey: 'Authorization', credentialRef: 'DSH_CONNECTOR_DOCS_AUTHORIZATION', template: 'Bearer ${secret}' }],
+        source: { kind: 'json' },
+      },
+    ]))
+    const result = await ensureDesktopProfile({ dshHome: root })
+    const patch = await readFile(join(result.profileDir, 'cordis.patch.yml'), 'utf8')
+    assert.match(patch, /REGION: "cn"/)
+    assert.match(patch, /TAPD_TOKEN: !!js process\.env\.DSH_CONNECTOR_TAPD_TAPD_TOKEN/)
+    assert.match(patch, /"Authorization": !!js '`Bearer \$\{process\.env\.DSH_CONNECTOR_DOCS_AUTHORIZATION\}`'/)
+    assert.doesNotMatch(patch, /YOUR_TOKEN|literal-secret/)
+    const composed = spawnSync(
+      process.execPath,
+      [resolveDshCliPath(), '--profile', 'desktop', '--dump-config'],
+      { encoding: 'utf8', env: { ...process.env, DSH_HOME: root }, timeout: 20_000 },
+    )
+    assert.equal(composed.status, 0, composed.stderr)
+    assert.match(composed.stdout, /desktop-mcp-tapd/)
+    assert.match(composed.stdout, /desktop-mcp-docs/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('profile bootstrap repairs its own stale links after an app upgrade', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-upgrade-'))
   try {
