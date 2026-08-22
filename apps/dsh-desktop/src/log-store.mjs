@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const SECRET_ASSIGNMENT = /\b(NPM_TOKEN|DEEPSEEK_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|API_KEY|ACCESS_TOKEN|AUTH_TOKEN)=([^\s]+)/gi
+const SECRET_ASSIGNMENT = /\b((?:NPM_TOKEN|DEEPSEEK_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|API_KEY|ACCESS_TOKEN|AUTH_TOKEN|DSH_CONNECTOR_[A-Z0-9_]+))=([^\s]+)/gi
 const BEARER_TOKEN = /(Authorization:\s*Bearer\s+)([^\s]+)/gi
 
 export function sanitizeLogLine(value) {

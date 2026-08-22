@@ -122,6 +122,29 @@ test('personal public mode keeps Harness loopback-only and enables the tunnel th
   await controller.stop()
 })
 
+test('controller injects only the loaded connector credential environment into the Host', async () => {
+  const child = new FakeChild()
+  let spawnOptions
+  const controller = new DshRuntimeController({
+    cliPath: 'dsh-bin.js',
+    cwd: process.cwd(),
+    dshHome: '/tmp/dsh-connector-environment-test',
+    environmentProvider: () => ({ DSH_CONNECTOR_GITHUB_GITHUB_TOKEN: 'secret-token' }),
+    spawnProcess: (_executable, _args, options) => {
+      spawnOptions = options
+      return child
+    },
+    logStore: { append: async () => {} },
+    probeReady: async () => {},
+    startupTimeoutMs: 2_000,
+  })
+  const ready = controller.start()
+  child.stdout.write('dsh web: http://127.0.0.1:43125\n')
+  await ready
+  assert.equal(spawnOptions.env.DSH_CONNECTOR_GITHUB_GITHUB_TOKEN, 'secret-token')
+  await controller.stop()
+})
+
 test('controller rejects startup when the child exits before readiness', async () => {
   const child = new FakeChild()
   const controller = new DshRuntimeController({

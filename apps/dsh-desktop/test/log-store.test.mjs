@@ -8,8 +8,8 @@ import { BoundedLogStore, sanitizeLogLine } from '../src/log-store.mjs'
 
 test('log sanitization removes common credential shapes', () => {
   assert.equal(
-    sanitizeLogLine('Authorization: Bearer secret-token NPM_TOKEN=abc123'),
-    'Authorization: Bearer [redacted] NPM_TOKEN=[redacted]',
+    sanitizeLogLine('Authorization: Bearer secret-token NPM_TOKEN=abc123 DSH_CONNECTOR_TAPD_TOKEN=xyz789'),
+    'Authorization: Bearer [redacted] NPM_TOKEN=[redacted] DSH_CONNECTOR_TAPD_TOKEN=[redacted]',
   )
 })
 

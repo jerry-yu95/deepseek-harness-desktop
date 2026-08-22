@@ -9,6 +9,7 @@ import { registerAppUpdateIpc } from './app-update-ipc.mjs'
 import { serializeClipboardImage } from './clipboard-image.mjs'
 import { buildNativeImagePasteScript } from './native-image-paste.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
+import { ConnectorSecretStore } from './extensions/connector-secrets.mjs'
 import { PluginManager } from './extensions/plugins.mjs'
 import { registerDesktopIpc } from './ipc.mjs'
 import { installApplicationMenu } from './menu.mjs'
@@ -38,7 +39,7 @@ function runtimeWorkspace(app) {
 
 export async function startElectronApp(metadata) {
   const electron = await import('electron')
-  const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, screen, shell } = electron
+  const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, screen, shell } = electron
   if (process.env.DSH_DESKTOP_USER_DATA) app.setPath('userData', process.env.DSH_DESKTOP_USER_DATA)
   if (!app.requestSingleInstanceLock()) {
     app.quit()
@@ -53,6 +54,13 @@ export async function startElectronApp(metadata) {
   await mkdir(logsDirectory, { recursive: true })
   const logStore = new BoundedLogStore({ directory: logsDirectory })
   const dshHome = runtimeHome()
+  const connectorSecretStore = new ConnectorSecretStore({
+    path: join(dshHome, 'desktop', 'connector-secrets.json'),
+    isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (value) => safeStorage.encryptString(value),
+    decrypt: (value) => safeStorage.decryptString(value),
+  })
+  await connectorSecretStore.load()
   const ensureProfile = (officialRuntimeAnchor) => ensureDesktopProfile({
     dshHome,
     packageRoots: resolveRuntimePackages(
@@ -83,6 +91,7 @@ export async function startElectronApp(metadata) {
     dshHome,
     executable: process.execPath,
     logStore,
+    environmentProvider: () => connectorSecretStore.environment(),
     autoRestart: true,
     startupTimeoutMs: 60_000,
   })

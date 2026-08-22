@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events'
 const READY_LINE = /^dsh web:\s+(http:\/\/\S+)/u
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 const REMOTE_MODES = new Set(['local', 'personal-public'])
+const CONNECTOR_ENV_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/u
 
 export function validateLoopbackUrl(value) {
   let url
@@ -91,6 +92,7 @@ export class DshRuntimeController extends EventEmitter {
     schedule = setTimeout,
     cancelSchedule = clearTimeout,
     remoteMode = 'local',
+    environmentProvider = () => ({}),
   }) {
     super()
     if (!cliPath || !cwd || !dshHome) throw new TypeError('cliPath, cwd, and dshHome are required')
@@ -106,6 +108,8 @@ export class DshRuntimeController extends EventEmitter {
     this.probeReady = probeReady
     this.schedule = schedule
     this.cancelSchedule = cancelSchedule
+    if (typeof environmentProvider !== 'function') throw new TypeError('environmentProvider must be a function')
+    this.environmentProvider = environmentProvider
     this.setRemoteMode(remoteMode)
     this.child = undefined
     this.readyPromise = undefined
@@ -158,13 +162,27 @@ export class DshRuntimeController extends EventEmitter {
     })
     this.readyPromise = readyPromise
 
-    const environment = {
-      ...process.env,
-      DSH_HOME: this.dshHome,
-      ELECTRON_RUN_AS_NODE: '1',
-      DSH_DESKTOP_REMOTE_MODE: this.remoteMode,
-    }
     try {
+      const connectorEnvironment = this.environmentProvider()
+      if (!connectorEnvironment || typeof connectorEnvironment !== 'object' || Array.isArray(connectorEnvironment)) {
+        throw new TypeError('connector environment must be an object')
+      }
+      if (Object.keys(connectorEnvironment).some((key) => !CONNECTOR_ENV_PATTERN.test(key))) {
+        throw new TypeError('connector environment contains an invalid reference')
+      }
+      if (Object.values(connectorEnvironment).some((value) => typeof value !== 'string' || value.length === 0)) {
+        throw new TypeError('connector environment contains an invalid value')
+      }
+      const ambientEnvironment = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !CONNECTOR_ENV_PATTERN.test(key)),
+      )
+      const environment = {
+        ...ambientEnvironment,
+        ...connectorEnvironment,
+        DSH_HOME: this.dshHome,
+        ELECTRON_RUN_AS_NODE: '1',
+        DSH_DESKTOP_REMOTE_MODE: this.remoteMode,
+      }
       this.child = this.spawnProcess(
         this.executable,
         [
