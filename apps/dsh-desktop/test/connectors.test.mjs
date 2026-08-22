@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
-import { ConnectorStore, renderMcpConnectorPatch, validateConnectorInput } from '../src/extensions/connectors.mjs'
+import { commandExists, ConnectorStore, renderMcpConnectorPatch, validateConnectorInput } from '../src/extensions/connectors.mjs'
+
+/** A fake bin directory holding one empty marker file; nothing ever executes. */
+async function makeFakeBin(root, name) {
+  const bin = join(root, 'bin')
+  await mkdir(bin, { recursive: true })
+  await writeFile(join(bin, name), '')
+  return bin
+}
 
 test('connector validation distinguishes MCP transports and HTTP APIs', () => {
   assert.deepEqual(validateConnectorInput({
@@ -35,7 +43,8 @@ test('connector store persists, updates, removes and checks without executing MC
   const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-'))
   try {
     const path = join(root, 'connectors.json')
-    const store = new ConnectorStore({ path, env: { PATH: '/bin:/usr/bin', TAPD_TOKEN: 'present' } })
+    const bin = await makeFakeBin(root, process.platform === 'win32' ? 'git.exe' : 'git')
+    const store = new ConnectorStore({ path, env: { PATH: bin, TAPD_TOKEN: 'present' } })
     await store.save({
       id: 'local-git', name: 'Git', kind: 'mcp', command: 'git', args: ['status'], secretEnvKeys: ['TAPD_TOKEN'],
     })
@@ -46,6 +55,19 @@ test('connector store persists, updates, removes and checks without executing MC
     assert.match(await readFile(path, 'utf8'), /local-git/)
     await store.remove('local-git')
     assert.deepEqual(await store.list(), [])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('command probing resolves Windows executable extensions only where they apply', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-bin-'))
+  try {
+    const bin = await makeFakeBin(root, 'tool.exe')
+    // The CI matrix covers both sides: the windows job resolves the .exe
+    // probe; the macOS jobs confirm a bare miss stays a miss.
+    assert.equal(await commandExists('tool', { PATH: bin }), process.platform === 'win32')
+    assert.equal(await commandExists('missing-tool', { PATH: bin }), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

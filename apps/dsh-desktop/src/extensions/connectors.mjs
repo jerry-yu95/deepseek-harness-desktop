@@ -96,15 +96,20 @@ async function atomicJsonWrite(path, data) {
   await rename(temporary, path)
 }
 
-async function commandExists(command, env = process.env) {
-  const candidates = isAbsolute(command)
-    ? [command]
-    : String(env.PATH ?? '').split(delimiter).filter(Boolean).map((directory) => join(directory, command))
-  for (const candidate of candidates) {
-    try {
-      await access(candidate)
-      return true
-    } catch {}
+/** Windows resolves bare commands through executable extensions; probe a fixed minimal set (PATHEXT subset). */
+const EXECUTABLE_EXTENSIONS = process.platform === 'win32' ? ['', '.exe', '.cmd', '.bat'] : ['']
+
+export async function commandExists(command, env = process.env) {
+  const directories = isAbsolute(command)
+    ? [dirname(command)]
+    : String(env.PATH ?? '').split(delimiter).filter(Boolean)
+  for (const directory of directories) {
+    for (const extension of EXECUTABLE_EXTENSIONS) {
+      try {
+        await access(join(directory, `${command}${extension}`))
+        return true
+      } catch {}
+    }
   }
   return false
 }
