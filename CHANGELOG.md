@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.30 - 2026-08-22
+
+- Added the extension-center web UI plugin: Skills and Connectors entries in the official DSH sidebar, a shared center-column panel riding the official design tokens, and desktop-bridge detection with a desktop-only notice in plain browser sessions.
+- Brought Skill Studio (SKILL.md creation), skill bundle import, and the user skill root shortcut into the GUI alongside custom MCP (stdio / Streamable HTTP) and HTTP API connector registration, health checks, and removal.
+- Registered extension-center as a desktop built-in runtime package and as a dsh-web-ui-all aggregate member; the Extension Dock keeps its tabs during the transition and both surfaces share one desktop IPC backend.
+- Added bridge-layer regression coverage for availability probing and form-to-payload mapping.
+
 ## 0.1.29 - 2026-08-21
 
 - Added an extensible Connector Center for custom MCP stdio and Streamable HTTP registrations, health checks, environment-based credentials, and safe profile reloads through the official DSH MCP client.
