@@ -26,6 +26,7 @@ export const BUILTIN_BUNDLES = Object.freeze([
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
   '@harness-design/dsh-orchestrator',
   '@linxin666/dsh-client-ui-aionui-panel',
+  '@linxin666/dsh-client-ui-extension-center',
   '@linxin666/dsh-client-ui-git-graph',
   '@linxin666/dsh-client-ui-skin-center',
   '@linxin666/dsh-client-ui-task-board',

@@ -12,6 +12,7 @@ patchFrom:
   - ../dsh-live-stats
   - ../dsh-ssh
   - ../dsh-web-ui-settings
+  - ../dsh-extension-center
   - ../dsh-skins
 rows:
   # dsh-im-bundle deliberately has an empty patch: dependency auto-loading its
@@ -29,4 +30,5 @@ deps:
   - ../dsh-live-stats
   - ../dsh-ssh
   - ../dsh-web-ui-settings
+  - ../dsh-extension-center
   - ../dsh-skins

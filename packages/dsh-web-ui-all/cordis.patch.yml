@@ -52,6 +52,11 @@
     - id: ui-web-ui-settings
       name: '@linxin666/dsh-client-ui-web-ui-settings'
 
+# from ../dsh-extension-center
+- insert:
+    - id: extension-center
+      name: '@linxin666/dsh-client-ui-extension-center'
+
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:
     - id: ui-skin-center
