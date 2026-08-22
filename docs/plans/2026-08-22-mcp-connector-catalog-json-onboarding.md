@@ -16,7 +16,7 @@
 2. Do not ask normal users for connector IDs, transport names, commands, argument arrays, capability labels, environment-variable names, server addresses, organization IDs, or project scopes when those values already exist in the official JSON.
 3. The current form remains available under **Advanced / Developer options**. It is not the default entry.
 4. Presets contain verified official JSON templates and official documentation links; presets do not reimplement provider-specific account forms.
-5. The first preset batch is GitHub, Feishu, and TAPD. Only publish a preset after its current official documentation and configuration have been verified. If a provider has no official MCP server/configuration, mark it “not yet verified” instead of inventing a package or endpoint.
+5. The first preset batch is GitHub, Feishu, and GitLab. Only publish a preset after its current official documentation and configuration have been verified. TAPD remains visible as a documented “not yet verified” entry until its official JSON template is stable; never invent a package or endpoint.
 6. Import multiple entries from one `mcpServers` object. Allow the user to select which entries to install.
 7. Never persist plaintext tokens in `connectors.json`, generated `cordis.patch.yml`, logs, crash diagnostics, exported JSON, React state after submission, or test snapshots.
 8. Exported MCP JSON replaces secrets with `${ENV_NAME}` placeholders. It never exports secret values.
@@ -46,6 +46,12 @@
 - Removing a connector removes its encrypted credential entries and generated profile entry.
 - Existing connectors created by version 0.1.31 still load and remain usable.
 - macOS arm64, macOS x64, and Windows x64 tests and package verification pass.
+
+## Implementation status (2026-08-22)
+
+The catalog, preview/import IPC, encrypted credential bindings, stdio argument secrets, and extension-center UI are implemented. The current verified preset set is GitHub, Feishu/Lark, and GitLab; TAPD is intentionally marked as awaiting an official JSON configuration. The advanced connector form remains available for providers without a verified preset.
+
+Final verification for this batch: 87 desktop tests, 16 extension-center tests, extension-center typecheck, production build, and `git diff --check` all pass. The desktop suite includes a real official DSH Host startup and a main-process IPC test that verifies encrypted credential persistence and cleanup.
 
 ## Preflight: Preserve the Existing 0.1.31 Work
 

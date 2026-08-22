@@ -35,6 +35,16 @@ export interface ConnectorRecord {
   args?: string[]
   capabilities?: string[]
   secretEnvKeys?: string[]
+  plainEnv?: Record<string, string>
+  plainHeaders?: Record<string, string>
+  secretBindings?: Array<{
+    location: 'env' | 'header' | 'arg'
+    targetKey: string
+    credentialRef: string
+    template: '${secret}' | 'Bearer ${secret}'
+    placeholder?: string
+  }>
+  source?: { kind: 'custom' | 'json' | 'preset'; presetId?: string }
 }
 
 /** Skill Studio create payload (host-side validation is authoritative). */
@@ -58,6 +68,43 @@ export interface ConnectorSaveInput {
   capabilities?: string[]
   secretEnvKeys?: string[]
   enabled?: boolean
+  plainEnv?: Record<string, string>
+  plainHeaders?: Record<string, string>
+  secretBindings?: ConnectorRecord['secretBindings']
+  source?: ConnectorRecord['source']
+}
+
+/** One renderer-safe server preview returned by the main process. */
+export interface McpJsonServerPreview {
+  sourceName: string
+  suggestedId: string
+  transport: 'stdio' | 'streamable-http'
+  command?: string
+  args?: string[]
+  url?: string
+  cwd?: string
+  plainEnv: Record<string, string>
+  plainHeaders: Record<string, string>
+  secretSlots: Array<{
+    location: 'env' | 'header' | 'arg'
+    targetKey: string
+    credentialRef: string
+    template: '${secret}' | 'Bearer ${secret}'
+    placeholder?: string
+    detected: boolean
+  }>
+}
+
+export interface McpJsonPreview {
+  servers: McpJsonServerPreview[]
+}
+
+export interface McpJsonImportInput {
+  text: string
+  selectedNames?: string[]
+  conflict?: 'reject' | 'replace' | 'rename'
+  secrets?: Record<string, string>
+  source?: { kind: 'json' | 'preset'; presetId?: string }
 }
 
 /** Connector health-check outcome. */
@@ -77,6 +124,9 @@ export interface DesktopBridge {
   saveConnector(input: ConnectorSaveInput): Promise<ConnectorRecord>
   removeConnector(id: string): Promise<unknown>
   checkConnector(id: string): Promise<ConnectorCheckResult>
+  /** Optional on older desktop builds; advanced connector form remains usable. */
+  previewMcpJson?: (text: string) => Promise<McpJsonPreview>
+  importMcpJson?: (input: McpJsonImportInput) => Promise<{ imported: ConnectorRecord[] }>
 }
 
 /** Every bridge method the plugin calls; presence-checked as a set. */

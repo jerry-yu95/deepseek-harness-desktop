@@ -273,6 +273,7 @@ export async function startElectronApp(metadata) {
     projectRoot,
     dshHome,
     agentsHome: process.env.DSH_AGENTS_HOME,
+    connectorSecretStore,
   })
   const updateIpc = registerUpdateIpc({
     ipcMain,

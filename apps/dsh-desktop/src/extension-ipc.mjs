@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { ConnectorStore } from './extensions/connectors.mjs'
+import { buildMcpConnectorImport, previewMcpJson } from './extensions/mcp-import.mjs'
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
 
 const CHANNELS = [
@@ -16,6 +17,8 @@ const CHANNELS = [
   'extensions:connector-save',
   'extensions:connector-remove',
   'extensions:connector-check',
+  'extensions:mcp-preview',
+  'extensions:mcp-import',
 ]
 
 export function registerExtensionIpc({
@@ -29,10 +32,18 @@ export function registerExtensionIpc({
   projectRoot,
   dshHome,
   agentsHome,
+  connectorSecretStore,
 }) {
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
-  const connectorStore = new ConnectorStore({ path: join(dshHome, 'desktop', 'connectors.json') })
+  const connectorEnvironment = () => ({
+    ...process.env,
+    ...(connectorSecretStore ? connectorSecretStore.environment() : {}),
+  })
+  const connectorStore = new ConnectorStore({
+    path: join(dshHome, 'desktop', 'connectors.json'),
+    environmentProvider: connectorEnvironment,
+  })
 
   const scan = async () => {
     const roots = defaultSkillRoots({ projectRoot, dshHome, agentsHome })
@@ -114,8 +125,61 @@ export function registerExtensionIpc({
   }
   ipcMain.handle('extensions:connector-list', () => connectorStore.list())
   ipcMain.handle('extensions:connector-save', (_event, input) => mutateConnector(() => connectorStore.save(input)))
-  ipcMain.handle('extensions:connector-remove', (_event, id) => mutateConnector(() => connectorStore.remove(id)))
+  ipcMain.handle('extensions:connector-remove', async (_event, id) => {
+    const existing = (await connectorStore.list()).find((connector) => connector.id === id)
+    const references = existing === undefined ? [] : [
+      ...(existing.secretBindings ?? []).map((binding) => binding.credentialRef),
+      ...existing.secretEnvKeys.filter((key) => /^DSH_CONNECTOR_[A-Z0-9_]+$/u.test(key)),
+    ]
+    return mutateConnector(async () => {
+      const result = await connectorStore.remove(id)
+      if (connectorSecretStore && references.length) await connectorSecretStore.removeMany([...new Set(references)])
+      return result
+    })
+  })
   ipcMain.handle('extensions:connector-check', (_event, id) => connectorStore.check(id))
+  ipcMain.handle('extensions:mcp-preview', (_event, text) => previewMcpJson(text))
+  ipcMain.handle('extensions:mcp-import', async (_event, input) => {
+    if (!connectorSecretStore) throw new Error('secure-storage-unavailable')
+    await connectorSecretStore.load()
+    if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.text !== 'string') {
+      throw new TypeError('MCP import input is invalid')
+    }
+    const parsed = (await import('./extensions/mcp-config.mjs')).parseMcpServersJson(input.text)
+    const existing = await connectorStore.list()
+    const built = buildMcpConnectorImport({
+      parsed,
+      existing,
+      selectedNames: input.selectedNames,
+      conflict: input.conflict ?? 'reject',
+      secrets: input.secrets,
+      source: input.source ?? { kind: 'json' },
+    })
+    const newReferences = [...built.credentials.keys()]
+    const previouslyPresent = new Set(newReferences.filter((reference) => connectorSecretStore.has(reference)))
+    return mutateConnector(async () => {
+      await connectorSecretStore.setMany(built.credentials)
+      try {
+        const imported = []
+        for (const item of built.connectors) imported.push(await connectorStore.save(item.connector))
+        const remaining = await connectorStore.list()
+        const referenced = new Set(remaining.flatMap((connector) => [
+          ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
+          ...connector.secretEnvKeys.filter((key) => /^DSH_CONNECTOR_[A-Z0-9_]+$/u.test(key)),
+        ]))
+        const stale = existing.flatMap((connector) => [
+          ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
+          ...connector.secretEnvKeys.filter((key) => /^DSH_CONNECTOR_[A-Z0-9_]+$/u.test(key)),
+        ]).filter((reference) => !referenced.has(reference))
+        if (stale.length) await connectorSecretStore.removeMany([...new Set(stale)])
+        return { imported }
+      } catch (error) {
+        const orphaned = newReferences.filter((reference) => !previouslyPresent.has(reference))
+        if (orphaned.length) await connectorSecretStore.removeMany(orphaned).catch(() => {})
+        throw error
+      }
+    })
+  })
 
   return () => {
     for (const channel of CHANNELS) ipcMain.removeHandler(channel)

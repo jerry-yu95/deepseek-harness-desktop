@@ -5,7 +5,7 @@ const MAX_RECORD_KEYS = 128
 const MAX_SCALAR_LENGTH = 8_192
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/u
 const SECRET_KEY_PATTERN = /(?:token|secret|password|api[_-]?key|authorization|credential)/iu
-const PLACEHOLDER_PATTERN = /(?:\$\{([A-Z][A-Z0-9_]{0,63})\}|<((?:YOUR[_-])?[A-Z][A-Z0-9_-]{0,63})>)/gu
+const PLACEHOLDER_PATTERN = /(?:\$\{([A-Z][A-Z0-9_]{0,63})\}|<((?:YOUR[_-])?[A-Z][A-Z0-9_-]{0,63})>)/giu
 const PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const SUPPORTED_TRANSPORTS = new Set(['stdio', 'streamable-http'])
 
@@ -115,9 +115,50 @@ function parseStringMap(value, field, { location, sourceName, usedRefs }) {
 
 function parseTransport(server, sourceName) {
   const declared = server.type ?? server.transport
-  const transport = declared === undefined ? (server.url === undefined ? 'stdio' : 'streamable-http') : String(declared).trim().toLowerCase()
+  const rawTransport = declared === undefined ? (server.url === undefined ? 'stdio' : 'streamable-http') : String(declared).trim().toLowerCase()
+  // Official clients use both `http` and `streamable-http` for the current
+  // streamable HTTP transport. `local` is the equivalent of stdio in a few
+  // clients. Normalize aliases here instead of making users edit JSON.
+  const transport = rawTransport === 'http' ? 'streamable-http' : rawTransport === 'local' ? 'stdio' : rawTransport
   if (!SUPPORTED_TRANSPORTS.has(transport)) throw new TypeError(`unsupported-mcp-transport:${transport || sourceName}`)
   return transport
+}
+
+function argumentLooksSecret(previousArgument) {
+  return /^(?:-a|-s|--app[-_]?id|--app[-_]?secret|--token|--secret|--password|--api[-_]?key)$/iu.test(previousArgument)
+    || /(?:^|[-_])(?:token|secret|password|api[-_]?key|app[-_]?secret|app[-_]?id|credential)$/iu.test(previousArgument)
+}
+
+function parseArguments(value, field, { sourceName, usedRefs }) {
+  if (value === undefined) return { args: [], slots: [], credentials: new Map() }
+  if (!Array.isArray(value)) throw new TypeError(`${field} must be an array`)
+  if (value.length > MAX_ARGS) throw new TypeError(`${field} has too many arguments`)
+  const args = []
+  const slots = []
+  const credentials = new Map()
+  for (const [index, item] of value.entries()) {
+    const normalized = scalar(item, `${field}[${index}]`)
+    const previous = index > 0 ? String(value[index - 1]) : ''
+    const matches = [...normalized.matchAll(PLACEHOLDER_PATTERN)]
+    const wholePlaceholder = matches.length === 1 && matches[0][0] === normalized.trim()
+    if (matches.length > 1) throw new TypeError(`${field}[${index}] contains multiple secret placeholders`)
+    if (!wholePlaceholder && !argumentLooksSecret(previous)) {
+      args.push(normalized)
+      continue
+    }
+    const ref = credentialRef(sourceName, `ARG_${index}`, usedRefs)
+    const slot = {
+      location: 'arg',
+      targetKey: String(index),
+      credentialRef: ref,
+      template: '${secret}',
+      ...(matches[0]?.[1] || matches[0]?.[2] ? { placeholder: matches[0][1] ?? matches[0][2] } : {}),
+    }
+    slots.push(slot)
+    if (!wholePlaceholder) credentials.set(ref, normalized)
+    args.push('${secret}')
+  }
+  return { args, slots, credentials }
 }
 
 function parseUrl(value, field) {
@@ -169,12 +210,13 @@ export function parseMcpServersJson(input) {
     }
     if (transport === 'stdio') {
       const command = scalar(server.command, `mcpServers.${sourceName}.command`)
-      const args = server.args === undefined ? [] : server.args
-      if (!Array.isArray(args)) throw new TypeError(`mcpServers.${sourceName}.args must be an array`)
-      if (args.length > MAX_ARGS) throw new TypeError(`mcpServers.${sourceName}.args has too many arguments`)
+      const parsedArgs = parseArguments(server.args, `mcpServers.${sourceName}.args`, { sourceName, usedRefs })
+      const args = parsedArgs.args
       if (args.length === 0 && /\s/u.test(command.trim())) throw new TypeError(`mcpServers.${sourceName}.command must use an args array`)
       result.command = command
-      result.args = args.map((item, argIndex) => scalar(item, `mcpServers.${sourceName}.args[${argIndex}]`))
+      result.args = args
+      result.secretSlots.push(...parsedArgs.slots)
+      for (const [ref, secret] of parsedArgs.credentials) credentials.set(ref, secret)
       const cwd = scalar(server.cwd, `mcpServers.${sourceName}.cwd`, { required: false })
       if (cwd !== undefined) result.cwd = cwd
     } else {

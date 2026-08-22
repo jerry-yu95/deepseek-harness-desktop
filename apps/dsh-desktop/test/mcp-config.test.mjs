@@ -12,7 +12,7 @@ test('MCP JSON parser preserves safe configuration and hides literal secrets', (
         env: { TAPD_TOKEN: '<YOUR_TOKEN>', REGION: 'cn' },
       },
       docs: {
-        type: 'streamable-http',
+        type: 'http',
         url: 'https://example.com/mcp',
         headers: { Authorization: 'Bearer ${DOCS_TOKEN}', 'X-Region': 'cn' },
       },
@@ -32,6 +32,23 @@ test('MCP JSON parser preserves safe configuration and hides literal secrets', (
   assert.equal(parsed.servers[1].secretSlots[0].template, 'Bearer ${secret}')
   assert.equal(parsed.credentials.get('DSH_CONNECTOR_LITERAL_API_KEY'), 'literal-secret-value')
   assert.doesNotMatch(JSON.stringify(parsed.servers), /literal-secret-value/)
+})
+
+test('MCP JSON parser normalizes official aliases and hides credential arguments', () => {
+  const parsed = parseMcpServersJson(JSON.stringify({
+    mcpServers: {
+      lark: {
+        command: 'npx',
+        args: ['-y', '@larksuiteoapi/lark-mcp', 'mcp', '-a', '${FEISHU_APP_ID}', '-s', '<YOUR_APP_SECRET>'],
+      },
+    },
+  }))
+  const server = parsed.servers[0]
+  assert.deepEqual(server.args, ['-y', '@larksuiteoapi/lark-mcp', 'mcp', '-a', '${secret}', '-s', '${secret}'])
+  assert.deepEqual(server.secretSlots.map((slot) => slot.location), ['arg', 'arg'])
+  assert.equal(server.secretSlots[0].targetKey, '4')
+  assert.equal(server.secretSlots[1].targetKey, '6')
+  assert.doesNotMatch(JSON.stringify(server), /literal-secret|secret-value/)
 })
 
 test('MCP JSON parser accepts only supported stdio and streamable HTTP configurations', () => {

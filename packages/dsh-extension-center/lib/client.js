@@ -131,6 +131,33 @@ window.__ModuleLoader__.load({
 			"skills.badge.shadowed": "已被同名技能覆盖",
 			"connectors.empty": "尚未配置连接器。可先添加 MCP 服务或 HTTP API。",
 			"connectors.create": "自定义连接器",
+			"connectors.catalog.title": "推荐连接器",
+			"connectors.catalog.official": "官方模板",
+			"connectors.catalog.pending": "等待官方 JSON",
+			"connectors.catalog.docs": "查看官方文档",
+			"connectors.catalog.use": "使用模板",
+			"connectors.catalog.waiting": "请粘贴服务方提供的官方 JSON",
+			"connectors.import.open": "导入 MCP JSON",
+			"connectors.import.title": "导入官方 MCP 配置",
+			"connectors.import.hint": "支持包含 mcpServers 的 JSON；应用会自动识别传输方式和凭证占位符。",
+			"connectors.import.jsonLabel": "MCP JSON",
+			"connectors.import.jsonPlaceholder": "{\n  \"mcpServers\": { ... }\n}",
+			"connectors.import.noSecret": "令牌只在桌面主进程中加密保存，不会写入配置或日志。",
+			"connectors.import.preview": "预览配置",
+			"connectors.import.servers": "{count} 个服务",
+			"connectors.import.selectAll": "全选",
+			"connectors.import.selectOne": "至少选择一个 MCP 服务",
+			"connectors.import.missingSecret": "请填写凭证：{name}",
+			"connectors.import.detected": "已从 JSON 检测到凭证：{name}",
+			"connectors.import.secret": "凭证（{name}）",
+			"connectors.import.conflict": "同名处理",
+			"connectors.import.conflict.reject": "冲突时拒绝",
+			"connectors.import.conflict.replace": "覆盖已有",
+			"connectors.import.conflict.rename": "自动重命名",
+			"connectors.import.submit": "保存并接入",
+			"connectors.import.desktopRequired": "当前桌面版本不支持 MCP JSON 导入，请先升级应用。",
+			"connectors.imported": "已接入 {count} 个连接器",
+			"connectors.advanced.title": "高级配置（开发者）",
 			"connectors.form.id": "标识",
 			"connectors.form.name": "名称",
 			"connectors.form.kind": "类型",
@@ -197,6 +224,33 @@ window.__ModuleLoader__.load({
 			"skills.badge.shadowed": "shadowed by a same-name skill",
 			"connectors.empty": "No connectors configured yet. Add an MCP server or an HTTP API first.",
 			"connectors.create": "Custom connector",
+			"connectors.catalog.title": "Recommended connectors",
+			"connectors.catalog.official": "Official template",
+			"connectors.catalog.pending": "Awaiting official JSON",
+			"connectors.catalog.docs": "Open official docs",
+			"connectors.catalog.use": "Use template",
+			"connectors.catalog.waiting": "Paste the official JSON supplied by the provider",
+			"connectors.import.open": "Import MCP JSON",
+			"connectors.import.title": "Import official MCP config",
+			"connectors.import.hint": "Supports JSON with mcpServers; transport and credential placeholders are detected automatically.",
+			"connectors.import.jsonLabel": "MCP JSON",
+			"connectors.import.jsonPlaceholder": "{\n  \"mcpServers\": { ... }\n}",
+			"connectors.import.noSecret": "Credentials are encrypted in the desktop main process and never written to config or logs.",
+			"connectors.import.preview": "Preview config",
+			"connectors.import.servers": "{count} servers",
+			"connectors.import.selectAll": "Select all",
+			"connectors.import.selectOne": "Select at least one MCP server",
+			"connectors.import.missingSecret": "Enter credential: {name}",
+			"connectors.import.detected": "Credential detected in JSON: {name}",
+			"connectors.import.secret": "Credential ({name})",
+			"connectors.import.conflict": "Name conflict",
+			"connectors.import.conflict.reject": "Reject conflict",
+			"connectors.import.conflict.replace": "Replace existing",
+			"connectors.import.conflict.rename": "Auto-rename",
+			"connectors.import.submit": "Save and connect",
+			"connectors.import.desktopRequired": "This desktop build does not support MCP JSON import. Upgrade the app first.",
+			"connectors.imported": "{count} connector(s) connected",
+			"connectors.advanced.title": "Advanced configuration (developer)",
 			"connectors.form.id": "ID",
 			"connectors.form.name": "Name",
 			"connectors.form.kind": "Kind",
@@ -257,7 +311,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;flex:none;padding:8px 12px;font-size:13px}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_importPreview{border-top:1px solid var(--dsw-alias-border-l1);flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;flex:none;padding:8px 12px;font-size:13px}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -268,6 +322,11 @@ window.__ModuleLoader__.load({
 		}
 		var panel_module_css_default = {
 			"badge": "bid-pG_badge",
+			"catalog": "bid-pG_catalog",
+			"catalogBody": "bid-pG_catalogBody",
+			"catalogItem": "bid-pG_catalogItem",
+			"catalogLink": "bid-pG_catalogLink",
+			"catalogPending": "bid-pG_catalogPending",
 			"dangerButton": "bid-pG_dangerButton",
 			"description": "bid-pG_description",
 			"empty": "bid-pG_empty",
@@ -277,8 +336,14 @@ window.__ModuleLoader__.load({
 			"formFooter": "bid-pG_formFooter",
 			"formGrid": "bid-pG_formGrid",
 			"formGridThree": "bid-pG_formGridThree",
+			"formHeader": "bid-pG_formHeader",
+			"formHint": "bid-pG_formHint",
 			"headerActions": "bid-pG_headerActions",
 			"health": "bid-pG_health",
+			"importPreview": "bid-pG_importPreview",
+			"importServer": "bid-pG_importServer",
+			"importServerHeader": "bid-pG_importServerHeader",
+			"inlineLabel": "bid-pG_inlineLabel",
 			"item": "bid-pG_item",
 			"itemActions": "bid-pG_itemActions",
 			"itemBody": "bid-pG_itemBody",
@@ -292,6 +357,8 @@ window.__ModuleLoader__.load({
 			"panelTitle": "bid-pG_panelTitle",
 			"primaryButton": "bid-pG_primaryButton",
 			"secondaryButton": "bid-pG_secondaryButton",
+			"secretRow": "bid-pG_secretRow",
+			"sectionTitle": "bid-pG_sectionTitle",
 			"studioForm": "bid-pG_studioForm",
 			"studioSummary": "bid-pG_studioSummary",
 			"tab": "bid-pG_tab",
@@ -478,22 +545,83 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/catalog.ts
+		const CONNECTOR_PRESETS = [
+			{
+				id: "github",
+				name: "GitHub MCP",
+				description: "GitHub 官方远程 MCP；可访问仓库、Issue、PR 与 Actions。",
+				docsUrl: "https://github.com/github/github-mcp-server",
+				status: "ready",
+				json: JSON.stringify({ mcpServers: { github: {
+					type: "http",
+					url: "https://api.githubcopilot.com/mcp/",
+					headers: { Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" }
+				} } }, null, 2)
+			},
+			{
+				id: "feishu",
+				name: "飞书 / Lark MCP",
+				description: "飞书官方 OpenAPI MCP；使用自建应用 App ID 与 App Secret。",
+				docsUrl: "https://github.com/larksuite/lark-openapi-mcp",
+				status: "ready",
+				json: JSON.stringify({ mcpServers: { "lark-mcp": {
+					command: "npx",
+					args: [
+						"-y",
+						"@larksuiteoapi/lark-mcp",
+						"mcp",
+						"-a",
+						"${FEISHU_APP_ID}",
+						"-s",
+						"${FEISHU_APP_SECRET}"
+					]
+				} } }, null, 2)
+			},
+			{
+				id: "gitlab",
+				name: "GitLab MCP",
+				description: "GitLab 官方 MCP；需要实例开启 MCP，远程连接可能触发 OAuth 授权。",
+				docsUrl: "https://docs.gitlab.com/user/model_context_protocol/mcp_server/",
+				status: "ready",
+				json: JSON.stringify({ mcpServers: { gitlab: {
+					type: "http",
+					url: "https://gitlab.com/api/v4/mcp"
+				} } }, null, 2)
+			},
+			{
+				id: "tapd",
+				name: "TAPD MCP",
+				description: "TAPD 官方已提供 MCP / Skill / CLI 能力；等待其公开稳定 JSON 模板后接入预设。",
+				docsUrl: "https://www.tapd.cn/official/intelligent_collaboration_index",
+				status: "needs-provider-json"
+			}
+		];
+		//#endregion
 		//#region src/client/panel/ConnectorsTab.tsx
 		/**
-		* The Connectors tab: the connector registry list, the custom-connector form
-		* (kind/transport dependent fields), health checks, and removal. Ports the
-		* dock's connector surface; validation is host-side and surfaces via toasts.
+		* Connector catalog and registry. The normal path is provider JSON preview ->
+		* replace only missing credentials -> encrypted desktop import. The old
+		* low-level form remains under the explicit advanced button.
 		*/
-		/** The Connectors tab component. */
 		function ConnectorsTab({ bridge, refreshKey, notify }) {
 			const [connectors, setConnectors] = (0, react.useState)(null);
 			const [health, setHealth] = (0, react.useState)({});
+			const [catalogOpen, setCatalogOpen] = (0, react.useState)(true);
 			const [formOpen, setFormOpen] = (0, react.useState)(false);
+			const [importOpen, setImportOpen] = (0, react.useState)(false);
+			const [jsonText, setJsonText] = (0, react.useState)("");
+			const [preview, setPreview] = (0, react.useState)(null);
+			const [selected, setSelected] = (0, react.useState)({});
+			const [secretValues, setSecretValues] = (0, react.useState)({});
+			const [conflict, setConflict] = (0, react.useState)("reject");
+			const [importSource, setImportSource] = (0, react.useState)({ kind: "json" });
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [kind, setKind] = (0, react.useState)("mcp");
 			const [transport, setTransport] = (0, react.useState)("stdio");
 			const mcp = kind === "mcp";
 			const remote = !mcp || transport !== "stdio";
+			const canImportJson = typeof bridge.previewMcpJson === "function" && typeof bridge.importMcpJson === "function";
 			const load = (0, react.useCallback)(async () => {
 				try {
 					setConnectors(await bridge.listConnectors());
@@ -504,10 +632,71 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				load();
 			}, [load, refreshKey]);
+			const previewJson = (0, react.useCallback)(async (text, source = { kind: "json" }) => {
+				if (!canImportJson || bridge.previewMcpJson === void 0) {
+					notify(tt("connectors.import.desktopRequired"), true);
+					return;
+				}
+				setImportSource(source);
+				setJsonText(text);
+				setImportOpen(true);
+				setPreview(null);
+				setSecretValues({});
+				setBusy(true);
+				try {
+					const result = await bridge.previewMcpJson(text);
+					setPreview(result);
+					setSelected(Object.fromEntries(result.servers.map((server) => [server.sourceName, true])));
+				} catch (error) {
+					notify(errorMessage(error), true);
+				} finally {
+					setBusy(false);
+				}
+			}, [
+				bridge,
+				canImportJson,
+				notify
+			]);
+			const onPreviewSubmit = async (event) => {
+				event.preventDefault();
+				await previewJson(jsonText, importSource);
+			};
+			const onImport = async () => {
+				if (preview === null || bridge.importMcpJson === void 0) return;
+				const selectedNames = preview.servers.filter((server) => selected[server.sourceName]).map((server) => server.sourceName);
+				if (selectedNames.length === 0) {
+					notify(tt("connectors.import.selectOne"), true);
+					return;
+				}
+				const missing = preview.servers.filter((server) => selected[server.sourceName]).flatMap((server) => server.secretSlots).filter((slot) => !slot.detected && !(secretValues[slot.credentialRef] ?? "").trim());
+				if (missing.length > 0) {
+					notify(tt("connectors.import.missingSecret", { name: missing[0].credentialRef }), true);
+					return;
+				}
+				setBusy(true);
+				try {
+					notify(tt("connectors.imported", { count: (await bridge.importMcpJson({
+						text: jsonText,
+						selectedNames,
+						conflict,
+						secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
+						source: importSource
+					})).imported.length }));
+					setImportOpen(false);
+					setJsonText("");
+					setPreview(null);
+					setSelected({});
+					setSecretValues({});
+					await load();
+				} catch (error) {
+					notify(errorMessage(error), true);
+				} finally {
+					setBusy(false);
+				}
+			};
 			const onSave = async (event) => {
 				event.preventDefault();
-				const form = event.currentTarget;
-				const values = Object.fromEntries(new FormData(form));
+				const values = Object.fromEntries(new FormData(event.currentTarget));
 				setBusy(true);
 				try {
 					notify(tt("connectors.saved", { name: (await bridge.saveConnector(buildConnectorInput({
@@ -522,7 +711,7 @@ window.__ModuleLoader__.load({
 						capabilities: String(values.capabilities ?? ""),
 						secretEnvKeys: String(values.secretEnvKeys ?? "")
 					}))).name }));
-					form.reset();
+					event.currentTarget.reset();
 					setKind("mcp");
 					setTransport("stdio");
 					setFormOpen(false);
@@ -560,23 +749,243 @@ window.__ModuleLoader__.load({
 					await load();
 				} catch (error) {
 					notify(errorMessage(error), true);
+				} finally {
 					setBusy(false);
 				}
 			};
+			const renderPreset = (preset) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
+				className: panel_module_css_default.catalogItem,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: panel_module_css_default.catalogBody,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.nameRow,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: panel_module_css_default.name,
+								children: preset.name
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: panel_module_css_default.badge,
+								children: preset.status === "ready" ? tt("connectors.catalog.official") : tt("connectors.catalog.pending")
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.description,
+							children: preset.description
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+							className: panel_module_css_default.catalogLink,
+							href: preset.docsUrl,
+							target: "_blank",
+							rel: "noreferrer",
+							children: tt("connectors.catalog.docs")
+						})
+					]
+				}), preset.json === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: panel_module_css_default.catalogPending,
+					children: tt("connectors.catalog.waiting")
+				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+					type: "button",
+					className: panel_module_css_default.secondaryButton,
+					disabled: busy || !canImportJson,
+					onClick: () => {
+						previewJson(preset.json, {
+							kind: "preset",
+							presetId: preset.id
+						});
+					},
+					children: tt("connectors.catalog.use")
+				})]
+			}, preset.id);
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: panel_module_css_default.tabBody,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: panel_module_css_default.toolbar,
-						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: panel_module_css_default.primaryButton,
-							disabled: busy,
-							onClick: () => {
-								setFormOpen((open) => !open);
-							},
-							children: tt("connectors.create")
-						})
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.primaryButton,
+								disabled: busy,
+								onClick: () => {
+									setCatalogOpen((open) => !open);
+								},
+								children: tt("connectors.catalog.title")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy || !canImportJson,
+								onClick: () => {
+									setImportSource({ kind: "json" });
+									setJsonText("");
+									setPreview(null);
+									setImportOpen(true);
+								},
+								children: tt("connectors.import.open")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									setFormOpen((open) => !open);
+								},
+								children: tt("connectors.create")
+							})
+						]
+					}),
+					catalogOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.catalog,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							className: panel_module_css_default.sectionTitle,
+							children: tt("connectors.catalog.title")
+						}), CONNECTOR_PRESETS.map(renderPreset)]
+					}),
+					importOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.studioForm,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.formHeader,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+									className: panel_module_css_default.sectionTitle,
+									children: tt("connectors.import.title")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: panel_module_css_default.formHint,
+									children: tt("connectors.import.hint")
+								})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.secondaryButton,
+									disabled: busy,
+									onClick: () => {
+										setImportOpen(false);
+									},
+									children: tt("common.close")
+								})]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+								onSubmit: (event) => {
+									onPreviewSubmit(event);
+								},
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("connectors.import.jsonLabel"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+									value: jsonText,
+									onChange: (event) => {
+										setJsonText(event.target.value);
+										setPreview(null);
+									},
+									rows: 8,
+									placeholder: tt("connectors.import.jsonPlaceholder")
+								})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: panel_module_css_default.formFooter,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("connectors.import.noSecret") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "submit",
+										disabled: busy || jsonText.trim().length === 0,
+										children: tt("connectors.import.preview")
+									})]
+								})]
+							}),
+							preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.importPreview,
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: panel_module_css_default.formHeader,
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("connectors.import.servers", { count: preview.servers.length }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+											className: panel_module_css_default.inlineLabel,
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+													type: "checkbox",
+													checked: preview.servers.every((server) => selected[server.sourceName]),
+													onChange: (event) => {
+														setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked])));
+													}
+												}),
+												" ",
+												tt("connectors.import.selectAll")
+											]
+										})]
+									}),
+									preview.servers.map((server) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: panel_module_css_default.importServer,
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+											className: panel_module_css_default.importServerHeader,
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+													type: "checkbox",
+													checked: Boolean(selected[server.sourceName]),
+													onChange: (event) => {
+														setSelected((items) => ({
+															...items,
+															[server.sourceName]: event.target.checked
+														}));
+													}
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: server.sourceName }),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.badge,
+													children: server.transport
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.description,
+													children: server.command ? connectorEndpoint({
+														kind: "mcp",
+														transport: "stdio",
+														command: server.command,
+														args: server.args
+													}) : server.url
+												})
+											]
+										}), selected[server.sourceName] && server.secretSlots.map((slot) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("label", {
+											className: panel_module_css_default.secretRow,
+											children: slot.detected ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("connectors.import.detected", { name: slot.credentialRef }) }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("connectors.import.secret", { name: slot.placeholder ?? slot.credentialRef }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+												type: "password",
+												autoComplete: "off",
+												value: secretValues[slot.credentialRef] ?? "",
+												onChange: (event) => {
+													setSecretValues((values) => ({
+														...values,
+														[slot.credentialRef]: event.target.value
+													}));
+												}
+											})] })
+										}, slot.credentialRef))]
+									}, server.sourceName)),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: panel_module_css_default.formFooter,
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [
+											tt("connectors.import.conflict"),
+											" ",
+											/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+												value: conflict,
+												onChange: (event) => {
+													setConflict(event.target.value);
+												},
+												children: [
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+														value: "reject",
+														children: tt("connectors.import.conflict.reject")
+													}),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+														value: "replace",
+														children: tt("connectors.import.conflict.replace")
+													}),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+														value: "rename",
+														children: tt("connectors.import.conflict.rename")
+													})
+												]
+											})
+										] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: panel_module_css_default.primaryButton,
+											disabled: busy,
+											onClick: () => {
+												onImport();
+											},
+											children: tt("connectors.import.submit")
+										})]
+									})
+								]
+							})
+						]
 					}),
 					formOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
 						className: panel_module_css_default.studioForm,
@@ -584,6 +993,10 @@ window.__ModuleLoader__.load({
 							onSave(event);
 						},
 						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.studioSummary,
+								children: tt("connectors.advanced.title")
+							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: panel_module_css_default.formGridThree,
 								children: [

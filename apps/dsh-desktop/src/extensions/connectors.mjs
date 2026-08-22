@@ -46,10 +46,11 @@ function secretBindings(value) {
   return value.map((binding, index) => {
     if (!binding || typeof binding !== 'object' || Array.isArray(binding)) throw new TypeError(`secret binding ${index} must be an object`)
     const location = text(binding.location, `secret binding ${index} location`, { max: 16 })
-    if (!['env', 'header'].includes(location)) throw new TypeError(`secret binding ${index} has unsupported location`)
+    if (!['env', 'header', 'arg'].includes(location)) throw new TypeError(`secret binding ${index} has unsupported location`)
     const targetKey = text(binding.targetKey, `secret binding ${index} target`, { max: 500 })
     if (location === 'env' && !ENV_KEY_PATTERN.test(targetKey)) throw new TypeError(`secret binding ${index} environment key is invalid`)
     if (location === 'header' && /[\r\n]/u.test(targetKey)) throw new TypeError(`secret binding ${index} header key is invalid`)
+    if (location === 'arg' && !/^\d+$/u.test(targetKey)) throw new TypeError(`secret binding ${index} argument index is invalid`)
     const credentialRef = text(binding.credentialRef, `secret binding ${index} credential reference`, { max: 128 })
     if (!CREDENTIAL_REF_PATTERN.test(credentialRef)) throw new TypeError(`secret binding ${index} credential reference is invalid`)
     const template = text(binding.template, `secret binding ${index} template`, { max: 64 })
@@ -113,11 +114,14 @@ export function validateConnectorInput(value) {
   const transport = text(value.transport ?? 'stdio', 'MCP transport', { max: 32 })
   if (!MCP_TRANSPORTS.has(transport)) throw new TypeError('unsupported MCP transport')
   if (transport === 'stdio') {
+    const args = stringList(value.args, 'MCP arguments')
+    const argBindings = (bindings ?? []).filter((binding) => binding.location === 'arg')
+    if (argBindings.some((binding) => Number(binding.targetKey) >= args.length)) throw new TypeError('secret binding argument index is out of range')
     return {
       ...base,
       transport,
       command: text(value.command, 'MCP command', { max: 500 }),
-      args: stringList(value.args, 'MCP arguments'),
+      args,
       ...(value.cwd === undefined ? {} : { cwd: text(value.cwd, 'MCP working directory', { max: 2_000 }) }),
     }
   }
@@ -139,7 +143,16 @@ export function renderMcpConnectorPatch(connectors) {
     lines.push(`      transport: ${yamlValue(connector.transport)}`)
     if (connector.transport === 'stdio') {
       lines.push(`      command: ${yamlValue(connector.command)}`)
-      if (connector.args.length) lines.push(`      args: ${yamlValue(connector.args)}`)
+      const argBindings = new Map((connector.secretBindings ?? [])
+        .filter((binding) => binding.location === 'arg')
+        .map((binding) => [binding.targetKey, binding]))
+      if (connector.args.length) {
+        lines.push('      args:')
+        for (const [index, argument] of connector.args.entries()) {
+          const binding = argBindings.get(String(index))
+          lines.push(`        - ${binding ? `!!js process.env.${binding.credentialRef}` : yamlValue(argument)}`)
+        }
+      }
       if (connector.cwd) lines.push(`      cwd: ${yamlValue(connector.cwd)}`)
       const plainEnv = Object.entries(connector.plainEnv ?? {})
       const envBindings = (connector.secretBindings ?? []).filter((binding) => binding.location === 'env')
@@ -196,10 +209,11 @@ export async function commandExists(command, env = process.env) {
 }
 
 export class ConnectorStore {
-  constructor({ path, fetchImpl = globalThis.fetch, env = process.env }) {
+  constructor({ path, fetchImpl = globalThis.fetch, env = process.env, environmentProvider = () => env }) {
     this.path = path
     this.fetchImpl = fetchImpl
     this.env = env
+    this.environmentProvider = environmentProvider
   }
 
   async list() {
@@ -235,12 +249,17 @@ export class ConnectorStore {
   async check(id) {
     const connector = (await this.list()).find((item) => item.id === id)
     if (!connector) throw new Error(`connector ${id} was not found`)
-    const missingSecrets = connector.secretEnvKeys.filter((key) => !this.env[key])
+    const env = this.environmentProvider()
+    const requiredReferences = [
+      ...connector.secretEnvKeys,
+      ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
+    ]
+    const missingSecrets = requiredReferences.filter((key, index, keys) => keys.indexOf(key) === index && !env[key])
     if (missingSecrets.length) {
       return { ok: false, state: 'missing-credentials', detail: `缺少环境变量：${missingSecrets.join(', ')}` }
     }
     if (connector.transport === 'stdio') {
-      const ok = await commandExists(connector.command, this.env)
+      const ok = await commandExists(connector.command, env)
       return { ok, state: ok ? 'ready' : 'command-not-found', detail: ok ? '命令可用，尚未启动进程' : `找不到命令：${connector.command}` }
     }
     const controller = new AbortController()
