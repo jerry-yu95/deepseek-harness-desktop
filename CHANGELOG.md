@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.32 - 2026-08-22
+
+- Added a Recommended Connectors catalog with verified official MCP JSON templates for GitHub, Feishu/Lark, and GitLab; TAPD remains documented as awaiting a stable official JSON template.
+- Added one-click preview and import for official `mcpServers` JSON, including multi-server selection, conflict handling, stdio/HTTP transport normalization, and credential placeholder detection.
+- Added encrypted desktop-only credential bindings for environment variables, HTTP headers, and stdio arguments; connector records and generated profiles never persist plaintext tokens.
+- Kept the advanced custom connector form available for providers without a verified preset, establishing the generic adapter boundary for future WorkBuddy, CodeBuddy, Trae, and Qoder integrations.
+- Added main-process IPC, parser, import, encryption, profile, and extension-center regression coverage.
+
 ## 0.1.31 - 2026-08-22
 
 - Fixed the Skills and Connectors sidebar entries opening an empty extension-center view because React received unbound external-store callbacks.
