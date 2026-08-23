@@ -99,6 +99,8 @@ export interface McpJsonPreview {
   servers: McpJsonServerPreview[]
 }
 
+export type McpSecretSlot = McpJsonServerPreview['secretSlots'][number]
+
 export interface McpJsonImportInput {
   text: string
   selectedNames?: string[]
@@ -246,4 +248,33 @@ export function connectorEndpoint(
     return [connector.command ?? '', ...(connector.args ?? [])].filter(Boolean).join(' ')
   }
   return connector.url ?? ''
+}
+
+/** Provider-facing credential name; never expose the internal DSH reference. */
+export function mcpCredentialLabel(slot: McpSecretSlot): string {
+  return slot.placeholder ?? slot.targetKey ?? slot.credentialRef
+}
+
+/** Names of the currently selected MCP servers, preserving preview order. */
+export function selectedMcpServerNames(preview: McpJsonPreview, selected: Record<string, boolean>): string[] {
+  return preview.servers
+    .filter((server) => selected[server.sourceName])
+    .map((server) => server.sourceName)
+}
+
+/** Missing credentials for selected servers, de-duplicated by secure-store reference. */
+export function missingMcpCredentials(
+  preview: McpJsonPreview,
+  selected: Record<string, boolean>,
+  secretValues: Record<string, string>,
+): McpSecretSlot[] {
+  const seen = new Set<string>()
+  return preview.servers
+    .filter((server) => selected[server.sourceName])
+    .flatMap((server) => server.secretSlots)
+    .filter((slot) => {
+      if (slot.detected || (secretValues[slot.credentialRef] ?? '').trim() || seen.has(slot.credentialRef)) return false
+      seen.add(slot.credentialRef)
+      return true
+    })
 }

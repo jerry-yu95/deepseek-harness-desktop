@@ -87,7 +87,7 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
       </div>
 
       {toast !== null && (
-        <div className={css.toast} data-error={toast.error ? 'true' : undefined} role="status">
+        <div className={css.toast} data-error={toast.error ? 'true' : undefined} role={toast.error ? 'alert' : 'status'}>
           {toast.message}
         </div>
       )}

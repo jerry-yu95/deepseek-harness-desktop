@@ -7,6 +7,9 @@ import {
   buildConnectorInput,
   buildSkillInput,
   connectorEndpoint,
+  mcpCredentialLabel,
+  missingMcpCredentials,
+  selectedMcpServerNames,
   getDesktopBridge,
   splitComma,
   splitLines,
@@ -115,6 +118,60 @@ describe('connectorEndpoint', () => {
   it('returns the URL for remote transports', () => {
     expect(connectorEndpoint({ kind: 'mcp', transport: 'streamable-http', url: 'https://mcp.example' })).toBe('https://mcp.example')
     expect(connectorEndpoint({ kind: 'http', transport: 'http', url: 'https://api.example' })).toBe('https://api.example')
+  })
+})
+
+describe('MCP onboarding helpers', () => {
+  const preview = {
+    servers: [
+      {
+        sourceName: 'github',
+        suggestedId: 'github',
+        transport: 'streamable-http' as const,
+        url: 'https://api.githubcopilot.com/mcp/',
+        plainEnv: {},
+        plainHeaders: {},
+        secretSlots: [
+          {
+            location: 'header' as const,
+            targetKey: 'Authorization',
+            credentialRef: 'DSH_CONNECTOR_GITHUB_AUTHORIZATION',
+            template: 'Bearer ${secret}' as const,
+            placeholder: 'GITHUB_PERSONAL_ACCESS_TOKEN',
+            detected: false,
+          },
+        ],
+      },
+      {
+        sourceName: 'docs',
+        suggestedId: 'docs',
+        transport: 'streamable-http' as const,
+        url: 'https://example.com/mcp',
+        plainEnv: {},
+        plainHeaders: {},
+        secretSlots: [
+          {
+            location: 'header' as const,
+            targetKey: 'Authorization',
+            credentialRef: 'DSH_CONNECTOR_GITHUB_AUTHORIZATION',
+            template: 'Bearer ${secret}' as const,
+            detected: false,
+          },
+        ],
+      },
+    ],
+  }
+
+  it('keeps selection order and shows provider-facing credential labels', () => {
+    expect(selectedMcpServerNames(preview, { github: true, docs: false })).toEqual(['github'])
+    expect(mcpCredentialLabel(preview.servers[0].secretSlots[0])).toBe('GITHUB_PERSONAL_ACCESS_TOKEN')
+  })
+
+  it('reports one missing credential for duplicate secure references', () => {
+    expect(missingMcpCredentials(preview, { github: true, docs: true }, {})).toHaveLength(1)
+    expect(missingMcpCredentials(preview, { github: true, docs: true }, {
+      DSH_CONNECTOR_GITHUB_AUTHORIZATION: 'token',
+    })).toEqual([])
   })
 })
 

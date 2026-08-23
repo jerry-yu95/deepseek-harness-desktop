@@ -1,12 +1,15 @@
 /**
- * Connector catalog and registry. The normal path is provider JSON preview ->
- * replace only missing credentials -> encrypted desktop import. The old
- * low-level form remains under the explicit advanced button.
+ * Connector catalog and registry. The normal path is provider template or
+ * official JSON -> preview -> fill only missing credentials -> encrypted
+ * desktop import. Low-level fields remain available under Custom connector.
  */
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   buildConnectorInput,
   connectorEndpoint,
+  mcpCredentialLabel,
+  missingMcpCredentials,
+  selectedMcpServerNames,
   type ConnectorCheckResult,
   type ConnectorRecord,
   type DesktopBridge,
@@ -26,6 +29,14 @@ export interface ConnectorsTabProps {
   notify: (message: string, error?: boolean) => void
 }
 
+function friendlyImportError(error: unknown): string {
+  const message = errorMessage(error)
+  if (message.startsWith('connector-conflict:')) {
+    return tt('connectors.import.conflictError', { name: message.slice('connector-conflict:'.length) })
+  }
+  return message
+}
+
 export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps) {
   const [connectors, setConnectors] = useState<ConnectorRecord[] | null>(null)
   const [health, setHealth] = useState<HealthMap>({})
@@ -38,13 +49,17 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   const [secretValues, setSecretValues] = useState<Record<string, string>>({})
   const [conflict, setConflict] = useState<'reject' | 'replace' | 'rename'>('reject')
   const [importSource, setImportSource] = useState<ImportSource>({ kind: 'json' })
+  const [importError, setImportError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [kind, setKind] = useState<'mcp' | 'http'>('mcp')
   const [transport, setTransport] = useState<'stdio' | 'streamable-http'>('stdio')
+  const secretInputs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const mcp = kind === 'mcp'
   const remote = !mcp || transport !== 'stdio'
   const canImportJson = typeof bridge.previewMcpJson === 'function' && typeof bridge.importMcpJson === 'function'
+  const selectedNames = preview === null ? [] : selectedMcpServerNames(preview, selected)
+  const missingSecrets = preview === null ? [] : missingMcpCredentials(preview, selected, secretValues)
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -56,6 +71,28 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
 
   useEffect(() => { void load() }, [load, refreshKey])
 
+  const closeImport = useCallback(() => {
+    setImportOpen(false)
+    setJsonText('')
+    setPreview(null)
+    setSelected({})
+    setSecretValues({})
+    setConflict('reject')
+    setImportSource({ kind: 'json' })
+    setImportError(null)
+    secretInputs.current = {}
+  }, [])
+
+  const openJsonImport = useCallback(() => {
+    setImportSource({ kind: 'json' })
+    setJsonText('')
+    setPreview(null)
+    setSelected({})
+    setSecretValues({})
+    setImportError(null)
+    setImportOpen(true)
+  }, [])
+
   const previewJson = useCallback(async (text: string, source: ImportSource = { kind: 'json' }): Promise<void> => {
     if (!canImportJson || bridge.previewMcpJson === undefined) {
       notify(tt('connectors.import.desktopRequired'), true)
@@ -66,13 +103,14 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     setImportOpen(true)
     setPreview(null)
     setSecretValues({})
+    setImportError(null)
     setBusy(true)
     try {
       const result = await bridge.previewMcpJson(text)
       setPreview(result)
       setSelected(Object.fromEntries(result.servers.map((server) => [server.sourceName, true])))
     } catch (error) {
-      notify(errorMessage(error), true)
+      setImportError(friendlyImportError(error))
     } finally {
       setBusy(false)
     }
@@ -85,19 +123,17 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
 
   const onImport = async (): Promise<void> => {
     if (preview === null || bridge.importMcpJson === undefined) return
-    const selectedNames = preview.servers.filter((server) => selected[server.sourceName]).map((server) => server.sourceName)
     if (selectedNames.length === 0) {
-      notify(tt('connectors.import.selectOne'), true)
+      setImportError(tt('connectors.import.selectOne'))
       return
     }
-    const missing = preview.servers
-      .filter((server) => selected[server.sourceName])
-      .flatMap((server) => server.secretSlots)
-      .filter((slot) => !slot.detected && !(secretValues[slot.credentialRef] ?? '').trim())
-    if (missing.length > 0) {
-      notify(tt('connectors.import.missingSecret', { name: missing[0].credentialRef }), true)
+    if (missingSecrets.length > 0) {
+      const first = missingSecrets[0]
+      setImportError(tt('connectors.import.missingSecret', { name: mcpCredentialLabel(first) }))
+      requestAnimationFrame(() => { secretInputs.current[first.credentialRef]?.focus() })
       return
     }
+    setImportError(null)
     setBusy(true)
     try {
       const result = await bridge.importMcpJson({
@@ -107,15 +143,22 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
         source: importSource,
       })
-      notify(tt('connectors.imported', { count: result.imported.length }))
-      setImportOpen(false)
-      setJsonText('')
-      setPreview(null)
-      setSelected({})
-      setSecretValues({})
       await load()
+      const checks = await Promise.all(result.imported.map(async (connector) => {
+        try {
+          return [connector.id, await bridge.checkConnector(connector.id)] as const
+        } catch {
+          return null
+        }
+      }))
+      const completedChecks = checks.filter((check): check is Exclude<typeof check, null> => check !== null)
+      if (completedChecks.length > 0) {
+        setHealth((current) => ({ ...current, ...Object.fromEntries(completedChecks) }))
+      }
+      notify(tt('connectors.imported', { count: result.imported.length }))
+      closeImport()
     } catch (error) {
-      notify(errorMessage(error), true)
+      setImportError(friendlyImportError(error))
     } finally {
       setBusy(false)
     }
@@ -205,39 +248,104 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     <div className={css.tabBody}>
       <div className={css.toolbar}>
         <button type="button" className={css.primaryButton} disabled={busy} onClick={() => { setCatalogOpen((open) => !open) }}>{tt('connectors.catalog.title')}</button>
-        <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={() => { setImportSource({ kind: 'json' }); setJsonText(''); setPreview(null); setImportOpen(true) }}>{tt('connectors.import.open')}</button>
+        <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={openJsonImport}>{tt('connectors.import.open')}</button>
         <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setFormOpen((open) => !open) }}>{tt('connectors.create')}</button>
       </div>
 
       {catalogOpen && <section className={css.catalog}><h3 className={css.sectionTitle}>{tt('connectors.catalog.title')}</h3>{CONNECTOR_PRESETS.map(renderPreset)}</section>}
 
       {importOpen && (
-        <section className={css.studioForm}>
-          <div className={css.formHeader}>
-            <div><h3 className={css.sectionTitle}>{tt('connectors.import.title')}</h3><p className={css.formHint}>{tt('connectors.import.hint')}</p></div>
-            <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setImportOpen(false) }}>{tt('common.close')}</button>
-          </div>
-          <form onSubmit={(event) => { void onPreviewSubmit(event) }}>
-            <label>{tt('connectors.import.jsonLabel')}<textarea value={jsonText} onChange={(event) => { setJsonText(event.target.value); setPreview(null) }} rows={8} placeholder={tt('connectors.import.jsonPlaceholder')} /></label>
-            <div className={css.formFooter}><span>{tt('connectors.import.noSecret')}</span><button type="submit" disabled={busy || jsonText.trim().length === 0}>{tt('connectors.import.preview')}</button></div>
-          </form>
-          {preview !== null && (
-            <div className={css.importPreview}>
-              <div className={css.formHeader}><strong>{tt('connectors.import.servers', { count: preview.servers.length })}</strong><label className={css.inlineLabel}><input type="checkbox" checked={preview.servers.every((server) => selected[server.sourceName])} onChange={(event) => { setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked]))) }} /> {tt('connectors.import.selectAll')}</label></div>
-              {preview.servers.map((server) => (
-                <div key={server.sourceName} className={css.importServer}>
-                  <label className={css.importServerHeader}><input type="checkbox" checked={Boolean(selected[server.sourceName])} onChange={(event) => { setSelected((items) => ({ ...items, [server.sourceName]: event.target.checked })) }} /><strong>{server.sourceName}</strong><span className={css.badge}>{server.transport}</span><span className={css.description}>{server.command ? connectorEndpoint({ kind: 'mcp', transport: 'stdio', command: server.command, args: server.args }) : server.url}</span></label>
-                  {selected[server.sourceName] && server.secretSlots.map((slot) => (
-                    <label key={slot.credentialRef} className={css.secretRow}>
-                      {slot.detected ? <span>{tt('connectors.import.detected', { name: slot.credentialRef })}</span> : <><span>{tt('connectors.import.secret', { name: slot.placeholder ?? slot.credentialRef })}</span><input type="password" autoComplete="off" value={secretValues[slot.credentialRef] ?? ''} onChange={(event) => { setSecretValues((values) => ({ ...values, [slot.credentialRef]: event.target.value })) }} /></>}
-                    </label>
+        <div className={css.connectorOverlay} role="dialog" aria-modal="true" aria-labelledby="mcp-import-title">
+          <section className={css.connectorDialog}>
+            <header className={css.connectorDialogHeader}>
+              <div>
+                <p className={css.dialogStep}>{preview === null ? tt('connectors.import.step.json') : tt('connectors.import.step.review')}</p>
+                <h3 id="mcp-import-title" className={css.dialogTitle}>{tt('connectors.import.title')}</h3>
+                <p className={css.formHint}>{tt('connectors.import.hint')}</p>
+              </div>
+              <button type="button" className={css.secondaryButton} disabled={busy} onClick={closeImport}>{tt('common.close')}</button>
+            </header>
+
+            <div className={css.connectorDialogBody}>
+              {importError !== null && <div className={css.dialogError} role="alert">{importError}</div>}
+              {preview === null ? (
+                <form id="mcp-json-import-form" onSubmit={(event) => { void onPreviewSubmit(event) }}>
+                  <label className={css.dialogField}>
+                    <span>{tt('connectors.import.jsonLabel')}</span>
+                    <textarea className={css.jsonEditor} value={jsonText} onChange={(event) => { setJsonText(event.target.value); setImportError(null) }} placeholder={tt('connectors.import.jsonPlaceholder')} autoFocus />
+                  </label>
+                </form>
+              ) : (
+                <div className={css.importPreview}>
+                  <div className={css.formHeader}>
+                    <strong>{tt('connectors.import.servers', { count: preview.servers.length })}</strong>
+                    <label className={css.inlineLabel}><input type="checkbox" checked={preview.servers.every((server) => selected[server.sourceName])} onChange={(event) => { setImportError(null); setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked]))) }} /> {tt('connectors.import.selectAll')}</label>
+                  </div>
+                  {preview.servers.map((server) => (
+                    <div key={server.sourceName} className={css.importServer}>
+                      <label className={css.importServerHeader}>
+                        <input type="checkbox" checked={Boolean(selected[server.sourceName])} onChange={(event) => { setImportError(null); setSelected((items) => ({ ...items, [server.sourceName]: event.target.checked })) }} />
+                        <strong>{server.sourceName}</strong>
+                        <span className={css.badge}>{server.transport}</span>
+                        <span className={css.description}>{server.command ? connectorEndpoint({ kind: 'mcp', transport: 'stdio', command: server.command, args: server.args }) : server.url}</span>
+                      </label>
+                      {selected[server.sourceName] && server.secretSlots.map((slot) => (
+                        <label key={slot.credentialRef} className={css.secretRow}>
+                          {slot.detected ? (
+                            <span>{tt('connectors.import.detected', { name: mcpCredentialLabel(slot) })}</span>
+                          ) : (
+                            <>
+                              <span>{mcpCredentialLabel(slot)}</span>
+                              <input
+                                ref={(node) => { secretInputs.current[slot.credentialRef] = node }}
+                                type="password"
+                                autoComplete="off"
+                                required
+                                aria-invalid={missingSecrets.some((missing) => missing.credentialRef === slot.credentialRef) && importError !== null}
+                                placeholder={tt('connectors.import.credentialPlaceholder')}
+                                value={secretValues[slot.credentialRef] ?? ''}
+                                onChange={(event) => { setImportError(null); setSecretValues((values) => ({ ...values, [slot.credentialRef]: event.target.value })) }}
+                              />
+                            </>
+                          )}
+                        </label>
+                      ))}
+                    </div>
                   ))}
                 </div>
-              ))}
-              <div className={css.formFooter}><label>{tt('connectors.import.conflict')} <select value={conflict} onChange={(event) => { setConflict(event.target.value as typeof conflict) }}><option value="reject">{tt('connectors.import.conflict.reject')}</option><option value="replace">{tt('connectors.import.conflict.replace')}</option><option value="rename">{tt('connectors.import.conflict.rename')}</option></select></label><button type="button" className={css.primaryButton} disabled={busy} onClick={() => { void onImport() }}>{tt('connectors.import.submit')}</button></div>
+              )}
             </div>
-          )}
-        </section>
+
+            <footer className={css.connectorDialogFooter}>
+              <div className={css.dialogFooterStatus} data-ready={preview !== null && selectedNames.length > 0 && missingSecrets.length === 0 ? 'true' : undefined}>
+                {preview === null
+                  ? tt('connectors.import.noSecret')
+                  : selectedNames.length === 0
+                    ? tt('connectors.import.selectOne')
+                    : missingSecrets.length > 0
+                      ? tt('connectors.import.missingCount', { count: missingSecrets.length })
+                      : tt('connectors.import.ready')}
+              </div>
+              <div className={css.connectorDialogActions}>
+                {preview !== null && (
+                  <>
+                    <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setPreview(null); setImportError(null) }}>{tt('connectors.import.edit')}</button>
+                    <label className={css.conflictField}>{tt('connectors.import.conflict')} <select value={conflict} onChange={(event) => { setConflict(event.target.value as typeof conflict); setImportError(null) }}><option value="reject">{tt('connectors.import.conflict.reject')}</option><option value="replace">{tt('connectors.import.conflict.replace')}</option><option value="rename">{tt('connectors.import.conflict.rename')}</option></select></label>
+                  </>
+                )}
+                <button
+                  type={preview === null ? 'submit' : 'button'}
+                  form={preview === null ? 'mcp-json-import-form' : undefined}
+                  className={css.primaryButton}
+                  disabled={busy || (preview === null ? jsonText.trim().length === 0 : selectedNames.length === 0)}
+                  onClick={preview === null ? undefined : () => { void onImport() }}
+                >
+                  {preview === null ? tt('connectors.import.preview') : tt('connectors.import.submit')}
+                </button>
+              </div>
+            </footer>
+          </section>
+        </div>
       )}
 
       {formOpen && (

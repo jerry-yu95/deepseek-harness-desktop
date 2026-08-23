@@ -91,6 +91,8 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 }
 
 .panel {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -157,6 +159,7 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 }
 
 .panelContent {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -382,13 +385,157 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   color: var(--dsw-alias-label-secondary);
 }
 
+.connectorOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  display: flex;
+  padding: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.connectorDialog {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  height: 100%;
+  max-height: 760px;
+  min-height: 0;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  box-shadow: 0 16px 48px rgb(0 0 0 / 20%);
+}
+
+.connectorDialogHeader {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.dialogStep {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.connectorDialogBody {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.dialogField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  height: 100%;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.jsonEditor {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 280px;
+  padding: 10px 12px;
+  resize: vertical;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-field, var(--dsw-alias-bg-base));
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+}
+
+.jsonEditor:focus,
+.connectorDialog input:focus,
+.connectorDialog select:focus {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 1px;
+}
+
+.dialogError {
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-danger-primary, #f66);
+  background: color-mix(in srgb, var(--dsw-alias-state-danger-primary, #f66) 9%, transparent);
+  border: 1px solid var(--dsw-alias-state-danger-primary, #f66);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.connectorDialogFooter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+}
+
+.dialogFooterStatus {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  overflow-wrap: anywhere;
+}
+
+.dialogFooterStatus[data-ready] {
+  color: var(--dsw-alias-state-success-primary, #1aa260);
+}
+
+.connectorDialogActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.conflictField {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.conflictField select {
+  padding: 5px 7px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-field, var(--dsw-alias-bg-base));
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+}
+
 .importPreview {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  margin: 0;
+  padding: 0;
 }
 
 .importServer {
@@ -442,6 +589,10 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   background: var(--dsw-alias-bg-field, var(--dsw-alias-bg-base));
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 6px;
+}
+
+.secretRow input[aria-invalid='true'] {
+  border-color: var(--dsw-alias-state-danger-primary, #f66);
 }
 
 /* --- list cards ---------------------------------------------------------------- */
@@ -554,17 +705,58 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 }
 
 .toast {
-  flex: none;
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 50;
+  max-height: 40%;
   padding: 8px 12px;
   font-size: 13px;
   border-radius: 8px;
   border: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
   color: var(--dsw-alias-label-primary);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+  overflow-y: auto;
   overflow-wrap: anywhere;
 }
 
 .toast[data-error] {
   color: var(--dsw-alias-state-danger-primary, #f66);
   border-color: var(--dsw-alias-state-danger-primary, #f66);
+}
+
+@media (max-width: 760px) {
+  .connectorOverlay {
+    padding: 8px;
+  }
+
+  .connectorDialogHeader,
+  .connectorDialogBody,
+  .connectorDialogFooter {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .connectorDialogFooter,
+  .connectorDialogActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .connectorDialogActions {
+    width: 100%;
+  }
+
+  .connectorDialogActions > button,
+  .conflictField,
+  .conflictField select {
+    width: 100%;
+  }
+
+  .secretRow {
+    grid-template-columns: 1fr;
+    padding-left: 0;
+  }
 }
