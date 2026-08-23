@@ -15,8 +15,12 @@ describe('PanelController external-store callbacks', () => {
     expect(listener).toHaveBeenCalledTimes(1)
     expect(getSnapshot()).toEqual({ panelOpen: true, tab: 'connectors' })
 
+    controller.open('learning')
+    expect(listener).toHaveBeenCalledTimes(2)
+    expect(getSnapshot()).toEqual({ panelOpen: true, tab: 'learning' })
+
     unsubscribe()
     controller.close()
-    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledTimes(2)
   })
 })

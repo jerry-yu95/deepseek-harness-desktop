@@ -18,7 +18,7 @@ async function writeJson(path, value) {
 test('client source discovery reports only safe availability metadata', async () => {
   const homeDir = await mkdtemp(join(tmpdir(), 'dsh-mcp-clients-'))
   try {
-    await writeJson(join(homeDir, '.workbuddy', 'mcp.json'), {
+    await writeJson(join(homeDir, '.workbuddy', '.mcp.json'), {
       mcpServers: { work: { command: 'node', args: ['work.mjs'], env: { API_KEY: 'work-secret' } } },
     })
     await writeJson(join(homeDir, '.codebuddy', 'mcp.json'), {
@@ -34,7 +34,7 @@ test('client source discovery reports only safe availability metadata', async ()
     assert.deepEqual(sources.map(({ clientId, status, serverCount }) => ({ clientId, status, serverCount })), [
       { clientId: 'workbuddy', status: 'available', serverCount: 1 },
       { clientId: 'codebuddy', status: 'available', serverCount: 1 },
-      { clientId: 'trae', status: 'manual', serverCount: 0 },
+      { clientId: 'trae', status: 'not-found', serverCount: 0 },
       { clientId: 'qoder', status: 'empty', serverCount: 0 },
     ])
     assert.doesNotMatch(JSON.stringify(sources), /work-secret|Jerrymu|mcp\.json/u)
@@ -47,18 +47,69 @@ test('client source discovery reports only safe availability metadata', async ()
   }
 })
 
-test('client source discovery distinguishes missing, manual and invalid sources', async () => {
+test('client source discovery distinguishes missing and invalid sources', async () => {
   const homeDir = await mkdtemp(join(tmpdir(), 'dsh-mcp-clients-'))
   try {
     await writeJson(join(homeDir, '.qoder', 'settings.json'), '{ invalid json')
     const sources = await discoverMcpClientSources({ homeDir })
     assert.equal(sources.find((item) => item.clientId === 'workbuddy').status, 'not-found')
-    assert.equal(sources.find((item) => item.clientId === 'trae').status, 'manual')
+    assert.equal(sources.find((item) => item.clientId === 'trae').status, 'not-found')
     assert.equal(sources.find((item) => item.clientId === 'qoder').status, 'invalid')
-    await assert.rejects(readMcpClientSource('trae', { homeDir }), /manual source selection/u)
+    await assert.rejects(readMcpClientSource('trae', { homeDir }), /was not found/u)
     await assert.rejects(readMcpClientSource('unknown', { homeDir }), /unsupported MCP client/u)
   } finally {
     await rm(homeDir, { recursive: true, force: true })
+  }
+})
+
+test('discovery skips empty and invalid higher-priority files in favor of a usable source', async () => {
+  const homeDir = await mkdtemp(join(tmpdir(), 'dsh-mcp-fallback-'))
+  try {
+    await writeJson(join(homeDir, '.workbuddy', '.mcp.json'), { mcpServers: {} })
+    await writeJson(join(homeDir, '.workbuddy', 'mcp.json'), {
+      mcpServers: { work: { command: 'node', args: ['work.mjs'] } },
+    })
+    await writeJson(join(homeDir, '.codebuddy', '.mcp.json'), '{ invalid json')
+    await writeJson(join(homeDir, '.codebuddy', 'mcp.json'), {
+      mcpServers: { code: { command: 'node', args: ['code.mjs'] } },
+    })
+
+    const sources = await discoverMcpClientSources({ homeDir })
+    assert.equal(sources.find((item) => item.clientId === 'workbuddy').status, 'available')
+    assert.equal(sources.find((item) => item.clientId === 'codebuddy').status, 'available')
+    assert.match((await readMcpClientSource('workbuddy', { homeDir })).text, /work\.mjs/u)
+    assert.match((await readMcpClientSource('codebuddy', { homeDir })).text, /code\.mjs/u)
+  } finally {
+    await rm(homeDir, { recursive: true, force: true })
+  }
+})
+
+test('project sources take precedence and TRAE and Qoder use bounded application paths', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-mcp-project-'))
+  const homeDir = join(root, 'home')
+  const projectRoot = join(root, 'project')
+  const appDataDir = join(root, 'app-data')
+  try {
+    await writeJson(join(homeDir, '.qoder', 'settings.json'), {
+      mcpServers: { userQoder: { command: 'node', args: ['user.mjs'] } },
+    })
+    await writeJson(join(projectRoot, '.qoder', 'settings.local.json'), {
+      mcpServers: { projectQoder: { command: 'node', args: ['project.mjs'] } },
+    })
+    await writeJson(join(appDataDir, 'Trae CN', 'User', 'mcp.json'), {
+      mcpServers: { trae: { command: 'node', args: ['trae.mjs'] } },
+    })
+
+    const options = { homeDir, projectRoot, appDataDir, platform: 'darwin' }
+    const sources = await discoverMcpClientSources(options)
+    const qoder = sources.find((item) => item.clientId === 'qoder')
+    const trae = sources.find((item) => item.clientId === 'trae')
+    assert.deepEqual({ status: qoder.status, scope: qoder.scope }, { status: 'available', scope: 'project' })
+    assert.deepEqual({ status: trae.status, scope: trae.scope }, { status: 'available', scope: 'user' })
+    assert.match((await readMcpClientSource('qoder', options)).text, /project\.mjs/u)
+    assert.match((await readMcpClientSource('trae', options)).text, /trae\.mjs/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })
 

@@ -7,8 +7,8 @@
  * the browser session (no persistence).
  */
 
-/** The two center tabs; each also owns one sidebar entry. */
-export type ExtensionTab = 'skills' | 'connectors'
+/** Center tabs; each also owns one sidebar entry. */
+export type ExtensionTab = 'skills' | 'connectors' | 'learning'
 
 /** Immutable controller snapshot for UI subscriptions. */
 export interface PanelControllerSnapshot {

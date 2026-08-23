@@ -10,6 +10,17 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 
 [下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
+## 为什么做这个项目
+
+DeepSeek Harness 的价值不只是一套聊天界面，而是一套可以组合模型、工具、权限、Skills、工作流和插件的 Agent 运行底座。本项目不另造一套 Agent Runtime，而是在官方机制之上补齐普通用户真正会遇到的产品缺口：可安装、可理解、可扩展、可远程、可观察、可恢复。
+
+- **官方底座不魔改**：保留官方 Agent Loop、Cordis、权限和插件语义，官方内核更新与社区桌面版本分轨管理；
+- **扩展中心**：把 Skills、MCP/HTTP 连接器和学习入口放进官方侧边栏，创建、导入、诊断与移除都在一个地方完成；
+- **连接器优先复用官方 JSON**：自动查找 WorkBuddy、CodeBuddy、TRAE、Qoder 本地 MCP 配置，也支持粘贴服务商提供的 `mcpServers` JSON，只补缺少的令牌；
+- **Agent Harness 增强层**：标准、自适应和增强编排可切换，缓存命中、Agent 轨迹、模型健康与 Token 周期统计可观察；
+- **真实桌面交付**：支持 Windows x64、macOS Intel 和 Apple Silicon，并提供配置隔离、更新备份与失败回退；
+- **开源边界清楚**：社区增强不会冒充 DeepSeek 官方能力，第三方代码和上游来源保留许可与署名。
+
 | 原版界面无损加载 | 桌面扩展坞 |
 | --- | --- |
 | ![桌面启动界面](docs/screenshots/desktop-startup.png) | ![插件与技能扩展坞](docs/screenshots/desktop-extension-dock.png) |
@@ -17,8 +28,18 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 - 保留任务看板、Git 图谱、右侧面板、SSH、移动端远程、实时统计、宠物与自定义皮肤；
 - 独立 `desktop` profile，不覆盖既有 DSH 配置，运行时仅监听回环地址；
 - 内置崩溃恢复、日志脱敏与轮转、窗口状态恢复、严格导航与权限策略；
-- 扩展坞支持社区 DSH bundle 安装/回滚，以及项目、DSH、Agents 技能发现与安全导入；
+- 扩展中心支持 Skills 创建/导入、官方 MCP JSON、外部客户端配置发现、连接器诊断，以及社区 DSH bundle 安装/回滚；
 - 安装包自带官方 DSH、pnpm 与原生依赖，无需另外安装 Node.js。
+
+## 扩展中心
+
+侧边栏的「技能」「连接器」「学习」是社区桌面插件提供的统一入口：
+
+- **技能**：查看 Harness 已发现的 Skill，创建合规的 `SKILL.md`，或导入现有技能目录。Skill 是给 Agent 的专业操作手册，不等同于 MCP 或 Cordis 插件；
+- **连接器**：使用 GitHub、飞书/Lark、GitLab 等官方 MCP 模板，粘贴任意官方 `mcpServers` JSON，或一键发现 WorkBuddy、CodeBuddy、TRAE、Qoder 的本地配置；
+- **学习**：用通俗产品语言理解 Harness 五层结构、权限、模式、插件边界，以及本项目每项社区增强背后的设计取舍。
+
+凭证只在桌面主进程加密保存，不写入连接器记录、生成的 profile、日志或导出 JSON。连接器诊断会分别显示配置、凭证、运行时和 Harness 注册状态，避免只给一个无法行动的“连接失败”。
 
 当前公开构建未使用付费代码签名证书，Windows SmartScreen 或 macOS Gatekeeper 可能显示未知发布者。请只从本项目 Releases 下载并核对 SHA-256。Windows 支持应用内更新；macOS 会检测新版并打开本项目 Release 页，由用户手动安装。具体步骤见[安装指南](docs/install.md)。
 

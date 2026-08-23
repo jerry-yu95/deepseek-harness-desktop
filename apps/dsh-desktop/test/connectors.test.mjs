@@ -82,7 +82,14 @@ test('connector store persists, updates, removes and checks without executing MC
     await store.save({ id: 'local-git', name: 'Local Git', kind: 'mcp', command: 'git', args: [] })
     assert.equal((await store.list()).length, 1)
     assert.equal((await store.list())[0].name, 'Local Git')
-    assert.equal((await store.check('local-git')).ok, true)
+    const checked = await store.check('local-git')
+    assert.equal(checked.ok, true)
+    assert.deepEqual(checked.checks.map(({ id, status }) => ({ id, status })), [
+      { id: 'configuration', status: 'pass' },
+      { id: 'credentials', status: 'pass' },
+      { id: 'runtime', status: 'pass' },
+      { id: 'registration', status: 'pass' },
+    ])
     assert.match(await readFile(path, 'utf8'), /local-git/)
     await store.remove('local-git')
     assert.deepEqual(await store.list(), [])
@@ -114,7 +121,31 @@ test('connector health reports missing credentials before network access', async
     await store.save({ id: 'private-api', name: 'Private', kind: 'http', url: 'https://example.com', secretEnvKeys: ['API_TOKEN'] })
     const result = await store.check('private-api')
     assert.equal(result.state, 'missing-credentials')
+    assert.equal(result.checks.find((item) => item.id === 'credentials').status, 'fail')
+    assert.equal(result.checks.find((item) => item.id === 'runtime').status, 'skipped')
     assert.equal(fetched, false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('remote diagnostics distinguish reachable auth challenges from server failures', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connector-http-'))
+  try {
+    const path = join(root, 'connectors.json')
+    let status = 401
+    const store = new ConnectorStore({ path, fetchImpl: async () => ({ status }), env: {} })
+    await store.save({ id: 'remote-mcp', name: 'Remote', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp' })
+    const challenge = await store.check('remote-mcp')
+    assert.equal(challenge.ok, true)
+    assert.equal(challenge.state, 'auth-required')
+    assert.equal(challenge.checks.find((item) => item.id === 'runtime').status, 'warn')
+
+    status = 503
+    const failed = await store.check('remote-mcp')
+    assert.equal(failed.ok, false)
+    assert.equal(failed.state, 'server-error')
+    assert.equal(failed.checks.find((item) => item.id === 'runtime').status, 'fail')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

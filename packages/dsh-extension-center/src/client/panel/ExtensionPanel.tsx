@@ -9,6 +9,7 @@ import { tt } from '../helpers.ts'
 import type { ExtensionTab, PanelController } from './controller.ts'
 import { SkillsTab } from './SkillsTab.tsx'
 import { ConnectorsTab } from './ConnectorsTab.tsx'
+import { LearningTab } from './LearningTab.tsx'
 import css from './panel.module.css'
 
 /** Toast message shown at the panel bottom; auto-clears after 4s. */
@@ -41,6 +42,7 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
   const tabs: ReadonlyArray<{ id: ExtensionTab; label: () => string }> = [
     { id: 'skills', label: () => tt('tab.skills') },
     { id: 'connectors', label: () => tt('tab.connectors') },
+    { id: 'learning', label: () => tt('tab.learning') },
   ]
 
   return (
@@ -74,7 +76,9 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
       </nav>
 
       <div className={css.panelContent}>
-        {bridge === undefined ? (
+        {snapshot.tab === 'learning' ? (
+          <LearningTab />
+        ) : bridge === undefined ? (
           <section className={css.notice}>
             <h3>{tt('desktopOnly.title')}</h3>
             <p>{tt('desktopOnly.body')}</p>

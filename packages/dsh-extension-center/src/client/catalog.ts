@@ -62,7 +62,7 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
   {
     id: 'tapd',
     name: 'TAPD MCP',
-    description: 'TAPD 官方已提供 MCP / Skill / CLI 能力；等待其公开稳定 JSON 模板后接入预设。',
+    description: '直接粘贴 TAPD 页面提供的官方 mcpServers JSON，再替换其中令牌即可；应用不会要求重复填写组织或项目参数。',
     docsUrl: 'https://www.tapd.cn/official/intelligent_collaboration_index',
     status: 'needs-provider-json',
   },

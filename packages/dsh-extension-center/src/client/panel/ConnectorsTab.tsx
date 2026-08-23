@@ -49,6 +49,13 @@ function sourceDescription(clientId: string): string {
   return tt('connectors.sources.qoder')
 }
 
+function diagnosticLabel(id: NonNullable<ConnectorCheckResult['checks']>[number]['id']): string {
+  if (id === 'configuration') return tt('connectors.diagnostics.configuration')
+  if (id === 'credentials') return tt('connectors.diagnostics.credentials')
+  if (id === 'runtime') return tt('connectors.diagnostics.runtime')
+  return tt('connectors.diagnostics.registration')
+}
+
 export interface ConnectorsTabProps {
   bridge: DesktopBridge
   refreshKey: number
@@ -324,7 +331,9 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         <a className={css.catalogLink} href={preset.docsUrl} target="_blank" rel="noreferrer">{tt('connectors.catalog.docs')}</a>
       </div>
       {preset.json === undefined ? (
-        <span className={css.catalogPending}>{tt('connectors.catalog.waiting')}</span>
+        <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={openJsonImport}>
+          {tt('connectors.catalog.paste')}
+        </button>
       ) : (
         <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={() => { void previewJson(preset.json!, { kind: 'preset', presetId: preset.id }) }}>
           {tt('connectors.catalog.use')}
@@ -396,7 +405,6 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
             </header>
 
             <div className={css.connectorDialogBody}>
-              {importError !== null && <div className={css.dialogError} role="alert">{importError}</div>}
               {preview === null ? (
                 <form id="mcp-json-import-form" onSubmit={(event) => { void onPreviewSubmit(event) }}>
                   <label className={css.dialogField}>
@@ -446,14 +454,19 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
             </div>
 
             <footer className={css.connectorDialogFooter}>
-              <div className={css.dialogFooterStatus} data-ready={preview !== null && selectedNames.length > 0 && missingSecrets.length === 0 ? 'true' : undefined}>
-                {preview === null
+              <div
+                className={css.dialogFooterStatus}
+                data-error={importError !== null ? 'true' : undefined}
+                data-ready={importError === null && preview !== null && selectedNames.length > 0 && missingSecrets.length === 0 ? 'true' : undefined}
+                role={importError !== null ? 'alert' : 'status'}
+              >
+                {importError ?? (preview === null
                   ? tt('connectors.import.noSecret')
                   : selectedNames.length === 0
                     ? tt('connectors.import.selectOne')
                     : missingSecrets.length > 0
                       ? tt('connectors.import.missingCount', { count: missingSecrets.length })
-                      : tt('connectors.import.ready')}
+                      : tt('connectors.import.ready'))}
               </div>
               <div className={css.connectorDialogActions}>
                 {preview !== null && (
@@ -502,7 +515,21 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         {connectors.map((connector) => {
           const endpoint = connectorEndpoint(connector)
           const checked = health[connector.id]
-          return <article key={connector.id} className={css.item}><div className={css.itemBody}><div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div><p className={css.description}>{connector.description || endpoint}</p><p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p></div><div className={css.itemActions}><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div></article>
+          return <article key={connector.id} className={css.item}>
+            <div className={css.itemBody}>
+              <div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div>
+              <p className={css.description}>{connector.description || endpoint}</p>
+              <p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p>
+              {checked?.checks !== undefined && <section className={css.diagnostics} aria-label={tt('connectors.diagnostics.title')}>
+                {checked.checks.map((check) => <div key={check.id} className={css.diagnosticRow} data-status={check.status}>
+                  <span className={css.diagnosticDot} aria-hidden="true" />
+                  <strong>{diagnosticLabel(check.id)}</strong>
+                  <span>{check.detail}</span>
+                </div>)}
+              </section>}
+            </div>
+            <div className={css.itemActions}><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
+          </article>
         })}
       </div>}
     </div>

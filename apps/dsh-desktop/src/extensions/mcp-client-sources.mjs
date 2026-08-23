@@ -1,33 +1,66 @@
 import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, platform as currentPlatform } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 
 import { parseMcpServersJson } from './mcp-config.mjs'
+
+function candidate(path, scope = 'user') {
+  return { path, scope }
+}
+
+function defaultAppData(home, platform) {
+  if (platform === 'darwin') return join(home, 'Library', 'Application Support')
+  if (platform === 'win32') return process.env.APPDATA || join(home, 'AppData', 'Roaming')
+  return process.env.XDG_CONFIG_HOME || join(home, '.config')
+}
 
 const CLIENTS = Object.freeze([
   {
     clientId: 'workbuddy',
     clientName: 'WorkBuddy',
-    candidates: home => [join(home, '.workbuddy', 'mcp.json')],
+    candidates: ({ home, project }) => [
+      ...(project ? [candidate(join(project, '.workbuddy', '.mcp.json'), 'project'), candidate(join(project, '.workbuddy', 'mcp.json'), 'project')] : []),
+      candidate(join(home, '.workbuddy', '.mcp.json')),
+      candidate(join(home, '.workbuddy', 'mcp.json')),
+    ],
   },
   {
     clientId: 'codebuddy',
     clientName: 'CodeBuddy',
-    candidates: home => [
-      join(home, '.codebuddy', '.mcp.json'),
-      join(home, '.codebuddy', 'mcp.json'),
-      join(home, '.codebuddy.json'),
+    candidates: ({ home, project }) => [
+      ...(project ? [
+        candidate(join(project, '.mcp.json'), 'project'),
+        candidate(join(project, 'mcp.json'), 'project'),
+        candidate(join(project, '.codebuddy', '.mcp.json'), 'project'),
+        candidate(join(project, '.codebuddy', 'mcp.json'), 'project'),
+      ] : []),
+      candidate(join(home, '.codebuddy', '.mcp.json')),
+      candidate(join(home, '.codebuddy', 'mcp.json')),
+      candidate(join(home, '.codebuddy.json')),
     ],
   },
   {
     clientId: 'trae',
     clientName: 'TRAE',
-    candidates: () => [],
+    candidates: ({ home, project, appData }) => [
+      ...(project ? [candidate(join(project, '.trae', 'mcp.json'), 'project'), candidate(join(project, '.trae', '.mcp.json'), 'project'), candidate(join(project, '.mcp.json'), 'project')] : []),
+      candidate(join(home, '.trae', 'mcp.json')),
+      candidate(join(home, '.trae', '.mcp.json')),
+      candidate(join(appData, 'Trae CN', 'User', 'mcp.json')),
+      candidate(join(appData, 'Trae', 'User', 'mcp.json')),
+    ],
   },
   {
     clientId: 'qoder',
     clientName: 'Qoder',
-    candidates: home => [join(home, '.qoder', 'settings.json')],
+    candidates: ({ home, project }) => [
+      ...(project ? [
+        candidate(join(project, '.qoder', 'settings.local.json'), 'project'),
+        candidate(join(project, '.qoder', 'settings.json'), 'project'),
+        candidate(join(project, '.mcp.json'), 'project'),
+      ] : []),
+      candidate(join(home, '.qoder', 'settings.json')),
+    ],
   },
 ])
 
@@ -37,15 +70,27 @@ function clientById(clientId) {
   return client
 }
 
-async function firstReadable(paths, reader) {
-  for (const path of paths) {
+async function inspectCandidates(candidates, reader) {
+  let empty
+  let invalid
+  for (const item of candidates) {
     try {
-      return { path, text: await reader(path, 'utf8') }
+      const text = await reader(item.path, 'utf8')
+      try {
+        const parsed = parseMcpServersJson(text)
+        const source = { ...item, text, serverCount: parsed.servers.length }
+        if (source.serverCount > 0) return { status: 'available', source }
+        empty ??= source
+      } catch (error) {
+        invalid ??= { ...item, error }
+      }
     } catch (error) {
       if (error?.code !== 'ENOENT' && error?.code !== 'ENOTDIR') throw error
     }
   }
-  return undefined
+  if (empty) return { status: 'empty', source: empty }
+  if (invalid) return { status: 'invalid', source: invalid }
+  return { status: 'not-found' }
 }
 
 function inspectedSource(client, text, scope) {
@@ -60,33 +105,22 @@ function inspectedSource(client, text, scope) {
 }
 
 /** Renderer-safe availability metadata. Paths and document values stay private. */
-export async function discoverMcpClientSources({ homeDir = homedir(), reader = readFile } = {}) {
+function sourceContext({ homeDir = homedir(), projectRoot, appDataDir, platform = currentPlatform() } = {}) {
+  return { home: homeDir, project: projectRoot, appData: appDataDir ?? defaultAppData(homeDir, platform) }
+}
+
+export async function discoverMcpClientSources({ homeDir = homedir(), projectRoot, appDataDir, platform = currentPlatform(), reader = readFile } = {}) {
+  const context = sourceContext({ homeDir, projectRoot, appDataDir, platform })
   const results = []
   for (const client of CLIENTS) {
-    const candidates = client.candidates(homeDir)
-    if (candidates.length === 0) {
-      results.push({ clientId: client.clientId, clientName: client.clientName, status: 'manual', serverCount: 0, scope: 'selected-file' })
-      continue
-    }
-    let source
     try {
-      source = await firstReadable(candidates, reader)
-    } catch {
-      results.push({ clientId: client.clientId, clientName: client.clientName, status: 'invalid', serverCount: 0, scope: 'user' })
-      continue
-    }
-    if (!source) {
-      results.push({ clientId: client.clientId, clientName: client.clientName, status: 'not-found', serverCount: 0, scope: 'user' })
-      continue
-    }
-    try {
-      const parsed = parseMcpServersJson(source.text)
+      const inspected = await inspectCandidates(client.candidates(context), reader)
       results.push({
         clientId: client.clientId,
         clientName: client.clientName,
-        status: parsed.servers.length > 0 ? 'available' : 'empty',
-        serverCount: parsed.servers.length,
-        scope: 'user',
+        status: inspected.status,
+        serverCount: inspected.source?.serverCount ?? 0,
+        scope: inspected.source?.scope ?? 'user',
       })
     } catch {
       results.push({ clientId: client.clientId, clientName: client.clientName, status: 'invalid', serverCount: 0, scope: 'user' })
@@ -96,13 +130,12 @@ export async function discoverMcpClientSources({ homeDir = homedir(), reader = r
 }
 
 /** Read one verified user-level source. The caller must keep the returned text in the main process. */
-export async function readMcpClientSource(clientId, { homeDir = homedir(), reader = readFile } = {}) {
+export async function readMcpClientSource(clientId, { homeDir = homedir(), projectRoot, appDataDir, platform = currentPlatform(), reader = readFile } = {}) {
   const client = clientById(clientId)
-  const candidates = client.candidates(homeDir)
-  if (candidates.length === 0) throw new Error(`MCP client requires manual source selection:${clientId}`)
-  const source = await firstReadable(candidates, reader)
-  if (!source) throw new Error(`MCP client configuration was not found:${clientId}`)
-  return inspectedSource(client, source.text, 'user')
+  const context = sourceContext({ homeDir, projectRoot, appDataDir, platform })
+  const inspected = await inspectCandidates(client.candidates(context), reader)
+  if (inspected.status !== 'available' || !inspected.source) throw new Error(`MCP client configuration was not found or contains no services:${clientId}`)
+  return inspectedSource(client, inspected.source.text, inspected.source.scope)
 }
 
 /** Read a user-selected source without returning its local path to the renderer. */

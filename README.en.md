@@ -10,6 +10,17 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
+## Why this project exists
+
+DeepSeek Harness is more than a chat interface: it is an Agent runtime for composing models, tools, permissions, Skills, workflows, and plugins. This project does not replace that runtime. It adds the product layer everyday users need: installation, understandable controls, extensibility, remote access, observability, and recovery.
+
+- **Official foundation stays intact**: the official Agent Loop, Cordis, permissions, and plugin semantics remain the source of truth, while official-core and community-desktop updates stay separate;
+- **Extension Center**: Skills, MCP/HTTP connectors, and learning live in the official sidebar with creation, import, diagnostics, and removal in one place;
+- **Official JSON first**: discover local WorkBuddy, CodeBuddy, TRAE, and Qoder MCP configs or paste a provider's `mcpServers` JSON and fill only missing credentials;
+- **Agent Harness layer**: select Standard, Adaptive, or Enhanced orchestration and inspect cache hits, Agent traces, model health, and period-based Token usage;
+- **Real desktop delivery**: Windows x64, macOS Intel, and Apple Silicon packages with isolated configuration, safe updates, and rollback;
+- **Clear open-source boundary**: community features are not presented as official DeepSeek capabilities, and third-party licensing and attribution are preserved.
+
 | Lossless original surface | Desktop Extension Dock |
 | --- | --- |
 | ![Desktop startup](docs/screenshots/desktop-startup.png) | ![Plugin and skill Extension Dock](docs/screenshots/desktop-extension-dock.png) |
@@ -17,8 +28,18 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 - Keeps the task board, Git graph, right panel, SSH, mobile remote, live stats, pet, and custom image themes;
 - Uses an isolated `desktop` profile without overwriting an existing DSH setup, and binds only to loopback;
 - Adds crash recovery, sanitized rotating logs, window-state restore, strict navigation, and denied-by-default permissions;
-- Adds a dock for transactional community DSH bundle management and safe discovery/import of project, DSH, and Agents skills;
+- Adds an Extension Center for Skill creation/import, official MCP JSON, external-client config discovery, connector diagnostics, and transactional community DSH bundle management;
 - Bundles official DSH, pnpm, and native dependencies, so users do not need a separate Node.js installation.
+
+## Extension Center
+
+The Skills, Connectors, and Learn sidebar entries are provided by the community desktop plugin:
+
+- **Skills** lists discovered Harness Skills, creates valid `SKILL.md` bundles, and imports existing skill directories. A Skill is an Agent playbook, not an MCP server or Cordis runtime plugin;
+- **Connectors** offers verified GitHub, Feishu/Lark, and GitLab MCP templates, arbitrary official `mcpServers` JSON import, and one-click discovery for WorkBuddy, CodeBuddy, TRAE, and Qoder;
+- **Learn** explains the five Harness layers, permissions, modes, plugin boundaries, and the product reasoning behind every community enhancement in plain language.
+
+Credentials are encrypted in the desktop main process and never written into connector records, generated profiles, logs, or exported JSON. Diagnostics report configuration, credentials, runtime reachability, and Harness registration as separate stages.
 
 The public build does not use paid code-signing certificates, so Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Download only from this project's Releases and verify SHA-256. Windows supports in-app updates; macOS detects new versions and opens this project's Release page for manual installation. See the [installation guide](docs/install.en.md).
 

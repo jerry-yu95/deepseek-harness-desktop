@@ -9,7 +9,7 @@ const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/
 const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/
 const SECRET_TEMPLATES = new Set(['${secret}', 'Bearer ${secret}'])
 const SOURCE_KINDS = new Set(['custom', 'json', 'preset', 'external-client'])
-const SOURCE_SCOPES = new Set(['user', 'selected-file'])
+const SOURCE_SCOPES = new Set(['user', 'project', 'selected-file'])
 
 function text(value, field, { required = true, max = 2_000 } = {}) {
   if (!required && (value === undefined || value === null || value === '')) return ''
@@ -266,22 +266,59 @@ export class ConnectorStore {
       ...connector.secretEnvKeys,
       ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
     ]
-    const missingSecrets = requiredReferences.filter((key, index, keys) => keys.indexOf(key) === index && !env[key])
+    const uniqueReferences = requiredReferences.filter((key, index, keys) => keys.indexOf(key) === index)
+    const missingSecrets = uniqueReferences.filter((key) => !env[key])
+    const checks = [
+      { id: 'configuration', status: 'pass', detail: '配置结构有效' },
+      missingSecrets.length
+        ? { id: 'credentials', status: 'fail', detail: `缺少凭证：${missingSecrets.join(', ')}` }
+        : { id: 'credentials', status: 'pass', detail: uniqueReferences.length ? '所需凭证已安全保存' : '无需额外凭证' },
+    ]
     if (missingSecrets.length) {
-      return { ok: false, state: 'missing-credentials', detail: `缺少环境变量：${missingSecrets.join(', ')}` }
+      checks.push(
+        { id: 'runtime', status: 'skipped', detail: '补齐凭证后再检查运行环境' },
+        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表' : '连接器当前已停用' },
+      )
+      return { ok: false, state: 'missing-credentials', detail: `缺少凭证：${missingSecrets.join(', ')}`, checks }
     }
     if (connector.transport === 'stdio') {
       const ok = await commandExists(connector.command, env)
-      return { ok, state: ok ? 'ready' : 'command-not-found', detail: ok ? '命令可用，尚未启动进程' : `找不到命令：${connector.command}` }
+      checks.push(
+        { id: 'runtime', status: ok ? 'pass' : 'fail', detail: ok ? `本地命令可用：${connector.command}` : `找不到本地命令：${connector.command}` },
+        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表；保存时已触发 Harness 重载' : '连接器当前已停用' },
+      )
+      return { ok, state: ok ? 'ready' : 'command-not-found', detail: ok ? '配置、凭证和本地运行环境已就绪' : `找不到命令：${connector.command}`, checks }
     }
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 5_000)
     try {
       const response = await this.fetchImpl(connector.url, { method: 'HEAD', redirect: 'manual', signal: controller.signal })
-      const ok = response.status < 500
-      return { ok, state: ok ? 'reachable' : 'server-error', detail: `HTTP ${response.status}` }
+      const serverFailure = response.status >= 500
+      const authRequired = response.status === 401 || response.status === 403
+      const methodUnsupported = response.status === 405
+      const status = serverFailure ? 'fail' : (authRequired || methodUnsupported ? 'warn' : 'pass')
+      const runtimeDetail = authRequired
+        ? `端点可达（HTTP ${response.status}），服务要求授权；请在实际会话中验证权限`
+        : methodUnsupported
+          ? '端点可达（HTTP 405），服务不支持轻量 HEAD 探测'
+          : `端点响应 HTTP ${response.status}`
+      checks.push(
+        { id: 'runtime', status, detail: runtimeDetail },
+        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表；保存时已触发 Harness 重载' : '连接器当前已停用' },
+      )
+      return {
+        ok: !serverFailure,
+        state: serverFailure ? 'server-error' : authRequired ? 'auth-required' : methodUnsupported ? 'method-unsupported' : 'reachable',
+        detail: serverFailure ? `服务端错误：HTTP ${response.status}` : runtimeDetail,
+        checks,
+      }
     } catch (error) {
-      return { ok: false, state: 'unreachable', detail: error.name === 'AbortError' ? '连接超时' : error.message }
+      const detail = error.name === 'AbortError' ? '连接超时' : error.message
+      checks.push(
+        { id: 'runtime', status: 'fail', detail },
+        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表' : '连接器当前已停用' },
+      )
+      return { ok: false, state: 'unreachable', detail, checks }
     } finally {
       clearTimeout(timer)
     }

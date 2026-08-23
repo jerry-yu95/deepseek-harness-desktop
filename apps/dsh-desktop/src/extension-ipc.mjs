@@ -55,6 +55,7 @@ export function registerExtensionIpc({
     path: join(dshHome, 'desktop', 'connectors.json'),
     environmentProvider: connectorEnvironment,
   })
+  const sourceOptions = { projectRoot, ...mcpSourceOptions }
   const sourceSessions = new Map()
 
   const pruneSourceSessions = () => {
@@ -230,9 +231,9 @@ export function registerExtensionIpc({
   ipcMain.handle('extensions:connector-check', (_event, id) => connectorStore.check(id))
   ipcMain.handle('extensions:mcp-preview', (_event, text) => previewMcpJson(text))
   ipcMain.handle('extensions:mcp-import', (_event, input) => importMcpDocument(input, input?.text, input?.source ?? { kind: 'json' }))
-  ipcMain.handle('extensions:mcp-source-list', () => discoverMcpClientSources(mcpSourceOptions))
+  ipcMain.handle('extensions:mcp-source-list', () => discoverMcpClientSources(sourceOptions))
   ipcMain.handle('extensions:mcp-source-preview', async (_event, clientId) => {
-    const source = await readMcpClientSource(clientId, mcpSourceOptions)
+    const source = await readMcpClientSource(clientId, sourceOptions)
     return stageSource(source)
   })
   ipcMain.handle('extensions:mcp-source-pick', async (_event, clientId) => {
@@ -242,7 +243,7 @@ export function registerExtensionIpc({
       properties: ['openFile'],
     })
     if (result.canceled || result.filePaths.length !== 1) return { canceled: true }
-    const source = await readMcpSourceFile({ clientId, filePath: result.filePaths[0], ...(mcpSourceOptions?.reader ? { reader: mcpSourceOptions.reader } : {}) })
+    const source = await readMcpSourceFile({ clientId, filePath: result.filePaths[0], ...(sourceOptions?.reader ? { reader: sourceOptions.reader } : {}) })
     return { canceled: false, ...stageSource(source) }
   })
   ipcMain.handle('extensions:mcp-source-import', async (_event, input) => {

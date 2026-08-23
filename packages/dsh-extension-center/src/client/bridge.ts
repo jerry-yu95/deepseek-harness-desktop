@@ -104,7 +104,7 @@ export interface McpJsonPreview {
   servers: McpJsonServerPreview[]
 }
 
-export type McpClientSourceScope = 'user' | 'selected-file'
+export type McpClientSourceScope = 'user' | 'project' | 'selected-file'
 export type McpClientSourceStatus = 'available' | 'empty' | 'not-found' | 'invalid' | 'manual'
 
 /** Renderer-safe metadata for an external MCP client configuration. */
@@ -156,6 +156,12 @@ export interface McpClientSourceImportInput {
 export interface ConnectorCheckResult {
   ok: boolean
   detail: string
+  state?: string
+  checks?: Array<{
+    id: 'configuration' | 'credentials' | 'runtime' | 'registration'
+    status: 'pass' | 'warn' | 'fail' | 'skipped'
+    detail: string
+  }>
 }
 
 /** The typed window.dshDesktop slice this plugin depends on. */

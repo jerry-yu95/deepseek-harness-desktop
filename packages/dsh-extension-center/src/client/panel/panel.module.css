@@ -176,6 +176,112 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   overflow-y: auto;
 }
 
+/* --- learning ---------------------------------------------------------------- */
+
+.learningBody {
+  gap: 16px;
+}
+
+.learningHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base)) 55%);
+}
+
+.learningHero h3 {
+  margin: 5px 0 8px;
+  font-size: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.learningHero p,
+.learningGrid p,
+.learningSteps p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.learningHero > div {
+  max-width: 720px;
+}
+
+.learningHero > a {
+  flex: none;
+  text-decoration: none;
+}
+
+.learningEyebrow {
+  font-size: 10px !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--dsw-alias-state-business-primary) !important;
+}
+
+.learningRule {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.learningRule span {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.learningSteps,
+.learningGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.learningSteps article,
+.learningGrid article {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+}
+
+.learningSteps article > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dsw-alias-state-business-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+}
+
+.learningSteps strong,
+.learningGrid strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.learningGrid article {
+  display: block;
+}
+
 /* --- toolbar / buttons -------------------------------------------------------- */
 
 .toolbar {
@@ -551,6 +657,11 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   color: var(--dsw-alias-state-success-primary, #1aa260);
 }
 
+.dialogFooterStatus[data-error] {
+  color: var(--dsw-alias-state-danger-primary, #f66);
+  font-weight: 600;
+}
+
 .connectorDialogActions {
   display: flex;
   flex: none;
@@ -661,6 +772,7 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 }
 
 .itemBody {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -709,6 +821,47 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 
 .health[data-error] {
   color: var(--dsw-alias-state-danger-primary, #f66);
+}
+
+.diagnostics {
+  display: grid;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);
+}
+
+.diagnosticRow {
+  display: grid;
+  grid-template-columns: 8px minmax(80px, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.diagnosticRow strong {
+  color: var(--dsw-alias-label-primary);
+}
+
+.diagnosticDot {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-success-primary, #1aa260);
+}
+
+.diagnosticRow[data-status='warn'] .diagnosticDot,
+.diagnosticRow[data-status='skipped'] .diagnosticDot {
+  background: var(--dsw-alias-state-warning-primary, #d98c10);
+}
+
+.diagnosticRow[data-status='fail'] .diagnosticDot {
+  background: var(--dsw-alias-state-danger-primary, #f66);
 }
 
 .itemActions {
@@ -807,6 +960,17 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   }
 
   .sourceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .learningHero,
+  .learningRule {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .learningSteps,
+  .learningGrid {
     grid-template-columns: 1fr;
   }
 }

@@ -123,9 +123,12 @@ window.__ModuleLoader__.load({
 			"entry.skills.tooltip": "技能目录与 Skill Studio",
 			"entry.connectors.label": "连接器",
 			"entry.connectors.tooltip": "连接器中心（MCP / HTTP）",
+			"entry.learning.label": "学习",
+			"entry.learning.tooltip": "了解 Harness 原理与社区增强",
 			"panel.title": "扩展中心",
 			"tab.skills": "技能",
 			"tab.connectors": "连接器",
+			"tab.learning": "学习",
 			"common.loading": "加载中…",
 			"common.refresh": "刷新",
 			"common.close": "关闭",
@@ -150,6 +153,23 @@ window.__ModuleLoader__.load({
 			"skills.created": "{name} 已创建并进入 Harness 技能目录",
 			"skills.imported": "{name} 已导入",
 			"skills.badge.shadowed": "已被同名技能覆盖",
+			"learning.eyebrow": "DEEPSEEK HARNESS 学习平台",
+			"learning.title": "先看懂这台机器，再决定给它装什么",
+			"learning.intro": "Harness 不是一个只会聊天的页面。它把模型、工具、权限、插件和反复执行的 Agent 循环装在一起。桌面版在官方机制上增加了更容易使用、观察和交付的入口。",
+			"learning.open": "打开完整学习平台",
+			"learning.rule.title": "最重要的边界",
+			"learning.rule.body": "官方 Harness 提供 Agent 与插件底座；连接器中心、Skill Studio、增强编排、移动远程、健康与 Token 看板、自定义背景和跨平台更新属于本社区桌面的产品增强。",
+			"learning.start.title": "四步开始一次可靠任务",
+			"learning.start.workspace": "选择工作区",
+			"learning.start.workspace.body": "告诉 Agent 只在哪个项目里工作。",
+			"learning.start.mode": "选择模式与编排",
+			"learning.start.mode.body": "模式决定工具组合，编排决定执行策略，两者不是模型智商档位。",
+			"learning.start.permission": "给最小够用权限",
+			"learning.start.permission.body": "先只读，需要交付文件再切工作区写入。",
+			"learning.start.request": "说清目标和验收",
+			"learning.start.request.body": "描述结果、边界和怎么才算完成。",
+			"learning.additions.title": "这个桌面版加入了什么",
+			"learning.additions.hint": "每项增强都复用官方 Harness 的插件、Profile、Skill、工具或会话机制，不替换官方 Agent 内核。",
 			"connectors.empty": "尚未配置连接器。可先添加 MCP 服务或 HTTP API。",
 			"connectors.create": "自定义连接器",
 			"connectors.catalog.title": "推荐连接器",
@@ -157,22 +177,23 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.pending": "等待官方 JSON",
 			"connectors.catalog.docs": "查看官方文档",
 			"connectors.catalog.use": "使用模板",
+			"connectors.catalog.paste": "粘贴官方 JSON",
 			"connectors.catalog.waiting": "请粘贴服务方提供的官方 JSON",
-			"connectors.sources.open": "从其他客户端导入",
+			"connectors.sources.open": "自动查找其他客户端",
 			"connectors.sources.title": "导入已有 MCP 连接",
 			"connectors.sources.step": "选择配置来源",
 			"connectors.sources.hint": "读取其他 AI 客户端的 MCP 配置，预览并确认后导入 Harness。",
-			"connectors.sources.workbuddy": "读取 WorkBuddy 用户级 mcp.json；也可手动选择其他配置。",
-			"connectors.sources.codebuddy": "按 CodeBuddy 官方优先级发现用户配置，兼容 JSONC。",
-			"connectors.sources.trae": "TRAE 配置位置可能随版本变化，请选择它的 MCP JSON 文件。",
-			"connectors.sources.qoder": "读取 Qoder 用户 settings.json；项目级配置可手动选择。",
+			"connectors.sources.workbuddy": "自动查找项目配置以及 WorkBuddy 的 .mcp.json / mcp.json。",
+			"connectors.sources.codebuddy": "自动按 CodeBuddy 官方优先级查找项目和用户配置，兼容 JSONC。",
+			"connectors.sources.trae": "自动查找项目目录、TRAE 用户目录和应用数据目录中的 MCP 配置。",
+			"connectors.sources.qoder": "自动查找项目 .qoder 配置、.mcp.json 和用户 settings.json。",
 			"connectors.sources.status.available": "已发现 {count} 个服务",
 			"connectors.sources.status.empty": "已发现，暂无服务",
 			"connectors.sources.status.notFound": "未发现默认配置",
 			"connectors.sources.status.invalid": "配置无法解析",
 			"connectors.sources.status.manual": "需手动选择",
 			"connectors.sources.preview": "预览并导入",
-			"connectors.sources.pick": "选择配置文件",
+			"connectors.sources.pick": "未找到，手动选择",
 			"connectors.sources.security": "只读取来源配置；不修改 WorkBuddy、CodeBuddy、TRAE 或 Qoder。路径和明文凭证不会进入页面。",
 			"connectors.sources.reviewTitle": "从 {client} 导入 MCP",
 			"connectors.sources.reviewHint": "请选择服务并补齐缺失凭证；导入后会标记原始来源。",
@@ -233,6 +254,11 @@ window.__ModuleLoader__.load({
 			"connectors.saved": "{name} 已保存",
 			"connectors.removed": "连接器已移除",
 			"connectors.check": "检测",
+			"connectors.diagnostics.title": "连接诊断",
+			"connectors.diagnostics.configuration": "配置",
+			"connectors.diagnostics.credentials": "凭证",
+			"connectors.diagnostics.runtime": "运行环境",
+			"connectors.diagnostics.registration": "Harness 注册",
 			"connectors.remove": "移除",
 			"connectors.unchecked": "尚未检测 · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
@@ -245,9 +271,12 @@ window.__ModuleLoader__.load({
 			"entry.skills.tooltip": "Skill catalog and Skill Studio",
 			"entry.connectors.label": "Connectors",
 			"entry.connectors.tooltip": "Connector Center (MCP / HTTP)",
+			"entry.learning.label": "Learn",
+			"entry.learning.tooltip": "Learn Harness concepts and community additions",
 			"panel.title": "Extension Center",
 			"tab.skills": "Skills",
 			"tab.connectors": "Connectors",
+			"tab.learning": "Learn",
 			"common.loading": "Loading…",
 			"common.refresh": "Refresh",
 			"common.close": "Close",
@@ -272,6 +301,23 @@ window.__ModuleLoader__.load({
 			"skills.created": "{name} created and added to the Harness skill catalog",
 			"skills.imported": "{name} imported",
 			"skills.badge.shadowed": "shadowed by a same-name skill",
+			"learning.eyebrow": "DEEPSEEK HARNESS LEARNING PLATFORM",
+			"learning.title": "Understand the machine before extending it",
+			"learning.intro": "Harness is more than a chat page. It combines models, tools, permissions, plugins, and an iterative Agent loop. The desktop app adds approachable surfaces for using, observing, and shipping that foundation.",
+			"learning.open": "Open full learning platform",
+			"learning.rule.title": "The most important boundary",
+			"learning.rule.body": "Official Harness supplies the Agent and plugin foundation. Connector Center, Skill Studio, enhanced orchestration, mobile remote, health and token dashboards, custom backgrounds, and cross-platform updates are community desktop additions.",
+			"learning.start.title": "Start a reliable task in four steps",
+			"learning.start.workspace": "Choose a workspace",
+			"learning.start.workspace.body": "Limit the Agent to the project it should work in.",
+			"learning.start.mode": "Choose mode and orchestration",
+			"learning.start.mode.body": "Mode selects the tool set; orchestration selects an execution strategy. Neither is an intelligence tier.",
+			"learning.start.permission": "Grant the smallest useful permission",
+			"learning.start.permission.body": "Start read-only and enable workspace write when delivery needs it.",
+			"learning.start.request": "State the goal and acceptance test",
+			"learning.start.request.body": "Describe the result, constraints, and what “done” means.",
+			"learning.additions.title": "What this desktop app adds",
+			"learning.additions.hint": "Every addition reuses official Harness plugins, profiles, skills, tools, or sessions; it does not replace the official Agent core.",
 			"connectors.empty": "No connectors configured yet. Add an MCP server or an HTTP API first.",
 			"connectors.create": "Custom connector",
 			"connectors.catalog.title": "Recommended connectors",
@@ -279,22 +325,23 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.pending": "Awaiting official JSON",
 			"connectors.catalog.docs": "Open official docs",
 			"connectors.catalog.use": "Use template",
+			"connectors.catalog.paste": "Paste official JSON",
 			"connectors.catalog.waiting": "Paste the official JSON supplied by the provider",
-			"connectors.sources.open": "Import from another client",
+			"connectors.sources.open": "Auto-find other clients",
 			"connectors.sources.title": "Import existing MCP connections",
 			"connectors.sources.step": "Choose a configuration source",
 			"connectors.sources.hint": "Read MCP settings from another AI client, preview them, then confirm import into Harness.",
-			"connectors.sources.workbuddy": "Reads the WorkBuddy user mcp.json; another config can also be selected manually.",
-			"connectors.sources.codebuddy": "Discovers CodeBuddy user settings in official priority order, including JSONC.",
-			"connectors.sources.trae": "TRAE config locations can vary by release; select its MCP JSON file.",
-			"connectors.sources.qoder": "Reads Qoder user settings.json; project settings can be selected manually.",
+			"connectors.sources.workbuddy": "Auto-finds project settings and WorkBuddy .mcp.json / mcp.json files.",
+			"connectors.sources.codebuddy": "Auto-finds CodeBuddy project and user settings in official priority order, including JSONC.",
+			"connectors.sources.trae": "Auto-finds MCP settings in the project, TRAE user folder, and application-data folders.",
+			"connectors.sources.qoder": "Auto-finds project .qoder settings, .mcp.json, and user settings.json.",
 			"connectors.sources.status.available": "{count} server(s) found",
 			"connectors.sources.status.empty": "Found, but contains no servers",
 			"connectors.sources.status.notFound": "Default config not found",
 			"connectors.sources.status.invalid": "Config could not be parsed",
 			"connectors.sources.status.manual": "Manual selection required",
 			"connectors.sources.preview": "Preview and import",
-			"connectors.sources.pick": "Choose config file",
+			"connectors.sources.pick": "Not found — choose manually",
 			"connectors.sources.security": "Source configs are read-only; WorkBuddy, CodeBuddy, TRAE, and Qoder are never modified. Paths and plaintext credentials never enter the page.",
 			"connectors.sources.reviewTitle": "Import MCP from {client}",
 			"connectors.sources.reviewHint": "Select servers and supply missing credentials. Imported connectors retain their source label.",
@@ -355,6 +402,11 @@ window.__ModuleLoader__.load({
 			"connectors.saved": "{name} saved",
 			"connectors.removed": "Connector removed",
 			"connectors.check": "Check",
+			"connectors.diagnostics.title": "Connection diagnostics",
+			"connectors.diagnostics.configuration": "Configuration",
+			"connectors.diagnostics.credentials": "Credentials",
+			"connectors.diagnostics.runtime": "Runtime",
+			"connectors.diagnostics.registration": "Harness registration",
 			"connectors.remove": "Remove",
 			"connectors.unchecked": "Not checked · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
@@ -390,7 +442,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:1fr}}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -415,6 +467,9 @@ window.__ModuleLoader__.load({
 			"connectorOverlay": "bid-pG_connectorOverlay",
 			"dangerButton": "bid-pG_dangerButton",
 			"description": "bid-pG_description",
+			"diagnosticDot": "bid-pG_diagnosticDot",
+			"diagnosticRow": "bid-pG_diagnosticRow",
+			"diagnostics": "bid-pG_diagnostics",
 			"dialogError": "bid-pG_dialogError",
 			"dialogField": "bid-pG_dialogField",
 			"dialogFooterStatus": "bid-pG_dialogFooterStatus",
@@ -439,6 +494,12 @@ window.__ModuleLoader__.load({
 			"itemActions": "bid-pG_itemActions",
 			"itemBody": "bid-pG_itemBody",
 			"jsonEditor": "bid-pG_jsonEditor",
+			"learningBody": "bid-pG_learningBody",
+			"learningEyebrow": "bid-pG_learningEyebrow",
+			"learningGrid": "bid-pG_learningGrid",
+			"learningHero": "bid-pG_learningHero",
+			"learningRule": "bid-pG_learningRule",
+			"learningSteps": "bid-pG_learningSteps",
 			"list": "bid-pG_list",
 			"name": "bid-pG_name",
 			"nameRow": "bid-pG_nameRow",
@@ -689,7 +750,7 @@ window.__ModuleLoader__.load({
 			{
 				id: "tapd",
 				name: "TAPD MCP",
-				description: "TAPD 官方已提供 MCP / Skill / CLI 能力；等待其公开稳定 JSON 模板后接入预设。",
+				description: "直接粘贴 TAPD 页面提供的官方 mcpServers JSON，再替换其中令牌即可；应用不会要求重复填写组织或项目参数。",
 				docsUrl: "https://www.tapd.cn/official/intelligent_collaboration_index",
 				status: "needs-provider-json"
 			}
@@ -719,6 +780,12 @@ window.__ModuleLoader__.load({
 			if (clientId === "codebuddy") return tt("connectors.sources.codebuddy");
 			if (clientId === "trae") return tt("connectors.sources.trae");
 			return tt("connectors.sources.qoder");
+		}
+		function diagnosticLabel(id) {
+			if (id === "configuration") return tt("connectors.diagnostics.configuration");
+			if (id === "credentials") return tt("connectors.diagnostics.credentials");
+			if (id === "runtime") return tt("connectors.diagnostics.runtime");
+			return tt("connectors.diagnostics.registration");
 		}
 		function friendlyImportError(error) {
 			const message = errorMessage(error);
@@ -1004,9 +1071,12 @@ window.__ModuleLoader__.load({
 							children: tt("connectors.catalog.docs")
 						})
 					]
-				}), preset.json === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-					className: panel_module_css_default.catalogPending,
-					children: tt("connectors.catalog.waiting")
+				}), preset.json === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+					type: "button",
+					className: panel_module_css_default.secondaryButton,
+					disabled: busy || !canImportJson,
+					onClick: openJsonImport,
+					children: tt("connectors.catalog.paste")
 				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 					type: "button",
 					className: panel_module_css_default.secondaryButton,
@@ -1190,13 +1260,9 @@ window.__ModuleLoader__.load({
 										children: tt("common.close")
 									})]
 								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 									className: panel_module_css_default.connectorDialogBody,
-									children: [importError !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-										className: panel_module_css_default.dialogError,
-										role: "alert",
-										children: importError
-									}), preview === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("form", {
+									children: preview === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("form", {
 										id: "mcp-json-import-form",
 										onSubmit: (event) => {
 											onPreviewSubmit(event);
@@ -1286,14 +1352,16 @@ window.__ModuleLoader__.load({
 												})] })
 											}, slot.credentialRef))]
 										}, server.sourceName))]
-									})]
+									})
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("footer", {
 									className: panel_module_css_default.connectorDialogFooter,
 									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 										className: panel_module_css_default.dialogFooterStatus,
-										"data-ready": preview !== null && selectedNames.length > 0 && missingSecrets.length === 0 ? "true" : void 0,
-										children: preview === null ? tt("connectors.import.noSecret") : selectedNames.length === 0 ? tt("connectors.import.selectOne") : missingSecrets.length > 0 ? tt("connectors.import.missingCount", { count: missingSecrets.length }) : tt("connectors.import.ready")
+										"data-error": importError !== null ? "true" : void 0,
+										"data-ready": importError === null && preview !== null && selectedNames.length > 0 && missingSecrets.length === 0 ? "true" : void 0,
+										role: importError !== null ? "alert" : "status",
+										children: importError ?? (preview === null ? tt("connectors.import.noSecret") : selectedNames.length === 0 ? tt("connectors.import.selectOne") : missingSecrets.length > 0 ? tt("connectors.import.missingCount", { count: missingSecrets.length }) : tt("connectors.import.ready"))
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: panel_module_css_default.connectorDialogActions,
 										children: [preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
@@ -1484,6 +1552,22 @@ window.__ModuleLoader__.load({
 											className: panel_module_css_default.health,
 											"data-error": checked !== void 0 && !checked.ok ? "true" : void 0,
 											children: checked !== void 0 ? checked.detail : tt("connectors.unchecked", { endpoint })
+										}),
+										checked?.checks !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("section", {
+											className: panel_module_css_default.diagnostics,
+											"aria-label": tt("connectors.diagnostics.title"),
+											children: checked.checks.map((check) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+												className: panel_module_css_default.diagnosticRow,
+												"data-status": check.status,
+												children: [
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														className: panel_module_css_default.diagnosticDot,
+														"aria-hidden": "true"
+													}),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: diagnosticLabel(check.id) }),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: check.detail })
+												]
+											}, check.id))
 										})
 									]
 								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -1509,6 +1593,70 @@ window.__ModuleLoader__.load({
 							}, connector.id);
 						})
 					})
+				]
+			});
+		}
+		//#endregion
+		//#region src/client/panel/LearningTab.tsx
+		const COMMUNITY_CAPABILITIES = [
+			["连接器中心", "自动发现 WorkBuddy、CodeBuddy、TRAE、Qoder 配置，也能直接导入服务方给出的 MCP JSON。"],
+			["Skill Studio", "把一套做事方法写成可复用的 SKILL.md；它是操作手册，不是拥有宿主权限的插件。"],
+			["增强编排", "标准、自适应、增强三档只调整执行策略；官方 Agent 循环、工具和权限边界仍是底座。"],
+			["可观测性", "查看缓存命中、模型健康、Token 消耗和 Agent 轨迹，发现问题后由人决定是否切换。"],
+			["移动与渠道", "手机远程继续同一会话；IM 机器人属于外部消息渠道，两者共享 Harness，但不是同一功能。"],
+			["桌面交付", "安全更新、失败回退、图片粘贴、自定义背景和跨平台安装都留在社区桌面层。"]
+		];
+		function LearningTab() {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: `${panel_module_css_default.tabBody} ${panel_module_css_default.learningBody}`,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.learningHero,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.learningEyebrow,
+								children: tt("learning.eyebrow")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", { children: tt("learning.title") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("learning.intro") })
+						] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+							className: panel_module_css_default.primaryButton,
+							href: "https://dsh-foundry-interactive.yufrank71.chatgpt.site",
+							target: "_blank",
+							rel: "noreferrer",
+							children: tt("learning.open")
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.learningRule,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("learning.rule.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("learning.rule.body") })]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+						className: panel_module_css_default.sectionTitle,
+						children: tt("learning.start.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.learningSteps,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: "1" }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("learning.start.workspace") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("learning.start.workspace.body") })] })] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: "2" }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("learning.start.mode") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("learning.start.mode.body") })] })] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: "3" }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("learning.start.permission") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("learning.start.permission.body") })] })] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: "4" }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("learning.start.request") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("learning.start.request.body") })] })] })
+						]
+					})] }),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							className: panel_module_css_default.sectionTitle,
+							children: tt("learning.additions.title")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.formHint,
+							children: tt("learning.additions.hint")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: panel_module_css_default.learningGrid,
+							children: COMMUNITY_CAPABILITIES.map(([name, description]) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: name }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: description })] }, name))
+						})
+					] })
 				]
 			});
 		}
@@ -1565,13 +1713,20 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("nav", {
 						className: panel_module_css_default.tabBar,
-						children: [{
-							id: "skills",
-							label: () => tt("tab.skills")
-						}, {
-							id: "connectors",
-							label: () => tt("tab.connectors")
-						}].map((tab) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						children: [
+							{
+								id: "skills",
+								label: () => tt("tab.skills")
+							},
+							{
+								id: "connectors",
+								label: () => tt("tab.connectors")
+							},
+							{
+								id: "learning",
+								label: () => tt("tab.learning")
+							}
+						].map((tab) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
 							className: panel_module_css_default.tab,
 							"data-active": snapshot.panelOpen && snapshot.tab === tab.id ? "true" : void 0,
@@ -1583,7 +1738,7 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: panel_module_css_default.panelContent,
-						children: bridge === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						children: snapshot.tab === "learning" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(LearningTab, {}) : bridge === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 							className: panel_module_css_default.notice,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", { children: tt("desktopOnly.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("desktopOnly.body") })]
 						}) : snapshot.tab === "skills" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SkillsTab, {
@@ -1737,18 +1892,27 @@ window.__ModuleLoader__.load({
 		/** Inline icons (match the shell's 16px nav-icon look). */
 		const ICONS = {
 			skills: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 2.5h7a.5.5 0 0 1 .5.5v10.5L8 11l-4 2.5V3a.5.5 0 0 1 .5-.5z\"/></svg>",
-			connectors: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.5 2v3M10.5 2v3\"/><rect x=\"4\" y=\"5\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M8 9v5\"/></svg>"
+			connectors: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.5 2v3M10.5 2v3\"/><rect x=\"4\" y=\"5\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M8 9v5\"/></svg>",
+			learning: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 3.5h3.2A2.3 2.3 0 0 1 8 5.8v7a2.3 2.3 0 0 0-2.3-2.3H2.5z\"/><path d=\"M13.5 3.5h-3.2A2.3 2.3 0 0 0 8 5.8v7a2.3 2.3 0 0 1 2.3-2.3h3.2z\"/></svg>"
 		};
 		/** One entry row per tab, with its locale keys. */
-		const ENTRIES = [{
-			tab: "skills",
-			labelKey: "entry.skills.label",
-			tooltipKey: "entry.skills.tooltip"
-		}, {
-			tab: "connectors",
-			labelKey: "entry.connectors.label",
-			tooltipKey: "entry.connectors.tooltip"
-		}];
+		const ENTRIES = [
+			{
+				tab: "skills",
+				labelKey: "entry.skills.label",
+				tooltipKey: "entry.skills.tooltip"
+			},
+			{
+				tab: "connectors",
+				labelKey: "entry.connectors.label",
+				tooltipKey: "entry.connectors.tooltip"
+			},
+			{
+				tab: "learning",
+				labelKey: "entry.learning.label",
+				tooltipKey: "entry.learning.tooltip"
+			}
+		];
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
 		function sidebarRoot() {
 			const column = document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
@@ -1767,9 +1931,10 @@ window.__ModuleLoader__.load({
 			entry.type = "button";
 			entry.dataset.dshExtensionEntry = tab;
 			entry.className = panel_module_css_default.entry;
-			const label = tt(tab === "skills" ? "entry.skills.label" : "entry.connectors.label");
+			const definition = ENTRIES.find((item) => item.tab === tab);
+			const label = tt(definition.labelKey);
 			entry.setAttribute("aria-label", label);
-			entry.setAttribute("title", tt(tab === "skills" ? "entry.skills.tooltip" : "entry.connectors.tooltip"));
+			entry.setAttribute("title", tt(definition.tooltipKey));
 			entry.innerHTML = "<span class=\"" + panel_module_css_default.entryIcon + "\">" + ICONS[tab] + "</span><span class=\"" + panel_module_css_default.entryLabel + "\">" + label + "</span>";
 			entry.addEventListener("click", () => {
 				controller.toggle(tab);

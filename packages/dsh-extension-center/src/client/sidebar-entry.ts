@@ -27,12 +27,16 @@ const ICONS: Record<ExtensionTab, string> = {
   // Plug: the connector center.
   connectors:
     '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 2v3M10.5 2v3"/><rect x="4" y="5" width="8" height="4" rx="1"/><path d="M8 9v5"/></svg>',
+  // Open book: the learning platform.
+  learning:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h3.2A2.3 2.3 0 0 1 8 5.8v7a2.3 2.3 0 0 0-2.3-2.3H2.5z"/><path d="M13.5 3.5h-3.2A2.3 2.3 0 0 0 8 5.8v7a2.3 2.3 0 0 1 2.3-2.3h3.2z"/></svg>',
 }
 
 /** One entry row per tab, with its locale keys. */
-const ENTRIES: ReadonlyArray<{ tab: ExtensionTab; labelKey: 'entry.skills.label' | 'entry.connectors.label'; tooltipKey: 'entry.skills.tooltip' | 'entry.connectors.tooltip' }> = [
+const ENTRIES: ReadonlyArray<{ tab: ExtensionTab; labelKey: 'entry.skills.label' | 'entry.connectors.label' | 'entry.learning.label'; tooltipKey: 'entry.skills.tooltip' | 'entry.connectors.tooltip' | 'entry.learning.tooltip' }> = [
   { tab: 'skills', labelKey: 'entry.skills.label', tooltipKey: 'entry.skills.tooltip' },
   { tab: 'connectors', labelKey: 'entry.connectors.label', tooltipKey: 'entry.connectors.tooltip' },
+  { tab: 'learning', labelKey: 'entry.learning.label', tooltipKey: 'entry.learning.tooltip' },
 ]
 
 /** Find the sidebar shell root element, or undefined while not yet mounted. */
@@ -62,9 +66,10 @@ function createEntry(tab: ExtensionTab, controller: PanelController): HTMLButton
   entry.type = 'button'
   entry.dataset.dshExtensionEntry = tab
   entry.className = css.entry
-  const label = tt(tab === 'skills' ? 'entry.skills.label' : 'entry.connectors.label')
+  const definition = ENTRIES.find((item) => item.tab === tab)!
+  const label = tt(definition.labelKey)
   entry.setAttribute('aria-label', label)
-  entry.setAttribute('title', tt(tab === 'skills' ? 'entry.skills.tooltip' : 'entry.connectors.tooltip'))
+  entry.setAttribute('title', tt(definition.tooltipKey))
   entry.innerHTML = '<span class="' + css.entryIcon + '">' + ICONS[tab] + '</span><span class="' + css.entryLabel + '">' + label + '</span>'
   entry.addEventListener('click', () => { controller.toggle(tab) })
   return entry

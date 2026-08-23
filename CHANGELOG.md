@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.34 - 2026-08-24
+
+- Replaced unexplained external-client file selection with bounded one-click discovery for WorkBuddy, CodeBuddy, TRAE, and Qoder across documented user locations, project-local configuration, and supported platform application-data folders; manual selection remains a fallback.
+- Added safe precedence and fallback behavior: project configuration wins when available, while empty, invalid, or credential-only files are skipped without exposing source paths or raw documents to the renderer.
+- Promoted GitHub, Feishu/Lark, and GitLab into the recommended connector catalog; TAPD now opens the official JSON importer instead of asking users to reproduce account, organization, server, and project fields.
+- Expanded connector health checks into visible configuration, credential, runtime, and Harness-registration stages, with authentication challenges separated from network or server failures.
+- Kept connector import errors visible in the dialog footer so validation feedback cannot disappear below a long JSON preview.
+- Added a first-class Learning sidebar entry to the Extension Center, including a plain-language official/community boundary and direct access to the refreshed DeepSeek Harness product-design platform.
+- Refreshed the learning platform with a problem-to-product-choice explanation of Connector Center, Skill Studio, orchestration, caching, model health, Token analytics, mobile control, safe updates, and cross-platform delivery.
+- Added regression coverage for automatic source discovery, invalid-source fallback, staged diagnostics, Learning navigation, and extension-center rendering.
+
 ## 0.1.33 - 2026-08-23
 
 - Added read-only MCP configuration importers for WorkBuddy, CodeBuddy, TRAE, and Qoder, with verified user-level discovery where stable paths are documented and a native file picker for project-level or version-dependent locations.
