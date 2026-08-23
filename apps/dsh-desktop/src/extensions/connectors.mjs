@@ -8,7 +8,8 @@ const MCP_TRANSPORTS = new Set(['stdio', 'streamable-http'])
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/
 const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/
 const SECRET_TEMPLATES = new Set(['${secret}', 'Bearer ${secret}'])
-const SOURCE_KINDS = new Set(['custom', 'json', 'preset'])
+const SOURCE_KINDS = new Set(['custom', 'json', 'preset', 'external-client'])
+const SOURCE_SCOPES = new Set(['user', 'selected-file'])
 
 function text(value, field, { required = true, max = 2_000 } = {}) {
   if (!required && (value === undefined || value === null || value === '')) return ''
@@ -72,7 +73,18 @@ function source(value) {
   if (!SOURCE_KINDS.has(kind)) throw new TypeError('unsupported connector source')
   const presetId = value.presetId === undefined ? undefined : text(value.presetId, 'connector source preset id', { max: 100 })
   if (kind === 'preset' && presetId === undefined) throw new TypeError('preset connector source requires a preset id')
-  return { kind, ...(presetId ? { presetId } : {}) }
+  const clientId = value.clientId === undefined ? undefined : text(value.clientId, 'connector source client id', { max: 64 })
+  const scope = value.scope === undefined ? undefined : text(value.scope, 'connector source scope', { max: 32 })
+  if (kind === 'external-client') {
+    if (clientId === undefined || !CONNECTOR_ID_PATTERN.test(clientId)) throw new TypeError('external connector source requires a valid client id')
+    if (scope === undefined || !SOURCE_SCOPES.has(scope)) throw new TypeError('external connector source requires a valid scope')
+  }
+  return {
+    kind,
+    ...(presetId ? { presetId } : {}),
+    ...(clientId ? { clientId } : {}),
+    ...(scope ? { scope } : {}),
+  }
 }
 
 function validateUrl(value, field) {

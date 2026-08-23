@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   buildConnectorInput,
+  canPreviewMcpClientSource,
   connectorEndpoint,
   mcpCredentialLabel,
   missingMcpCredentials,
@@ -15,6 +16,9 @@ import {
   type DesktopBridge,
   type McpJsonImportInput,
   type McpJsonPreview,
+  type McpClientSourceStatus,
+  type McpClientSourceStage,
+  type McpClientSourceSummary,
 } from '../bridge.ts'
 import { CONNECTOR_PRESETS, type ConnectorPreset } from '../catalog.ts'
 import { errorMessage, tt } from '../helpers.ts'
@@ -22,6 +26,28 @@ import css from './panel.module.css'
 
 type HealthMap = Record<string, ConnectorCheckResult>
 type ImportSource = NonNullable<McpJsonImportInput['source']>
+
+const CLIENT_NAMES: Record<string, string> = {
+  workbuddy: 'WorkBuddy',
+  codebuddy: 'CodeBuddy',
+  trae: 'TRAE',
+  qoder: 'Qoder',
+}
+
+function sourceStatusText(status: McpClientSourceStatus, count: number): string {
+  if (status === 'available') return tt('connectors.sources.status.available', { count })
+  if (status === 'empty') return tt('connectors.sources.status.empty')
+  if (status === 'invalid') return tt('connectors.sources.status.invalid')
+  if (status === 'manual') return tt('connectors.sources.status.manual')
+  return tt('connectors.sources.status.notFound')
+}
+
+function sourceDescription(clientId: string): string {
+  if (clientId === 'workbuddy') return tt('connectors.sources.workbuddy')
+  if (clientId === 'codebuddy') return tt('connectors.sources.codebuddy')
+  if (clientId === 'trae') return tt('connectors.sources.trae')
+  return tt('connectors.sources.qoder')
+}
 
 export interface ConnectorsTabProps {
   bridge: DesktopBridge
@@ -42,6 +68,9 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   const [health, setHealth] = useState<HealthMap>({})
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
+  const [clientSources, setClientSources] = useState<McpClientSourceSummary[] | null>(null)
+  const [stagedSource, setStagedSource] = useState<McpClientSourceStage | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [jsonText, setJsonText] = useState('')
   const [preview, setPreview] = useState<McpJsonPreview | null>(null)
@@ -58,6 +87,10 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   const mcp = kind === 'mcp'
   const remote = !mcp || transport !== 'stdio'
   const canImportJson = typeof bridge.previewMcpJson === 'function' && typeof bridge.importMcpJson === 'function'
+  const canImportClientSource = typeof bridge.listMcpClientSources === 'function'
+    && typeof bridge.previewMcpClientSource === 'function'
+    && typeof bridge.pickMcpClientSource === 'function'
+    && typeof bridge.importMcpClientSource === 'function'
   const selectedNames = preview === null ? [] : selectedMcpServerNames(preview, selected)
   const missingSecrets = preview === null ? [] : missingMcpCredentials(preview, selected, secretValues)
 
@@ -79,9 +112,62 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     setSecretValues({})
     setConflict('reject')
     setImportSource({ kind: 'json' })
+    setStagedSource(null)
     setImportError(null)
     secretInputs.current = {}
   }, [])
+
+  const openSourcePicker = useCallback(async (): Promise<void> => {
+    if (!canImportClientSource || bridge.listMcpClientSources === undefined) {
+      notify(tt('connectors.sources.desktopRequired'), true)
+      return
+    }
+    setSourcePickerOpen(true)
+    setClientSources(null)
+    setImportError(null)
+    setBusy(true)
+    try {
+      setClientSources(await bridge.listMcpClientSources())
+    } catch (error) {
+      setSourcePickerOpen(false)
+      notify(errorMessage(error), true)
+    } finally {
+      setBusy(false)
+    }
+  }, [bridge, canImportClientSource, notify])
+
+  const stageClientSource = useCallback((source: McpClientSourceStage): void => {
+    setStagedSource(source)
+    setJsonText('')
+    setImportSource({ kind: 'json' })
+    setPreview(source.preview)
+    setSelected(Object.fromEntries(source.preview.servers.map((server) => [server.sourceName, true])))
+    setSecretValues({})
+    setConflict('reject')
+    setImportError(null)
+    setSourcePickerOpen(false)
+    setImportOpen(true)
+  }, [])
+
+  const selectClientSource = useCallback(async (source: McpClientSourceSummary): Promise<void> => {
+    if (bridge.previewMcpClientSource === undefined || bridge.pickMcpClientSource === undefined) return
+    setBusy(true)
+    setImportError(null)
+    try {
+      if (canPreviewMcpClientSource(source)) {
+        stageClientSource(await bridge.previewMcpClientSource(source.clientId))
+      } else {
+        const picked = await bridge.pickMcpClientSource(source.clientId)
+        if (!picked.canceled && picked.source !== undefined && picked.preview !== undefined) {
+          stageClientSource(picked as McpClientSourceStage)
+        }
+      }
+    } catch (error) {
+      notify(friendlyImportError(error), true)
+    } finally {
+      setBusy(false)
+    }
+  }, [bridge, notify, stageClientSource])
 
   const openJsonImport = useCallback(() => {
     setImportSource({ kind: 'json' })
@@ -122,7 +208,9 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   }
 
   const onImport = async (): Promise<void> => {
-    if (preview === null || bridge.importMcpJson === undefined) return
+    if (preview === null) return
+    if (stagedSource === null && bridge.importMcpJson === undefined) return
+    if (stagedSource !== null && bridge.importMcpClientSource === undefined) return
     if (selectedNames.length === 0) {
       setImportError(tt('connectors.import.selectOne'))
       return
@@ -136,13 +224,14 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     setImportError(null)
     setBusy(true)
     try {
-      const result = await bridge.importMcpJson({
-        text: jsonText,
+      const importOptions = {
         selectedNames,
         conflict,
         secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
-        source: importSource,
-      })
+      }
+      const result = stagedSource === null
+        ? await bridge.importMcpJson!({ text: jsonText, ...importOptions, source: importSource })
+        : await bridge.importMcpClientSource!({ token: stagedSource.source.token, ...importOptions })
       await load()
       const checks = await Promise.all(result.imported.map(async (connector) => {
         try {
@@ -248,11 +337,51 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     <div className={css.tabBody}>
       <div className={css.toolbar}>
         <button type="button" className={css.primaryButton} disabled={busy} onClick={() => { setCatalogOpen((open) => !open) }}>{tt('connectors.catalog.title')}</button>
+        <button type="button" className={css.secondaryButton} disabled={busy || !canImportClientSource} onClick={() => { void openSourcePicker() }}>{tt('connectors.sources.open')}</button>
         <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={openJsonImport}>{tt('connectors.import.open')}</button>
         <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setFormOpen((open) => !open) }}>{tt('connectors.create')}</button>
       </div>
 
       {catalogOpen && <section className={css.catalog}><h3 className={css.sectionTitle}>{tt('connectors.catalog.title')}</h3>{CONNECTOR_PRESETS.map(renderPreset)}</section>}
+
+      {sourcePickerOpen && (
+        <div className={css.connectorOverlay} role="dialog" aria-modal="true" aria-labelledby="mcp-source-title">
+          <section className={`${css.connectorDialog} ${css.sourceDialog}`}>
+            <header className={css.connectorDialogHeader}>
+              <div>
+                <p className={css.dialogStep}>{tt('connectors.sources.step')}</p>
+                <h3 id="mcp-source-title" className={css.dialogTitle}>{tt('connectors.sources.title')}</h3>
+                <p className={css.formHint}>{tt('connectors.sources.hint')}</p>
+              </div>
+              <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setSourcePickerOpen(false) }}>{tt('common.close')}</button>
+            </header>
+            <div className={css.connectorDialogBody}>
+              {clientSources === null ? <p className={css.empty}>{tt('common.loading')}</p> : (
+                <div className={css.sourceGrid}>
+                  {clientSources.map((source) => (
+                    <article key={source.clientId} className={css.sourceCard} data-status={source.status}>
+                      <div className={css.sourceMark} aria-hidden="true">{source.clientName.slice(0, 1)}</div>
+                      <div className={css.sourceBody}>
+                        <div className={css.nameRow}>
+                          <strong className={css.name}>{source.clientName}</strong>
+                          <span className={css.badge}>{sourceStatusText(source.status, source.serverCount)}</span>
+                        </div>
+                        <p className={css.description}>{sourceDescription(source.clientId)}</p>
+                      </div>
+                      <button type="button" className={canPreviewMcpClientSource(source) ? css.primaryButton : css.secondaryButton} disabled={busy} onClick={() => { void selectClientSource(source) }}>
+                        {canPreviewMcpClientSource(source) ? tt('connectors.sources.preview') : tt('connectors.sources.pick')}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+            <footer className={css.connectorDialogFooter}>
+              <div className={css.dialogFooterStatus}>{tt('connectors.sources.security')}</div>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {importOpen && (
         <div className={css.connectorOverlay} role="dialog" aria-modal="true" aria-labelledby="mcp-import-title">
@@ -260,8 +389,8 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
             <header className={css.connectorDialogHeader}>
               <div>
                 <p className={css.dialogStep}>{preview === null ? tt('connectors.import.step.json') : tt('connectors.import.step.review')}</p>
-                <h3 id="mcp-import-title" className={css.dialogTitle}>{tt('connectors.import.title')}</h3>
-                <p className={css.formHint}>{tt('connectors.import.hint')}</p>
+                <h3 id="mcp-import-title" className={css.dialogTitle}>{stagedSource === null ? tt('connectors.import.title') : tt('connectors.sources.reviewTitle', { client: stagedSource.source.clientName })}</h3>
+                <p className={css.formHint}>{stagedSource === null ? tt('connectors.import.hint') : tt('connectors.sources.reviewHint')}</p>
               </div>
               <button type="button" className={css.secondaryButton} disabled={busy} onClick={closeImport}>{tt('common.close')}</button>
             </header>
@@ -329,7 +458,15 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
               <div className={css.connectorDialogActions}>
                 {preview !== null && (
                   <>
-                    <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setPreview(null); setImportError(null) }}>{tt('connectors.import.edit')}</button>
+                    <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => {
+                      if (stagedSource === null) {
+                        setPreview(null)
+                        setImportError(null)
+                      } else {
+                        closeImport()
+                        setSourcePickerOpen(true)
+                      }
+                    }}>{stagedSource === null ? tt('connectors.import.edit') : tt('connectors.sources.reselect')}</button>
                     <label className={css.conflictField}>{tt('connectors.import.conflict')} <select value={conflict} onChange={(event) => { setConflict(event.target.value as typeof conflict); setImportError(null) }}><option value="reject">{tt('connectors.import.conflict.reject')}</option><option value="replace">{tt('connectors.import.conflict.replace')}</option><option value="rename">{tt('connectors.import.conflict.rename')}</option></select></label>
                   </>
                 )}
@@ -365,7 +502,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         {connectors.map((connector) => {
           const endpoint = connectorEndpoint(connector)
           const checked = health[connector.id]
-          return <article key={connector.id} className={css.item}><div className={css.itemBody}><div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span></div><p className={css.description}>{connector.description || endpoint}</p><p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p></div><div className={css.itemActions}><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div></article>
+          return <article key={connector.id} className={css.item}><div className={css.itemBody}><div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div><p className={css.description}>{connector.description || endpoint}</p><p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p></div><div className={css.itemActions}><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div></article>
         })}
       </div>}
     </div>

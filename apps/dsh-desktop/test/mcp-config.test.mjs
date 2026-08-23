@@ -65,3 +65,26 @@ test('MCP JSON parser rejects oversized input and invalid roots', () => {
   assert.throws(() => parseMcpServersJson(JSON.stringify({})), /mcpServers must be an object/)
   assert.throws(() => parseMcpServersJson('x'.repeat(1_048_577)), /too large/)
 })
+
+test('MCP JSON parser accepts JSONC comments and trailing commas without changing strings', () => {
+  const parsed = parseMcpServersJson(`{
+    // CodeBuddy and Qoder accept JSONC.
+    "mcpServers": {
+      "docs": {
+        "type": "http",
+        "url": "https://example.com/mcp?literal=//not-a-comment",
+        "headers": {
+          "Authorization": "Bearer \${DOCS_TOKEN}",
+        },
+      },
+    },
+  }`)
+
+  assert.equal(parsed.servers.length, 1)
+  assert.equal(parsed.servers[0].url, 'https://example.com/mcp?literal=//not-a-comment')
+  assert.equal(parsed.servers[0].secretSlots[0].placeholder, 'DOCS_TOKEN')
+})
+
+test('MCP JSON parser rejects unterminated JSONC block comments', () => {
+  assert.throws(() => parseMcpServersJson('{ /* unfinished'), /unterminated block comment/)
+})

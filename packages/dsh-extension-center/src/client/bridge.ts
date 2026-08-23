@@ -44,7 +44,12 @@ export interface ConnectorRecord {
     template: '${secret}' | 'Bearer ${secret}'
     placeholder?: string
   }>
-  source?: { kind: 'custom' | 'json' | 'preset'; presetId?: string }
+  source?: {
+    kind: 'custom' | 'json' | 'preset' | 'external-client'
+    presetId?: string
+    clientId?: string
+    scope?: McpClientSourceScope
+  }
 }
 
 /** Skill Studio create payload (host-side validation is authoritative). */
@@ -99,6 +104,37 @@ export interface McpJsonPreview {
   servers: McpJsonServerPreview[]
 }
 
+export type McpClientSourceScope = 'user' | 'selected-file'
+export type McpClientSourceStatus = 'available' | 'empty' | 'not-found' | 'invalid' | 'manual'
+
+/** Renderer-safe metadata for an external MCP client configuration. */
+export interface McpClientSourceSummary {
+  clientId: string
+  clientName: string
+  status: McpClientSourceStatus
+  serverCount: number
+  scope: McpClientSourceScope
+}
+
+/** Opaque main-process source identity. */
+export interface StagedMcpClientSource {
+  token: string
+  clientId: string
+  clientName: string
+  scope: McpClientSourceScope
+  serverCount: number
+}
+
+/** Opaque main-process session plus its redacted MCP preview. */
+export interface McpClientSourceStage {
+  source: StagedMcpClientSource
+  preview: McpJsonPreview
+}
+
+export interface PickedMcpClientSource extends Partial<McpClientSourceStage> {
+  canceled: boolean
+}
+
 export type McpSecretSlot = McpJsonServerPreview['secretSlots'][number]
 
 export interface McpJsonImportInput {
@@ -107,6 +143,13 @@ export interface McpJsonImportInput {
   conflict?: 'reject' | 'replace' | 'rename'
   secrets?: Record<string, string>
   source?: { kind: 'json' | 'preset'; presetId?: string }
+}
+
+export interface McpClientSourceImportInput {
+  token: string
+  selectedNames?: string[]
+  conflict?: 'reject' | 'replace' | 'rename'
+  secrets?: Record<string, string>
 }
 
 /** Connector health-check outcome. */
@@ -129,6 +172,11 @@ export interface DesktopBridge {
   /** Optional on older desktop builds; advanced connector form remains usable. */
   previewMcpJson?: (text: string) => Promise<McpJsonPreview>
   importMcpJson?: (input: McpJsonImportInput) => Promise<{ imported: ConnectorRecord[] }>
+  /** Optional on older builds; source text and file paths remain in the main process. */
+  listMcpClientSources?: () => Promise<McpClientSourceSummary[]>
+  previewMcpClientSource?: (clientId: string) => Promise<McpClientSourceStage>
+  pickMcpClientSource?: (clientId: string) => Promise<PickedMcpClientSource>
+  importMcpClientSource?: (input: McpClientSourceImportInput) => Promise<{ imported: ConnectorRecord[] }>
 }
 
 /** Every bridge method the plugin calls; presence-checked as a set. */
@@ -277,4 +325,9 @@ export function missingMcpCredentials(
       seen.add(slot.credentialRef)
       return true
     })
+}
+
+/** A verified user-level source can be previewed without opening a file picker. */
+export function canPreviewMcpClientSource(source: McpClientSourceSummary): boolean {
+  return source.status === 'available'
 }

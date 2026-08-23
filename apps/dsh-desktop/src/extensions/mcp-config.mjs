@@ -9,6 +9,91 @@ const PLACEHOLDER_PATTERN = /(?:\$\{([A-Z][A-Z0-9_]{0,63})\}|<((?:YOUR[_-])?[A-Z
 const PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const SUPPORTED_TRANSPORTS = new Set(['stdio', 'streamable-http'])
 
+function stripJsonComments(input) {
+  let output = ''
+  let inString = false
+  let escaped = false
+  let lineComment = false
+  let blockComment = false
+  for (let index = 0; index < input.length; index += 1) {
+    const current = input[index]
+    const next = input[index + 1]
+    if (lineComment) {
+      if (current === '\n' || current === '\r') {
+        lineComment = false
+        output += current
+      } else output += ' '
+      continue
+    }
+    if (blockComment) {
+      if (current === '*' && next === '/') {
+        output += '  '
+        index += 1
+        blockComment = false
+      } else output += current === '\n' || current === '\r' ? current : ' '
+      continue
+    }
+    if (inString) {
+      output += current
+      if (escaped) escaped = false
+      else if (current === '\\') escaped = true
+      else if (current === '"') inString = false
+      continue
+    }
+    if (current === '"') {
+      inString = true
+      output += current
+    } else if (current === '/' && next === '/') {
+      output += '  '
+      index += 1
+      lineComment = true
+    } else if (current === '/' && next === '*') {
+      output += '  '
+      index += 1
+      blockComment = true
+    } else output += current
+  }
+  if (blockComment) throw new TypeError('invalid MCP JSON: unterminated block comment')
+  return output
+}
+
+function stripTrailingCommas(input) {
+  let output = ''
+  let inString = false
+  let escaped = false
+  for (let index = 0; index < input.length; index += 1) {
+    const current = input[index]
+    if (inString) {
+      output += current
+      if (escaped) escaped = false
+      else if (current === '\\') escaped = true
+      else if (current === '"') inString = false
+      continue
+    }
+    if (current === '"') {
+      inString = true
+      output += current
+      continue
+    }
+    if (current === ',') {
+      let nextIndex = index + 1
+      while (/\s/u.test(input[nextIndex] ?? '')) nextIndex += 1
+      if (input[nextIndex] === '}' || input[nextIndex] === ']') continue
+    }
+    output += current
+  }
+  return output
+}
+
+function parseJsonDocument(input) {
+  try {
+    return JSON.parse(stripTrailingCommas(stripJsonComments(input)))
+  } catch (error) {
+    if (error instanceof TypeError && error.message.startsWith('invalid MCP JSON:')) throw error
+    throw new TypeError(`invalid MCP JSON: ${error.message}`)
+  }
+}
+
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -180,12 +265,7 @@ function parseUrl(value, field) {
 export function parseMcpServersJson(input) {
   if (typeof input !== 'string') throw new TypeError('MCP JSON must be a string')
   if (Buffer.byteLength(input, 'utf8') > MAX_INPUT_BYTES) throw new TypeError('MCP JSON is too large')
-  let root
-  try {
-    root = JSON.parse(input)
-  } catch (error) {
-    throw new TypeError(`invalid MCP JSON: ${error.message}`)
-  }
+  const root = parseJsonDocument(input)
   if (!isRecord(root)) throw new TypeError('MCP JSON root must be an object')
   scanPrototypeKeys(root)
   if (!isRecord(root.mcpServers)) throw new TypeError('mcpServers must be an object')

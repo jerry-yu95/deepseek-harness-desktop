@@ -109,6 +109,10 @@ window.__ModuleLoader__.load({
 				return true;
 			});
 		}
+		/** A verified user-level source can be previewed without opening a file picker. */
+		function canPreviewMcpClientSource(source) {
+			return source.status === "available";
+		}
 		//#endregion
 		//#region src/client/locales.ts
 		/**
@@ -154,6 +158,26 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.docs": "查看官方文档",
 			"connectors.catalog.use": "使用模板",
 			"connectors.catalog.waiting": "请粘贴服务方提供的官方 JSON",
+			"connectors.sources.open": "从其他客户端导入",
+			"connectors.sources.title": "导入已有 MCP 连接",
+			"connectors.sources.step": "选择配置来源",
+			"connectors.sources.hint": "读取其他 AI 客户端的 MCP 配置，预览并确认后导入 Harness。",
+			"connectors.sources.workbuddy": "读取 WorkBuddy 用户级 mcp.json；也可手动选择其他配置。",
+			"connectors.sources.codebuddy": "按 CodeBuddy 官方优先级发现用户配置，兼容 JSONC。",
+			"connectors.sources.trae": "TRAE 配置位置可能随版本变化，请选择它的 MCP JSON 文件。",
+			"connectors.sources.qoder": "读取 Qoder 用户 settings.json；项目级配置可手动选择。",
+			"connectors.sources.status.available": "已发现 {count} 个服务",
+			"connectors.sources.status.empty": "已发现，暂无服务",
+			"connectors.sources.status.notFound": "未发现默认配置",
+			"connectors.sources.status.invalid": "配置无法解析",
+			"connectors.sources.status.manual": "需手动选择",
+			"connectors.sources.preview": "预览并导入",
+			"connectors.sources.pick": "选择配置文件",
+			"connectors.sources.security": "只读取来源配置；不修改 WorkBuddy、CodeBuddy、TRAE 或 Qoder。路径和明文凭证不会进入页面。",
+			"connectors.sources.reviewTitle": "从 {client} 导入 MCP",
+			"connectors.sources.reviewHint": "请选择服务并补齐缺失凭证；导入后会标记原始来源。",
+			"connectors.sources.reselect": "重新选择来源",
+			"connectors.sources.desktopRequired": "当前桌面版不支持外部客户端导入，请先升级应用。",
 			"connectors.import.open": "导入 MCP JSON",
 			"connectors.import.title": "导入官方 MCP 配置",
 			"connectors.import.hint": "支持包含 mcpServers 的 JSON；应用会自动识别传输方式和凭证占位符。",
@@ -212,7 +236,9 @@ window.__ModuleLoader__.load({
 			"connectors.remove": "移除",
 			"connectors.unchecked": "尚未检测 · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
-			"connectors.type.http": "HTTP API"
+			"connectors.type.http": "HTTP API",
+			"connectors.source.external": "来源：{client}",
+			"connectors.source.unknown": "外部客户端"
 		};
 		const en = {
 			"entry.skills.label": "Skills",
@@ -254,6 +280,26 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.docs": "Open official docs",
 			"connectors.catalog.use": "Use template",
 			"connectors.catalog.waiting": "Paste the official JSON supplied by the provider",
+			"connectors.sources.open": "Import from another client",
+			"connectors.sources.title": "Import existing MCP connections",
+			"connectors.sources.step": "Choose a configuration source",
+			"connectors.sources.hint": "Read MCP settings from another AI client, preview them, then confirm import into Harness.",
+			"connectors.sources.workbuddy": "Reads the WorkBuddy user mcp.json; another config can also be selected manually.",
+			"connectors.sources.codebuddy": "Discovers CodeBuddy user settings in official priority order, including JSONC.",
+			"connectors.sources.trae": "TRAE config locations can vary by release; select its MCP JSON file.",
+			"connectors.sources.qoder": "Reads Qoder user settings.json; project settings can be selected manually.",
+			"connectors.sources.status.available": "{count} server(s) found",
+			"connectors.sources.status.empty": "Found, but contains no servers",
+			"connectors.sources.status.notFound": "Default config not found",
+			"connectors.sources.status.invalid": "Config could not be parsed",
+			"connectors.sources.status.manual": "Manual selection required",
+			"connectors.sources.preview": "Preview and import",
+			"connectors.sources.pick": "Choose config file",
+			"connectors.sources.security": "Source configs are read-only; WorkBuddy, CodeBuddy, TRAE, and Qoder are never modified. Paths and plaintext credentials never enter the page.",
+			"connectors.sources.reviewTitle": "Import MCP from {client}",
+			"connectors.sources.reviewHint": "Select servers and supply missing credentials. Imported connectors retain their source label.",
+			"connectors.sources.reselect": "Choose another source",
+			"connectors.sources.desktopRequired": "This desktop build does not support external-client import. Upgrade the app first.",
 			"connectors.import.open": "Import MCP JSON",
 			"connectors.import.title": "Import official MCP config",
 			"connectors.import.hint": "Supports JSON with mcpServers; transport and credential placeholders are detected automatically.",
@@ -312,7 +358,9 @@ window.__ModuleLoader__.load({
 			"connectors.remove": "Remove",
 			"connectors.unchecked": "Not checked · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
-			"connectors.type.http": "HTTP API"
+			"connectors.type.http": "HTTP API",
+			"connectors.source.external": "Source: {client}",
+			"connectors.source.unknown": "External client"
 		};
 		/** Tiny interpolation: {name} -> value. */
 		function t(dictionary, key, values) {
@@ -342,7 +390,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -403,6 +451,11 @@ window.__ModuleLoader__.load({
 			"secondaryButton": "bid-pG_secondaryButton",
 			"secretRow": "bid-pG_secretRow",
 			"sectionTitle": "bid-pG_sectionTitle",
+			"sourceBody": "bid-pG_sourceBody",
+			"sourceCard": "bid-pG_sourceCard",
+			"sourceDialog": "bid-pG_sourceDialog",
+			"sourceGrid": "bid-pG_sourceGrid",
+			"sourceMark": "bid-pG_sourceMark",
 			"studioForm": "bid-pG_studioForm",
 			"studioSummary": "bid-pG_studioSummary",
 			"tab": "bid-pG_tab",
@@ -648,6 +701,25 @@ window.__ModuleLoader__.load({
 		* official JSON -> preview -> fill only missing credentials -> encrypted
 		* desktop import. Low-level fields remain available under Custom connector.
 		*/
+		const CLIENT_NAMES = {
+			workbuddy: "WorkBuddy",
+			codebuddy: "CodeBuddy",
+			trae: "TRAE",
+			qoder: "Qoder"
+		};
+		function sourceStatusText(status, count) {
+			if (status === "available") return tt("connectors.sources.status.available", { count });
+			if (status === "empty") return tt("connectors.sources.status.empty");
+			if (status === "invalid") return tt("connectors.sources.status.invalid");
+			if (status === "manual") return tt("connectors.sources.status.manual");
+			return tt("connectors.sources.status.notFound");
+		}
+		function sourceDescription(clientId) {
+			if (clientId === "workbuddy") return tt("connectors.sources.workbuddy");
+			if (clientId === "codebuddy") return tt("connectors.sources.codebuddy");
+			if (clientId === "trae") return tt("connectors.sources.trae");
+			return tt("connectors.sources.qoder");
+		}
 		function friendlyImportError(error) {
 			const message = errorMessage(error);
 			if (message.startsWith("connector-conflict:")) return tt("connectors.import.conflictError", { name: message.slice(19) });
@@ -658,6 +730,9 @@ window.__ModuleLoader__.load({
 			const [health, setHealth] = (0, react.useState)({});
 			const [catalogOpen, setCatalogOpen] = (0, react.useState)(true);
 			const [formOpen, setFormOpen] = (0, react.useState)(false);
+			const [sourcePickerOpen, setSourcePickerOpen] = (0, react.useState)(false);
+			const [clientSources, setClientSources] = (0, react.useState)(null);
+			const [stagedSource, setStagedSource] = (0, react.useState)(null);
 			const [importOpen, setImportOpen] = (0, react.useState)(false);
 			const [jsonText, setJsonText] = (0, react.useState)("");
 			const [preview, setPreview] = (0, react.useState)(null);
@@ -673,6 +748,7 @@ window.__ModuleLoader__.load({
 			const mcp = kind === "mcp";
 			const remote = !mcp || transport !== "stdio";
 			const canImportJson = typeof bridge.previewMcpJson === "function" && typeof bridge.importMcpJson === "function";
+			const canImportClientSource = typeof bridge.listMcpClientSources === "function" && typeof bridge.previewMcpClientSource === "function" && typeof bridge.pickMcpClientSource === "function" && typeof bridge.importMcpClientSource === "function";
 			const selectedNames = preview === null ? [] : selectedMcpServerNames(preview, selected);
 			const missingSecrets = preview === null ? [] : missingMcpCredentials(preview, selected, secretValues);
 			const load = (0, react.useCallback)(async () => {
@@ -693,9 +769,64 @@ window.__ModuleLoader__.load({
 				setSecretValues({});
 				setConflict("reject");
 				setImportSource({ kind: "json" });
+				setStagedSource(null);
 				setImportError(null);
 				secretInputs.current = {};
 			}, []);
+			const openSourcePicker = (0, react.useCallback)(async () => {
+				if (!canImportClientSource || bridge.listMcpClientSources === void 0) {
+					notify(tt("connectors.sources.desktopRequired"), true);
+					return;
+				}
+				setSourcePickerOpen(true);
+				setClientSources(null);
+				setImportError(null);
+				setBusy(true);
+				try {
+					setClientSources(await bridge.listMcpClientSources());
+				} catch (error) {
+					setSourcePickerOpen(false);
+					notify(errorMessage(error), true);
+				} finally {
+					setBusy(false);
+				}
+			}, [
+				bridge,
+				canImportClientSource,
+				notify
+			]);
+			const stageClientSource = (0, react.useCallback)((source) => {
+				setStagedSource(source);
+				setJsonText("");
+				setImportSource({ kind: "json" });
+				setPreview(source.preview);
+				setSelected(Object.fromEntries(source.preview.servers.map((server) => [server.sourceName, true])));
+				setSecretValues({});
+				setConflict("reject");
+				setImportError(null);
+				setSourcePickerOpen(false);
+				setImportOpen(true);
+			}, []);
+			const selectClientSource = (0, react.useCallback)(async (source) => {
+				if (bridge.previewMcpClientSource === void 0 || bridge.pickMcpClientSource === void 0) return;
+				setBusy(true);
+				setImportError(null);
+				try {
+					if (canPreviewMcpClientSource(source)) stageClientSource(await bridge.previewMcpClientSource(source.clientId));
+					else {
+						const picked = await bridge.pickMcpClientSource(source.clientId);
+						if (!picked.canceled && picked.source !== void 0 && picked.preview !== void 0) stageClientSource(picked);
+					}
+				} catch (error) {
+					notify(friendlyImportError(error), true);
+				} finally {
+					setBusy(false);
+				}
+			}, [
+				bridge,
+				notify,
+				stageClientSource
+			]);
 			const openJsonImport = (0, react.useCallback)(() => {
 				setImportSource({ kind: "json" });
 				setJsonText("");
@@ -736,7 +867,9 @@ window.__ModuleLoader__.load({
 				await previewJson(jsonText, importSource);
 			};
 			const onImport = async () => {
-				if (preview === null || bridge.importMcpJson === void 0) return;
+				if (preview === null) return;
+				if (stagedSource === null && bridge.importMcpJson === void 0) return;
+				if (stagedSource !== null && bridge.importMcpClientSource === void 0) return;
 				if (selectedNames.length === 0) {
 					setImportError(tt("connectors.import.selectOne"));
 					return;
@@ -752,12 +885,18 @@ window.__ModuleLoader__.load({
 				setImportError(null);
 				setBusy(true);
 				try {
-					const result = await bridge.importMcpJson({
-						text: jsonText,
+					const importOptions = {
 						selectedNames,
 						conflict,
-						secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
+						secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0))
+					};
+					const result = stagedSource === null ? await bridge.importMcpJson({
+						text: jsonText,
+						...importOptions,
 						source: importSource
+					}) : await bridge.importMcpClientSource({
+						token: stagedSource.source.token,
+						...importOptions
 					});
 					await load();
 					const completedChecks = (await Promise.all(result.imported.map(async (connector) => {
@@ -899,6 +1038,15 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,
+								disabled: busy || !canImportClientSource,
+								onClick: () => {
+									openSourcePicker();
+								},
+								children: tt("connectors.sources.open")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
 								disabled: busy || !canImportJson,
 								onClick: openJsonImport,
 								children: tt("connectors.import.open")
@@ -921,6 +1069,95 @@ window.__ModuleLoader__.load({
 							children: tt("connectors.catalog.title")
 						}), CONNECTOR_PRESETS.map(renderPreset)]
 					}),
+					sourcePickerOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: panel_module_css_default.connectorOverlay,
+						role: "dialog",
+						"aria-modal": "true",
+						"aria-labelledby": "mcp-source-title",
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+							className: `${panel_module_css_default.connectorDialog} ${panel_module_css_default.sourceDialog}`,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+									className: panel_module_css_default.connectorDialogHeader,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+											className: panel_module_css_default.dialogStep,
+											children: tt("connectors.sources.step")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+											id: "mcp-source-title",
+											className: panel_module_css_default.dialogTitle,
+											children: tt("connectors.sources.title")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+											className: panel_module_css_default.formHint,
+											children: tt("connectors.sources.hint")
+										})
+									] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: panel_module_css_default.secondaryButton,
+										disabled: busy,
+										onClick: () => {
+											setSourcePickerOpen(false);
+										},
+										children: tt("common.close")
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: panel_module_css_default.connectorDialogBody,
+									children: clientSources === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+										className: panel_module_css_default.empty,
+										children: tt("common.loading")
+									}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+										className: panel_module_css_default.sourceGrid,
+										children: clientSources.map((source) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
+											className: panel_module_css_default.sourceCard,
+											"data-status": source.status,
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+													className: panel_module_css_default.sourceMark,
+													"aria-hidden": "true",
+													children: source.clientName.slice(0, 1)
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+													className: panel_module_css_default.sourceBody,
+													children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+														className: panel_module_css_default.nameRow,
+														children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", {
+															className: panel_module_css_default.name,
+															children: source.clientName
+														}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+															className: panel_module_css_default.badge,
+															children: sourceStatusText(source.status, source.serverCount)
+														})]
+													}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+														className: panel_module_css_default.description,
+														children: sourceDescription(source.clientId)
+													})]
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+													type: "button",
+													className: canPreviewMcpClientSource(source) ? panel_module_css_default.primaryButton : panel_module_css_default.secondaryButton,
+													disabled: busy,
+													onClick: () => {
+														selectClientSource(source);
+													},
+													children: canPreviewMcpClientSource(source) ? tt("connectors.sources.preview") : tt("connectors.sources.pick")
+												})
+											]
+										}, source.clientId))
+									})
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", {
+									className: panel_module_css_default.connectorDialogFooter,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+										className: panel_module_css_default.dialogFooterStatus,
+										children: tt("connectors.sources.security")
+									})
+								})
+							]
+						})
+					}),
 					importOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: panel_module_css_default.connectorOverlay,
 						role: "dialog",
@@ -939,11 +1176,11 @@ window.__ModuleLoader__.load({
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
 											id: "mcp-import-title",
 											className: panel_module_css_default.dialogTitle,
-											children: tt("connectors.import.title")
+											children: stagedSource === null ? tt("connectors.import.title") : tt("connectors.sources.reviewTitle", { client: stagedSource.source.clientName })
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: panel_module_css_default.formHint,
-											children: tt("connectors.import.hint")
+											children: stagedSource === null ? tt("connectors.import.hint") : tt("connectors.sources.reviewHint")
 										})
 									] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 										type: "button",
@@ -1064,10 +1301,15 @@ window.__ModuleLoader__.load({
 											className: panel_module_css_default.secondaryButton,
 											disabled: busy,
 											onClick: () => {
-												setPreview(null);
-												setImportError(null);
+												if (stagedSource === null) {
+													setPreview(null);
+													setImportError(null);
+												} else {
+													closeImport();
+													setSourcePickerOpen(true);
+												}
 											},
-											children: tt("connectors.import.edit")
+											children: stagedSource === null ? tt("connectors.import.edit") : tt("connectors.sources.reselect")
 										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
 											className: panel_module_css_default.conflictField,
 											children: [
@@ -1219,13 +1461,20 @@ window.__ModuleLoader__.load({
 									children: [
 										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 											className: panel_module_css_default.nameRow,
-											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: panel_module_css_default.name,
-												children: connector.name
-											}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: panel_module_css_default.badge,
-												children: connector.kind === "mcp" ? tt("connectors.type.mcp", { transport: connector.transport }) : tt("connectors.type.http")
-											})]
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.name,
+													children: connector.name
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.badge,
+													children: connector.kind === "mcp" ? tt("connectors.type.mcp", { transport: connector.transport }) : tt("connectors.type.http")
+												}),
+												connector.source?.kind === "external-client" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.badge,
+													children: tt("connectors.source.external", { client: CLIENT_NAMES[connector.source.clientId ?? ""] ?? connector.source.clientId ?? tt("connectors.source.unknown") })
+												})
+											]
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: panel_module_css_default.description,

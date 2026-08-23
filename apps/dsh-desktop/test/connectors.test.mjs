@@ -27,6 +27,21 @@ test('connector validation distinguishes MCP transports and HTTP APIs', () => {
   assert.throws(() => validateConnectorInput({ id: 'bad-url', name: 'bad', kind: 'http', url: 'file:///tmp/x' }), /http or https/)
 })
 
+test('connector validation preserves safe external-client provenance', () => {
+  const connector = validateConnectorInput({
+    id: 'codebuddy-docs',
+    name: 'Docs',
+    kind: 'mcp',
+    command: 'node',
+    args: ['docs.mjs'],
+    source: { kind: 'external-client', clientId: 'codebuddy', scope: 'user' },
+  })
+  assert.deepEqual(connector.source, { kind: 'external-client', clientId: 'codebuddy', scope: 'user' })
+  assert.throws(() => validateConnectorInput({
+    id: 'unsafe-source', name: 'Unsafe', kind: 'mcp', command: 'node', args: [], source: { kind: 'external-client', scope: 'user' },
+  }), /client id/u)
+})
+
 test('MCP connectors render as official dsh-mcp-client Cordis entries', () => {
   const patch = renderMcpConnectorPatch([{
     id: 'tapd-tools', name: 'TAPD', kind: 'mcp', command: 'npx', args: ['-y', 'tapd-mcp'], secretEnvKeys: ['TAPD_TOKEN'],

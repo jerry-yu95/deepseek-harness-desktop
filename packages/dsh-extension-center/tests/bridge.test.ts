@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildConnectorInput,
   buildSkillInput,
+  canPreviewMcpClientSource,
   connectorEndpoint,
   mcpCredentialLabel,
   missingMcpCredentials,
@@ -172,6 +173,20 @@ describe('MCP onboarding helpers', () => {
     expect(missingMcpCredentials(preview, { github: true, docs: true }, {
       DSH_CONNECTOR_GITHUB_AUTHORIZATION: 'token',
     })).toEqual([])
+  })
+
+  it('only auto-previews a verified external client source', () => {
+    const source = {
+      clientId: 'codebuddy',
+      clientName: 'CodeBuddy',
+      serverCount: 1,
+      scope: 'user' as const,
+    }
+    expect(canPreviewMcpClientSource({ ...source, status: 'available' })).toBe(true)
+    expect(canPreviewMcpClientSource({ ...source, status: 'empty' })).toBe(false)
+    expect(canPreviewMcpClientSource({ ...source, status: 'not-found' })).toBe(false)
+    expect(canPreviewMcpClientSource({ ...source, status: 'invalid' })).toBe(false)
+    expect(canPreviewMcpClientSource({ ...source, status: 'manual' })).toBe(false)
   })
 })
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.33 - 2026-08-23
+
+- Added read-only MCP configuration importers for WorkBuddy, CodeBuddy, TRAE, and Qoder, with verified user-level discovery where stable paths are documented and a native file picker for project-level or version-dependent locations.
+- Added safe JSONC parsing for comments and trailing commas without evaluating configuration code.
+- Added a two-step client-source experience in the Connector Center: discover or select a source, then review servers, fill only missing credentials, resolve name conflicts, and confirm import.
+- Kept source paths, raw configuration text, and plaintext credentials inside short-lived desktop main-process sessions; renderer-facing previews remain redacted and imported credentials use the existing encrypted store.
+- Added external-client provenance labels to imported connectors without modifying the source applications or their configuration files.
+- Added adapter, IPC, parser, provenance, credential-isolation, token-expiry, and extension-center regression coverage.
+
 ## 0.1.32 - 2026-08-22
 
 - Added a Recommended Connectors catalog with verified official MCP JSON templates for GitHub, Feishu/Lark, and GitLab; TAPD remains documented as awaiting a stable official JSON template.
