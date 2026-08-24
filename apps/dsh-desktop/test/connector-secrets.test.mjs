@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
-import { ConnectorSecretStore } from '../src/extensions/connector-secrets.mjs'
+import { ConnectorSecretStore, oauthCredentialReferences } from '../src/extensions/connector-secrets.mjs'
 
 function cryptoBackend() {
   return {
@@ -17,6 +17,14 @@ function cryptoBackend() {
     },
   }
 }
+
+test('OAuth credential references are provider-scoped and opaque', () => {
+  assert.deepEqual(oauthCredentialReferences('github'), {
+    accessToken: 'DSH_CONNECTOR_GITHUB_OAUTH_ACCESS_TOKEN',
+    refreshToken: 'DSH_CONNECTOR_GITHUB_OAUTH_REFRESH_TOKEN',
+  })
+  assert.throws(() => oauthCredentialReferences('unknown'), /unsupported OAuth provider/)
+})
 
 test('connector secret store encrypts values and reloads them without plaintext persistence', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-connector-secrets-'))

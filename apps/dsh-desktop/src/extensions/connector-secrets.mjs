@@ -5,6 +5,19 @@ import { dirname } from 'node:path'
 const STORE_VERSION = 1
 const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/u
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u
+const OAUTH_PROVIDER_PATTERN = /^(github|feishu|gitlab|dingtalk)$/u
+
+/** Return stable opaque references used by provider OAuth adapters. */
+export function oauthCredentialReferences(providerId) {
+  if (typeof providerId !== 'string' || !OAUTH_PROVIDER_PATTERN.test(providerId)) {
+    throw new TypeError('unsupported OAuth provider')
+  }
+  const prefix = providerId.toUpperCase()
+  return {
+    accessToken: `DSH_CONNECTOR_${prefix}_OAUTH_ACCESS_TOKEN`,
+    refreshToken: `DSH_CONNECTOR_${prefix}_OAUTH_REFRESH_TOKEN`,
+  }
+}
 
 function assertCredentialRef(value) {
   if (typeof value !== 'string' || !CREDENTIAL_REF_PATTERN.test(value)) throw new TypeError('credential reference must use DSH_CONNECTOR_* format')
