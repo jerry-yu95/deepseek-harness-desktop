@@ -12,7 +12,7 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
 import { apply } from '../src/client/index.ts'
 
 describe('live-stats client apply', () => {
-  it('registers the plugin settings card and nothing into any conversation seat', async () => {
+  it('registers the context readout and plugin settings card', async () => {
     const injected: string[] = []
     const ctx = {
       effect: (fn: () => unknown) => fn(),
@@ -31,8 +31,6 @@ describe('live-stats client apply', () => {
       },
     }
     apply(ctx as never)
-    // The card mounts into the Web UI plugin group; the TPS group lives in the
-    // ui-conversation stats line, so nothing targets a conversation seat.
-    expect(injected).toEqual(['web-ui.plugin.item'])
+    expect(injected).toEqual(['conversation.composer.dock', 'web-ui.plugin.item'])
   })
 })

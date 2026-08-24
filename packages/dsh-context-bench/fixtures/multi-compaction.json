@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "multi-compaction",
+  "title": "Active memory across three compaction cycles",
+  "contextScale": "128K",
+  "transcript": [
+    { "id": "cycle-one", "role": "user", "kind": "fact", "position": "early", "content": "Cycle one establishes project codename Atlas and target branch benchmark-v1." },
+    { "id": "cycle-two", "role": "user", "kind": "correction", "position": "middle", "content": "Cycle two keeps codename Atlas but changes the target branch from benchmark-v1 to benchmark-v2." },
+    { "id": "cycle-three", "role": "user", "kind": "pending", "position": "late", "content": "Cycle three requires replay verification before publishing benchmark-v2." }
+  ],
+  "requiredFacts": [
+    { "id": "project-codename", "category": "semantic", "value": "Atlas", "aliases": ["project Atlas"], "position": "early", "weight": 3, "critical": true },
+    { "id": "target-branch", "category": "mutable", "value": "benchmark-v2", "aliases": [], "position": "middle", "weight": 4, "critical": true },
+    { "id": "publish-gate", "category": "pending", "value": "replay verification before publishing benchmark-v2", "aliases": ["verify replay before publish"], "position": "late", "weight": 5, "critical": true }
+  ],
+  "supersededFacts": [
+    { "factId": "target-branch", "staleValues": ["benchmark-v1"] }
+  ],
+  "toolPairs": [],
+  "expectedNextStep": "Complete replay verification, then publish benchmark-v2 for project Atlas."
+}

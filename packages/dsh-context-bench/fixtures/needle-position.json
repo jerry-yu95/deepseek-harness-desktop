@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "needle-position",
+  "title": "Critical literals distributed across the context",
+  "contextScale": "32K",
+  "transcript": [
+    { "id": "early-id", "role": "user", "kind": "fact", "position": "early", "content": "The release identifier is RC-ALPHA-7319." },
+    { "id": "middle-path", "role": "user", "kind": "fact", "position": "middle", "content": "The migration file is /workspace/migrations/042-add-context-index.sql." },
+    { "id": "late-port", "role": "user", "kind": "fact", "position": "late", "content": "The verified service port is 43127." }
+  ],
+  "requiredFacts": [
+    { "id": "release-id", "category": "exact", "value": "RC-ALPHA-7319", "aliases": [], "position": "early", "weight": 3, "critical": true },
+    { "id": "migration-path", "category": "exact", "value": "/workspace/migrations/042-add-context-index.sql", "aliases": [], "position": "middle", "weight": 3, "critical": true },
+    { "id": "service-port", "category": "exact", "value": "43127", "aliases": [], "position": "late", "weight": 2, "critical": true }
+  ],
+  "supersededFacts": [],
+  "toolPairs": [],
+  "expectedNextStep": "Verify the migration on port 43127 before publishing RC-ALPHA-7319."
+}

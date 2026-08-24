@@ -29,6 +29,10 @@ export const zh = {
   'settings.unsaved': '未保存',
   'settings.saveFailed': '部署未接受这些值，已保留供你修改。',
   'settings.invalidNumber': '请输入数字，留空则使用默认值。',
+  'context.usage': '上下文约 {used} / {window} · {percent}%',
+  'context.nearCompaction': '接近自动压缩区间',
+  'context.compactionZone': '已进入自动压缩区间',
+  'context.hint': '当前请求的预计上下文占用；容量来自当前模型适配器，未上报时不会猜测。DSH 通常在接近容量上限前自动压缩。',
 } satisfies Record<string, string>
 
 /** The live-stats key union. */
@@ -60,4 +64,8 @@ export const en = {
   'settings.unsaved': 'Unsaved',
   'settings.saveFailed': 'The deployment did not accept these values; they were left for you to correct.',
   'settings.invalidNumber': 'Enter a number, or leave blank to use the default.',
+  'context.usage': 'Context ~{used} / {window} · {percent}%',
+  'context.nearCompaction': 'Near auto-compaction range',
+  'context.compactionZone': 'In auto-compaction range',
+  'context.hint': 'Estimated context for the next request. Capacity comes from the active model adapter and is never guessed when absent. DSH normally compacts before the limit.',
 } satisfies Record<SettingsCardKey, string>

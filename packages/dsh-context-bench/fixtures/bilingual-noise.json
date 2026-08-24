@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "bilingual-noise",
+  "title": "Chinese and English facts mixed with repetitive noise",
+  "contextScale": "32K",
+  "transcript": [
+    { "id": "chinese-owner", "role": "user", "kind": "fact", "position": "early", "content": "发布负责人是林舟，重复日志不应改变这个事实。" },
+    { "id": "english-budget", "role": "user", "kind": "fact", "position": "middle", "content": "The strict output budget is 6144 tokens, regardless of repeated filler." },
+    { "id": "mixed-next", "role": "user", "kind": "pending", "position": "late", "content": "下一步 run replay validation，然后再生成 report.md。" }
+  ],
+  "requiredFacts": [
+    { "id": "release-owner", "category": "semantic", "value": "林舟", "aliases": ["Lin Zhou"], "position": "early", "weight": 4, "critical": true },
+    { "id": "output-budget", "category": "exact", "value": "6144 tokens", "aliases": [], "position": "middle", "weight": 4, "critical": true },
+    { "id": "mixed-next-step", "category": "pending", "value": "run replay validation，然后再生成 report.md", "aliases": ["先验证 replay 再生成 report.md"], "position": "late", "weight": 4, "critical": true }
+  ],
+  "supersededFacts": [],
+  "toolPairs": [],
+  "expectedNextStep": "Run replay validation, then generate report.md."
+}

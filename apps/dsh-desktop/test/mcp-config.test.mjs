@@ -88,3 +88,22 @@ test('MCP JSON parser accepts JSONC comments and trailing commas without changin
 test('MCP JSON parser rejects unterminated JSONC block comments', () => {
   assert.throws(() => parseMcpServersJson('{ /* unfinished'), /unterminated block comment/)
 })
+
+test('MCP JSON parser accepts official DingTalk mixed-case environment names', () => {
+  const parsed = parseMcpServersJson(JSON.stringify({
+    mcpServers: {
+      'dingtalk-mcp': {
+        command: 'npx',
+        args: ['-y', 'dingtalk-mcp@latest'],
+        env: {
+          DINGTALK_Client_ID: '${DINGTALK_CLIENT_ID}',
+          DINGTALK_Client_Secret: '${DINGTALK_CLIENT_SECRET}',
+          ACTIVE_PROFILES: 'dingtalk-contacts,dingtalk-calendar',
+        },
+      },
+    },
+  }))
+  const server = parsed.servers[0]
+  assert.equal(server.plainEnv.ACTIVE_PROFILES, 'dingtalk-contacts,dingtalk-calendar')
+  assert.deepEqual(server.secretSlots.map((slot) => slot.targetKey), ['DINGTALK_Client_ID', 'DINGTALK_Client_Secret'])
+})

@@ -314,9 +314,12 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
 }
 
 .secondaryButton {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--dsw-alias-border-l1);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
+  text-decoration: none;
 }
 
 .secondaryButton:hover:not(:disabled) {
@@ -462,6 +465,33 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.capabilityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.capabilityRow span {
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--dsw-alias-label-secondary);
+  background: color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);
+  border-radius: 999px;
+}
+
+.providerLine {
+  margin: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.verificationLine {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
 }
 
 .catalogLink {
@@ -721,6 +751,28 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   text-overflow: ellipsis;
 }
 
+.trustBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+  background: color-mix(in srgb, var(--dsw-alias-state-warning-primary, #d98c10) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary, #d98c10) 45%, transparent);
+  border-radius: 8px;
+}
+
+.trustBox input {
+  margin-top: 3px;
+}
+
+.trustBox strong {
+  display: block;
+  color: var(--dsw-alias-label-primary);
+}
+
 .inlineLabel {
   display: inline-flex;
   align-items: center;
@@ -803,6 +855,11 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   border: 1px solid var(--dsw-alias-border-l1);
   color: var(--dsw-alias-label-secondary);
   white-space: nowrap;
+}
+
+.badge[data-success] {
+  color: var(--dsw-alias-state-success-primary, #1aa260);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #1aa260) 45%, transparent);
 }
 
 .description {

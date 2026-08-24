@@ -165,3 +165,34 @@ test('extension IPC imports official MCP JSON with encrypted credentials and rem
     await rm(dshHome, { recursive: true, force: true })
   }
 })
+
+test('extension IPC requires explicit local-command trust and can toggle a connector', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-trust-'))
+  const { handlers, calls, registration } = fixture(dshHome)
+  try {
+    const document = JSON.stringify({
+      mcpServers: { local: { command: 'npx', args: ['-y', 'provider-mcp'] } },
+    })
+    await assert.rejects(handlers.get('extensions:mcp-import')(null, {
+      text: document,
+      selectedNames: ['local'],
+      conflict: 'reject',
+    }), /local-command-trust-required/u)
+
+    const imported = await handlers.get('extensions:mcp-import')(null, {
+      text: document,
+      selectedNames: ['local'],
+      conflict: 'reject',
+      allowLocalCommand: true,
+    })
+    assert.equal(imported.imported[0].enabled, true)
+    const disabled = await handlers.get('extensions:connector-enable')(null, 'local', false)
+    assert.equal(disabled.enabled, false)
+    assert.equal((await handlers.get('extensions:connector-list')())[0].enabled, false)
+    assert.ok(calls.stops >= 2)
+    assert.ok(calls.starts >= 2)
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})

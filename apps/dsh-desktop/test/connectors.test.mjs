@@ -98,6 +98,32 @@ test('connector store persists, updates, removes and checks without executing MC
   }
 })
 
+test('connector store toggles registration without losing configuration or provenance', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-toggle-'))
+  try {
+    const store = new ConnectorStore({ path: join(root, 'connectors.json'), env: {} })
+    await store.save({
+      id: 'dingtalk', name: 'DingTalk', kind: 'mcp', command: 'npx', args: ['-y', 'dingtalk-mcp@latest'],
+      plainEnv: { ACTIVE_PROFILES: 'dingtalk-contacts' },
+      secretBindings: [{
+        location: 'env', targetKey: 'DINGTALK_Client_ID', credentialRef: 'DSH_CONNECTOR_DINGTALK_CLIENT_ID', template: '${secret}',
+      }],
+      source: { kind: 'preset', presetId: 'dingtalk' },
+    })
+    const disabled = await store.setEnabled('dingtalk', false)
+    assert.equal(disabled.enabled, false)
+    assert.equal(disabled.source.presetId, 'dingtalk')
+    assert.equal(disabled.secretBindings[0].targetKey, 'DINGTALK_Client_ID')
+    assert.doesNotMatch(renderMcpConnectorPatch(await store.list()), /desktop-mcp-dingtalk/u)
+
+    const enabled = await store.setEnabled('dingtalk', true)
+    assert.equal(enabled.enabled, true)
+    assert.match(renderMcpConnectorPatch(await store.list()), /desktop-mcp-dingtalk/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('command probing resolves Windows executable extensions only where they apply', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-bin-'))
   try {

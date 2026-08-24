@@ -19,6 +19,8 @@ node_modules/
 .DS_Store
 coverage/
 *.tsbuildinfo
+artifacts/context-bench/
+artifacts/context-bench/
 
 # GUI 测试截图
 gui-test-screenshots/

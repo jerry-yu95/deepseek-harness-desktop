@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.35 - 2026-08-24
+
+- Added a verified connector catalog covering one-click official MCP templates for GitHub, Feishu/Lark, GitLab, and DingTalk.
+- Added provider-JSON onboarding for TAPD and Tencent Gongfeng without inventing undocumented endpoints, plus official Skill guidance for Tencent Meeting and WeCom.
+- Added connector enable, disable, reconfigure, health, and provenance states while preserving encrypted credentials when a connector is disabled.
+- Added an explicit local-command trust confirmation for imported stdio and npx MCP servers, enforced in both the renderer and desktop main process.
+- Accepted official mixed-case environment-variable names while retaining strict internal credential-reference validation.
+- Added catalog, parser, lifecycle, IPC, local-command trust, and real Host integration regression coverage.
+- Labeled every catalog link by its actual source type (official MCP, provider setup, official Skill, or official API/OAuth) and exposed that real-account authorization has not been claimed as end-to-end tested.
+- Fixed New Session and history navigation while the Extension Center is open by releasing the center column before the official sidebar route handles the click.
+- Added a numeric context-window readout below the composer using the active adapter's `contextPressure` projection, including visible 65% and 80% compaction-range hints without guessing missing capacities.
+- Added deterministic long-context and compaction-quality benchmarks with fixture-hash baselines, redacted reports, cross-platform CI gates, and a separately protected live-model contract.
+
 ## 0.1.34 - 2026-08-24
 
 - Replaced unexplained external-client file selection with bounded one-click discovery for WorkBuddy, CodeBuddy, TRAE, and Qoder across documented user locations, project-local configuration, and supported platform application-data folders; manual selection remains a fallback.

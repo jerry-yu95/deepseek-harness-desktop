@@ -13,7 +13,7 @@ DSH Web 的实时输入/输出 token 估算与生成吞吐显示。它供给内�
 ## 功能
 
 - **宿主侧**：注册可重放的 `liveTokenUsage` 会话投影（`ctx.sessionProjections`）。该折叠从表面日志加上 header/工具框架估算输入 token，从流式 chunk 估算输出 token，并在 `usage` chunk 或最终消息落地后立即用 provider 用量替换估算。TPS 由活跃步骤的输出 token 除以墙钟耗时得出，且速率是常驻的：一旦某个步骤测得速率，投影就会持续上报（新步骤尚未产生输出或遇到无速率步骤时回退到最近一次测得值），状态行不会闪烁消失。
-- **客户端**：仅为 roster 兼容保留。TPS 组渲染在会话统计行内部——ui-conversation 直接读取 `liveTokenUsage` 投影——因此客户端不再挂载任何内容。
+- **客户端**：TPS 组仍由 ui-conversation 在会话统计行内读取 `liveTokenUsage` 投影；本插件另外在输入框下方显示当前适配器上报的上下文占用（例如 `上下文约 474K / 1M · 47%`）。适配器未上报容量时不猜测、不显示；达到常见自动压缩区间时会给出文字提示。
 
 ## 安装
 
@@ -31,7 +31,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 
 ```
 
-安装后**重启 `dsh web`**，会话状态行出现 TPS 组。
+安装后**重启 `dsh web`**，会话状态行出现 TPS 组；当前模型线路上报上下文容量后，输入框下方还会出现上下文占用提示。
 
 另一种方式：作为普通 overlay 行加入个人 DSH overlay（`~/.dsh/config.yaml`），保存即热加载：
 
@@ -79,5 +79,6 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 
 - **启发式估算**：在 provider 用量到达前，输入/输出总量为字符数启发式（`~`）；精确缓存统计始终来自 DSH 的持久化 token 用量投影。
 - **仅 Web**：TPS 组渲染在 DSH Web 的会话统计行内；暂无 TUI 等价物。
+- **容量由适配器决定**：上下文提示只显示当前模型适配器上报的 `contextWindow`，不会依据模型名称推测。官方 DeepSeek 适配器当前默认 1M，但第三方线路可能不同或不提供该值。
 - **单一活跃步骤**：投影每个会话只跟踪一个活跃步骤，dock 行显示该会话的视图；并发会话各自拥有独立投影。
 - **密度假设**：`charsPerToken` 默认为 4 字符，会低估中文文本、高估纯 ASCII；若估算偏差明显，请按部署调整。

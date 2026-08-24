@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "tool-pairing",
+  "title": "Balanced tool calls and pruned result evidence",
+  "contextScale": "128K",
+  "transcript": [
+    { "id": "inspect-call", "role": "assistant", "kind": "tool-call", "position": "middle", "content": "Inspect the deterministic report.", "toolCallId": "inspect-report", "toolName": "read-report" },
+    { "id": "inspect-result", "role": "tool", "kind": "tool-result", "position": "middle", "content": "HEAD_EVIDENCE schemaVersion=1 followed by repetitive diagnostic output and TAIL_EVIDENCE checksum=7f31.", "toolCallId": "inspect-report", "toolName": "read-report" },
+    { "id": "tool-conclusion", "role": "assistant", "kind": "fact", "position": "late", "content": "The report is valid only when both HEAD_EVIDENCE and TAIL_EVIDENCE remain available." }
+  ],
+  "requiredFacts": [
+    { "id": "head-evidence", "category": "tool", "value": "HEAD_EVIDENCE schemaVersion=1", "aliases": [], "position": "middle", "weight": 4, "critical": true },
+    { "id": "tail-evidence", "category": "tool", "value": "TAIL_EVIDENCE checksum=7f31", "aliases": [], "position": "middle", "weight": 4, "critical": true }
+  ],
+  "supersededFacts": [],
+  "toolPairs": [
+    { "id": "inspect-report", "toolName": "read-report", "callSegmentId": "inspect-call", "resultSegmentId": "inspect-result", "requiredEvidence": ["HEAD_EVIDENCE schemaVersion=1", "TAIL_EVIDENCE checksum=7f31"] }
+  ],
+  "expectedNextStep": "Validate that the read-report call and result remain paired after pruning."
+}

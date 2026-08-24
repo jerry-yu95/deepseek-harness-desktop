@@ -7,9 +7,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-token-meter/client'
 import { LiveStatsSettingsCard, LiveStatsSettingsCardController, type LiveStatsSettings } from './LiveStatsSettingsCard.tsx'
+import { ContextUsageLine } from './ContextUsageLine.tsx'
 import { en, zh, type SettingsCardKey } from './locales.ts'
 
 export { TpsLine, formatTokensPerSecond } from './TpsLine.tsx'
+export { ContextUsageLine, formatContextTokens } from './ContextUsageLine.tsx'
 export type { LiveStatsSettings, LiveStatsSettingsCardFace, LiveStatsSettingsCardState } from './LiveStatsSettingsCard.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -46,13 +48,20 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
 
 /**
  * Register the live-stats surface: the generation-throughput TPS group lives
- * in the ui-conversation stats line (read directly from the `liveTokenUsage`
- * projection), and this build of the browser half mounts the plugin settings
- * card over the `live-stats` namespace.
+ * in the ui-conversation stats line, this plugin contributes an explicit
+ * context-capacity readout below the composer, and it mounts the plugin
+ * settings card over the `live-stats` namespace.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'live-stats: dictionaries')
+
+  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+    name: 'conversation.composer.dock',
+    id: 'live-stats-context',
+    order: 10,
+    locale: NS,
+  }, ContextUsageLine))
 
   // Plugin configuration card: one staged form over the `live-stats` settings
   // namespace, contributed to the plugin-configuration section.

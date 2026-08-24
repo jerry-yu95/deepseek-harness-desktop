@@ -19,6 +19,20 @@ import css from './panel/panel.module.css'
 /** Stable data attribute identifying the injected entry rows. */
 export const ENTRY_SELECTOR = '[data-dsh-extension-entry]'
 
+/** Official shell targets that navigate away from the extension center. */
+const SIDEBAR_SELECTOR = '[data-pane="sidebar"], [class*="sidebarCol"]'
+
+/**
+ * Whether a click belongs to the official sidebar rather than one of this
+ * plugin's injected rows. Closing before the shell handles that click lets
+ * New Session and history rows reveal their real center-column route.
+ */
+export function shouldCloseForSidebarTarget(target: EventTarget | null): boolean {
+  const element = target as { closest?: (selector: string) => unknown } | null
+  if (typeof element?.closest !== 'function') return false
+  return element.closest(ENTRY_SELECTOR) == null && element.closest(SIDEBAR_SELECTOR) != null
+}
+
 /** Inline icons (match the shell's 16px nav-icon look). */
 const ICONS: Record<ExtensionTab, string> = {
   // Bookmark ribbon: the skills catalog.
@@ -152,12 +166,21 @@ export function mountSidebarEntries(controller: PanelController): () => void {
   }
   const unsubscribe = controller.subscribe(applyEntryStates)
 
+  // Extension content replaces the official center column while open. The
+  // shell still updates its selected session underneath, so close our panel
+  // in capture phase before an official sidebar navigation click is handled.
+  const onSidebarNavigation = (event: MouseEvent): void => {
+    if (controller.getSnapshot().panelOpen && shouldCloseForSidebarTarget(event.target)) controller.close()
+  }
+  document.addEventListener('click', onSidebarNavigation, true)
+
   tryPlace()
 
   return () => {
     waitObserver.disconnect()
     rootObserver.disconnect()
     unsubscribe()
+    document.removeEventListener('click', onSidebarNavigation, true)
     for (const entry of entries) entry.remove()
   }
 }

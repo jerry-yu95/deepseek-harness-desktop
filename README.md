@@ -10,6 +10,8 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 
 [下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
+当前开发版本：`0.1.35`。本版本重点完善连接器生命周期、官方 JSON 导入、上下文占用可视化，以及长上下文压缩质量基准；真实平台授权仍以用户自己的账号和权限为准。
+
 ## 为什么做这个项目
 
 DeepSeek Harness 的价值不只是一套聊天界面，而是一套可以组合模型、工具、权限、Skills、工作流和插件的 Agent 运行底座。本项目不另造一套 Agent Runtime，而是在官方机制之上补齐普通用户真正会遇到的产品缺口：可安装、可理解、可扩展、可远程、可观察、可恢复。
@@ -20,6 +22,8 @@ DeepSeek Harness 的价值不只是一套聊天界面，而是一套可以组合
 - **Agent Harness 增强层**：标准、自适应和增强编排可切换，缓存命中、Agent 轨迹、模型健康与 Token 周期统计可观察；
 - **真实桌面交付**：支持 Windows x64、macOS Intel 和 Apple Silicon，并提供配置隔离、更新备份与失败回退；
 - **开源边界清楚**：社区增强不会冒充 DeepSeek 官方能力，第三方代码和上游来源保留许可与署名。
+
+本项目的核心定位是“官方 Harness 运行时之上的开源 Agent 工作台”：保留 DeepSeek Harness 的执行语义，同时把连接器、Skills、编排、缓存、远程控制、可观测性和跨平台交付做成普通用户可以理解、安装和验证的产品能力。
 
 | 原版界面无损加载 | 桌面扩展坞 |
 | --- | --- |
@@ -38,6 +42,8 @@ DeepSeek Harness 的价值不只是一套聊天界面，而是一套可以组合
 - **技能**：查看 Harness 已发现的 Skill，创建合规的 `SKILL.md`，或导入现有技能目录。Skill 是给 Agent 的专业操作手册，不等同于 MCP 或 Cordis 插件；
 - **连接器**：使用 GitHub、飞书/Lark、GitLab 等官方 MCP 模板，粘贴任意官方 `mcpServers` JSON，或一键发现 WorkBuddy、CodeBuddy、TRAE、Qoder 的本地配置；
 - **学习**：用通俗产品语言理解 Harness 五层结构、权限、模式、插件边界，以及本项目每项社区增强背后的设计取舍。
+
+当前连接器目录会明确区分“官方 MCP 模板”“服务方 JSON 配置”“官方 Skill”和“API/OAuth 指引”。目录中的来源核验不等同于真实账号授权已完成，应用会把配置、凭证、运行时和 Harness 注册状态分开诊断。
 
 凭证只在桌面主进程加密保存，不写入连接器记录、生成的 profile、日志或导出 JSON。连接器诊断会分别显示配置、凭证、运行时和 Harness 注册状态，避免只给一个无法行动的“连接失败”。
 

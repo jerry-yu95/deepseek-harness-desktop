@@ -18,6 +18,7 @@ const api = Object.freeze({
   listConnectors: () => ipcRenderer.invoke('extensions:connector-list'),
   saveConnector: (input) => ipcRenderer.invoke('extensions:connector-save', input),
   removeConnector: (id) => ipcRenderer.invoke('extensions:connector-remove', id),
+  setConnectorEnabled: (id, enabled) => ipcRenderer.invoke('extensions:connector-enable', id, enabled),
   checkConnector: (id) => ipcRenderer.invoke('extensions:connector-check', id),
   previewMcpJson: (text) => ipcRenderer.invoke('extensions:mcp-preview', text),
   importMcpJson: (input) => ipcRenderer.invoke('extensions:mcp-import', input),

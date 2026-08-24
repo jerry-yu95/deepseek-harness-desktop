@@ -1,0 +1,89 @@
+name: Context Benchmark
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "packages/dsh-context-bench/**"
+      - "packages/dsh-orchestrator/**"
+      - "packages/dsh-live-stats/**"
+      - "apps/dsh-desktop/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/context-benchmark.yml"
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Configured provider route for the protected live bridge"
+        required: false
+        type: string
+      model:
+        description: "Configured model route for the protected live bridge"
+        required: false
+        type: string
+      scale:
+        description: "8K, 32K, 128K, or 1M-policy"
+        required: false
+        default: "32K"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, windows-latest, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @harness-design/dsh-context-bench typecheck
+      - run: pnpm --filter @harness-design/dsh-context-bench test
+      - run: pnpm bench:context -- --out artifacts/context-bench
+      - run: git diff --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: context-benchmark-${{ matrix.runner }}
+          if-no-files-found: error
+          path: artifacts/context-bench/
+
+  live-manual:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: context-benchmark-live
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Explain protected live bridge requirement
+        if: ${{ vars.DSH_BENCH_ADAPTER_MODULE == '' }}
+        run: 'echo "Live benchmark skipped: configure DSH_BENCH_ADAPTER_MODULE in the protected environment. No paid model call was made."'
+      - name: Run protected live benchmark
+        if: ${{ vars.DSH_BENCH_ADAPTER_MODULE != '' && inputs.provider != '' && inputs.model != '' }}
+        run: >-
+          pnpm --filter @harness-design/dsh-context-bench bench:live --
+          --live --provider "${{ inputs.provider }}" --model "${{ inputs.model }}"
+          --scale "${{ inputs.scale }}" --max-input-tokens 32768
+          --max-output-tokens 4096 --confirm RUN_LIVE_CONTEXT_BENCHMARK
+          --adapter-module "${{ vars.DSH_BENCH_ADAPTER_MODULE }}"
+      - name: Explain missing live inputs
+        if: ${{ vars.DSH_BENCH_ADAPTER_MODULE != '' && (inputs.provider == '' || inputs.model == '') }}
+        run: 'echo "Live benchmark skipped: provide both provider and model in workflow_dispatch inputs. No paid model call was made."'

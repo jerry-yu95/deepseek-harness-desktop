@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "superseded-decisions",
+  "title": "Latest mutable decision replaces stale values",
+  "contextScale": "32K",
+  "transcript": [
+    { "id": "initial-store", "role": "user", "kind": "fact", "position": "early", "content": "Use SQLite for the benchmark result store." },
+    { "id": "second-store", "role": "user", "kind": "correction", "position": "middle", "content": "Correction: use Postgres instead of SQLite." },
+    { "id": "final-store", "role": "user", "kind": "correction", "position": "late", "content": "Final decision: keep reports as local JSON artifacts; do not use SQLite or Postgres." }
+  ],
+  "requiredFacts": [
+    { "id": "result-store", "category": "mutable", "value": "local JSON artifacts", "aliases": ["local JSON reports"], "position": "late", "weight": 5, "critical": true }
+  ],
+  "supersededFacts": [
+    { "factId": "result-store", "staleValues": ["SQLite", "Postgres"] }
+  ],
+  "toolPairs": [],
+  "expectedNextStep": "Write the benchmark result to a sanitized local JSON artifact."
+}

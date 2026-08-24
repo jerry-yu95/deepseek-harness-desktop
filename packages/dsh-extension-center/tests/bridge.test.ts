@@ -10,6 +10,7 @@ import {
   connectorEndpoint,
   mcpCredentialLabel,
   missingMcpCredentials,
+  selectedMcpRequiresLocalExecution,
   selectedMcpServerNames,
   getDesktopBridge,
   splitComma,
@@ -187,6 +188,26 @@ describe('MCP onboarding helpers', () => {
     expect(canPreviewMcpClientSource({ ...source, status: 'not-found' })).toBe(false)
     expect(canPreviewMcpClientSource({ ...source, status: 'invalid' })).toBe(false)
     expect(canPreviewMcpClientSource({ ...source, status: 'manual' })).toBe(false)
+  })
+
+  it('requires trust only when a selected server executes a local command', () => {
+    const withLocal = {
+      servers: [
+        ...preview.servers,
+        {
+          sourceName: 'local',
+          suggestedId: 'local',
+          transport: 'stdio' as const,
+          command: 'npx',
+          args: ['-y', 'provider-mcp'],
+          plainEnv: {},
+          plainHeaders: {},
+          secretSlots: [],
+        },
+      ],
+    }
+    expect(selectedMcpRequiresLocalExecution(withLocal, { github: true, local: false })).toBe(false)
+    expect(selectedMcpRequiresLocalExecution(withLocal, { github: false, local: true })).toBe(true)
   })
 })
 

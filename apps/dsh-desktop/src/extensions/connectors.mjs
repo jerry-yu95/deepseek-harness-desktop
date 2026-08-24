@@ -5,7 +5,7 @@ import { delimiter, dirname, isAbsolute, join } from 'node:path'
 const CONNECTOR_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const CONNECTOR_KINDS = new Set(['mcp', 'http'])
 const MCP_TRANSPORTS = new Set(['stdio', 'streamable-http'])
-const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/
+const ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/
 const SECRET_TEMPLATES = new Set(['${secret}', 'Bearer ${secret}'])
 const SOURCE_KINDS = new Set(['custom', 'json', 'preset', 'external-client'])
@@ -256,6 +256,19 @@ export class ConnectorStore {
     if (next.length === connectors.length) throw new Error(`connector ${normalized} was not found`)
     await atomicJsonWrite(this.path, next)
     return { id: normalized }
+  }
+
+  async setEnabled(id, enabled) {
+    const normalized = text(id, 'connector id', { max: 64 })
+    if (!CONNECTOR_ID_PATTERN.test(normalized)) throw new TypeError('connector id must be kebab-case')
+    if (typeof enabled !== 'boolean') throw new TypeError('connector enabled state must be a boolean')
+    const connectors = await this.list()
+    const index = connectors.findIndex((item) => item.id === normalized)
+    if (index < 0) throw new Error(`connector ${normalized} was not found`)
+    const connector = validateConnectorInput({ ...connectors[index], enabled })
+    connectors[index] = connector
+    await atomicJsonWrite(this.path, connectors.toSorted((left, right) => left.name.localeCompare(right.name)))
+    return connector
   }
 
   async check(id) {

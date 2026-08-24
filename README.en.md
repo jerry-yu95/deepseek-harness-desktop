@@ -10,6 +10,8 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
+Current development version: `0.1.35`. This release focuses on connector lifecycle management, official JSON onboarding, context-usage visibility, and long-context compaction-quality benchmarks; real service authorization still depends on the user's own account and permissions.
+
 ## Why this project exists
 
 DeepSeek Harness is more than a chat interface: it is an Agent runtime for composing models, tools, permissions, Skills, workflows, and plugins. This project does not replace that runtime. It adds the product layer everyday users need: installation, understandable controls, extensibility, remote access, observability, and recovery.
@@ -20,6 +22,8 @@ DeepSeek Harness is more than a chat interface: it is an Agent runtime for compo
 - **Agent Harness layer**: select Standard, Adaptive, or Enhanced orchestration and inspect cache hits, Agent traces, model health, and period-based Token usage;
 - **Real desktop delivery**: Windows x64, macOS Intel, and Apple Silicon packages with isolated configuration, safe updates, and rollback;
 - **Clear open-source boundary**: community features are not presented as official DeepSeek capabilities, and third-party licensing and attribution are preserved.
+
+The project's core position is an open-source Agent workbench above the official Harness runtime: it preserves DeepSeek Harness execution semantics while making connectors, Skills, orchestration, caching, remote control, observability, and cross-platform delivery understandable, installable, and testable for everyday users.
 
 | Lossless original surface | Desktop Extension Dock |
 | --- | --- |
@@ -38,6 +42,8 @@ The Skills, Connectors, and Learn sidebar entries are provided by the community 
 - **Skills** lists discovered Harness Skills, creates valid `SKILL.md` bundles, and imports existing skill directories. A Skill is an Agent playbook, not an MCP server or Cordis runtime plugin;
 - **Connectors** offers verified GitHub, Feishu/Lark, and GitLab MCP templates, arbitrary official `mcpServers` JSON import, and one-click discovery for WorkBuddy, CodeBuddy, TRAE, and Qoder;
 - **Learn** explains the five Harness layers, permissions, modes, plugin boundaries, and the product reasoning behind every community enhancement in plain language.
+
+The connector catalog distinguishes official MCP templates, provider-supplied JSON configuration, official Skills, and API/OAuth guidance. Source verification is not a claim that a real account has been authorized end to end; the app reports configuration, credentials, runtime reachability, and Harness registration as separate diagnostics.
 
 Credentials are encrypted in the desktop main process and never written into connector records, generated profiles, logs, or exported JSON. Diagnostics report configuration, credentials, runtime reachability, and Harness registration as separate stages.
 

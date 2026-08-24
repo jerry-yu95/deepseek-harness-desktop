@@ -1,24 +1,25 @@
-# Harness Design Desktop 0.1.34
+# Harness Design Desktop 0.1.35
 
-This release turns MCP onboarding into a guided, one-click flow and adds a first-class learning surface inside DeepSeek Harness Desktop.
+This release turns the Connector Center into a verified, lifecycle-aware catalog while preserving the official DeepSeek Harness runtime boundary.
 
 ## Highlights
 
-- WorkBuddy, CodeBuddy, TRAE, and Qoder can now be discovered automatically from bounded user, project, and supported application-data locations. The native file picker remains available only as a fallback.
-- Project-local configurations take precedence when present. Empty, invalid, or credential-only files are skipped safely so a usable lower-priority source can still be found.
-- The source clients remain read-only: Harness Desktop never edits their configuration and never sends raw source paths, documents, or plaintext credentials to the web renderer.
-- GitHub, Feishu/Lark, and GitLab remain verified recommended MCP presets. TAPD now leads directly to the official JSON importer so users can paste the provider's `mcpServers` configuration instead of duplicating account, organization, server, and project fields.
-- Long JSON imports keep validation errors in a fixed dialog footer, preventing actionable feedback from disappearing below the viewport.
-- Connector health is now explained in four stages: configuration, credentials, runtime reachability, and Harness registration. Authentication challenges are not misreported as server outages.
-- A new Learn entry sits beside Skills and Connectors in the official sidebar. It explains the official/community boundary and links to the refreshed interactive product-design platform.
-- The learning platform now explains Connector Center, Skill Studio, orchestration, caching, model health, Token analytics, mobile remote control, safe updates, and cross-platform packaging through plain problem-to-product-choice examples.
+- GitHub, Feishu/Lark, GitLab, and DingTalk are available as verified official MCP templates with guided credential entry.
+- TAPD and Tencent Gongfeng accept the provider's official `mcpServers` JSON instead of relying on guessed endpoints or duplicated organization fields.
+- Tencent Meeting and WeCom link to their official Skill-based integration paths.
+- Imported local stdio and npx servers require an explicit execution-trust confirmation before the desktop main process accepts them.
+- Connectors can be enabled, disabled, checked, and reconfigured without deleting encrypted credentials or provenance.
+- WorkBuddy, CodeBuddy, TRAE, and Qoder discovery remains read-only and uses bounded project, user, and application-data locations with manual selection only as a fallback.
 - Connector credentials continue to be encrypted and retained in the desktop main process; plaintext values are not written to generated profiles, connector records, logs, or exports.
+- Catalog links now identify official MCP documentation, provider configuration pages, official Skill guides, and API/OAuth references separately; the UI also states that source and import-flow verification is not the same as real-account authorization testing.
+- New Session and history items leave the Extension Center and reveal the official conversation route instead of rendering the composer underneath the center panel.
+- The composer now shows the active adapter's reported context occupancy as a compact token count and percentage, with visible warnings near the default automatic-compaction range; unknown capacities remain undisplayed rather than inferred.
 - Windows x64, macOS Intel, and macOS Apple Silicon release artifacts are built and verified on native GitHub-hosted runners.
 
 ## Verification
 
-- Automatic discovery, invalid-source fallback, project precedence, source-session isolation, staged diagnostics, and external-client provenance have dedicated desktop regression tests.
-- Extension Center navigation, Learning rendering, bridge behavior, form mapping, MCP review helpers, and external-source actions have dedicated component and controller tests.
+- Connector catalog integrity, mixed-case official environment variables, enable/disable persistence, local-command trust, source-session isolation, and encrypted import have dedicated regression tests.
+- Extension Center navigation, bridge behavior, MCP review helpers, external-source actions, connector lifecycle controls, and context-capacity rendering have dedicated component and controller tests.
 - Full workspace tests, type checks, production builds, aggregate consistency, package verification, and an emoji-free repository scan run before release.
 - Every published artifact is accompanied by SHA-256 checksums and target-specific updater metadata.
 
@@ -26,9 +27,9 @@ This release turns MCP onboarding into a guided, one-click flow and adds a first
 
 Download the artifact matching your system and verify it against `SHA256SUMS.txt`:
 
-- `Harness-Design-Desktop-Setup-0.1.34-x64.exe`
-- `Harness-Design-Desktop-0.1.34-x64.dmg`
-- `Harness-Design-Desktop-0.1.34-arm64.dmg`
+- `Harness-Design-Desktop-Setup-0.1.35-x64.exe`
+- `Harness-Design-Desktop-0.1.35-x64.dmg`
+- `Harness-Design-Desktop-0.1.35-arm64.dmg`
 
 The community builds are unsigned. Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Follow the installation guide and verify `SHA256SUMS.txt`. Unsigned macOS builds intentionally open the verified Release page instead of attempting an automatic installation.
 

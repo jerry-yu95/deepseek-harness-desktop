@@ -143,6 +143,7 @@ export interface McpJsonImportInput {
   conflict?: 'reject' | 'replace' | 'rename'
   secrets?: Record<string, string>
   source?: { kind: 'json' | 'preset'; presetId?: string }
+  allowLocalCommand?: boolean
 }
 
 export interface McpClientSourceImportInput {
@@ -150,6 +151,7 @@ export interface McpClientSourceImportInput {
   selectedNames?: string[]
   conflict?: 'reject' | 'replace' | 'rename'
   secrets?: Record<string, string>
+  allowLocalCommand?: boolean
 }
 
 /** Connector health-check outcome. */
@@ -175,6 +177,8 @@ export interface DesktopBridge {
   saveConnector(input: ConnectorSaveInput): Promise<ConnectorRecord>
   removeConnector(id: string): Promise<unknown>
   checkConnector(id: string): Promise<ConnectorCheckResult>
+  /** Optional on older desktop builds; toggles profile registration without deleting secrets. */
+  setConnectorEnabled?: (id: string, enabled: boolean) => Promise<ConnectorRecord>
   /** Optional on older desktop builds; advanced connector form remains usable. */
   previewMcpJson?: (text: string) => Promise<McpJsonPreview>
   importMcpJson?: (input: McpJsonImportInput) => Promise<{ imported: ConnectorRecord[] }>
@@ -314,6 +318,11 @@ export function selectedMcpServerNames(preview: McpJsonPreview, selected: Record
   return preview.servers
     .filter((server) => selected[server.sourceName])
     .map((server) => server.sourceName)
+}
+
+/** Whether the selected import would execute a local stdio process. */
+export function selectedMcpRequiresLocalExecution(preview: McpJsonPreview, selected: Record<string, boolean>): boolean {
+  return preview.servers.some((server) => selected[server.sourceName] && server.transport === 'stdio')
 }
 
 /** Missing credentials for selected servers, de-duplicated by secure-store reference. */

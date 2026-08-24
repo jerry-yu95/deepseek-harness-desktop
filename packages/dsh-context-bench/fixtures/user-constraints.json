@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "user-constraints",
+  "title": "User language, safety, formatting, and scope constraints",
+  "contextScale": "32K",
+  "transcript": [
+    { "id": "language", "role": "user", "kind": "constraint", "position": "early", "content": "Respond in concise Simplified Chinese." },
+    { "id": "safety", "role": "user", "kind": "constraint", "position": "middle", "content": "Never reset, stash, or discard unrelated working-tree changes." },
+    { "id": "format", "role": "user", "kind": "constraint", "position": "late", "content": "Report test evidence and do not claim universal lossless compression." }
+  ],
+  "requiredFacts": [
+    { "id": "language-rule", "category": "constraint", "value": "concise Simplified Chinese", "aliases": ["简洁的简体中文"], "position": "early", "weight": 2, "critical": false },
+    { "id": "worktree-rule", "category": "constraint", "value": "Never reset, stash, or discard unrelated working-tree changes", "aliases": ["preserve unrelated working-tree changes"], "position": "middle", "weight": 5, "critical": true },
+    { "id": "claim-rule", "category": "constraint", "value": "do not claim universal lossless compression", "aliases": ["avoid universal lossless claims"], "position": "late", "weight": 3, "critical": true }
+  ],
+  "supersededFacts": [],
+  "toolPairs": [],
+  "expectedNextStep": "Run tests, preserve unrelated changes, and report the evidence in concise Simplified Chinese."
+}

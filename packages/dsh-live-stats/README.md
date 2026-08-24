@@ -13,7 +13,7 @@ Live input/output token estimates and generation throughput for DSH Web. It feed
 ## What it does
 
 - **Host half**: registers the replayable `liveTokenUsage` session projection (`ctx.sessionProjections`). The fold estimates input tokens from the surface log plus header/tool framing, estimates output tokens from streaming chunks, and replaces estimates with provider usage as soon as a `usage` chunk or final message lands. TPS is derived from output tokens over wall-clock time of the active step, and the rate is resident: once any step measured one, the projection keeps reporting it (falling back to the last measured value while a new step has not produced output yet, or after a rate-less step), so the row never flickers out.
-- **Client half**: kept for roster compatibility only. The TPS group lives inside the conversation stats line — ui-conversation reads the `liveTokenUsage` projection directly — so the client mounts nothing.
+- **Client half**: the TPS group still lives inside the conversation stats line, while this plugin also renders the active adapter's reported context occupancy below the composer (for example, `Context ~474K / 1M · 47%`). It does not guess or render a capacity when the adapter omitted one, and adds text near the usual automatic-compaction range.
 
 ## Installation
 
@@ -31,7 +31,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 
 ```
 
-Restart `dsh web`, and the TPS group appears in the session status line.
+Restart `dsh web`, and the TPS group appears in the session status line. Once the active model route reports a context capacity, a context-occupancy hint also appears below the composer.
 
 Alternatively, as a plain overlay row in the personal DSH overlay (`~/.dsh/config.yaml`), hot-reloaded on save:
 
@@ -79,5 +79,6 @@ No system-prompt contribution, so no cache-stability effect.
 
 - **Heuristic estimates**: input/output totals are character-count heuristics (`~`) until provider usage arrives; exact cache accounting always comes from DSH's durable token-usage projection.
 - **Web only**: the TPS row renders in DSH Web's composer dock; there is no TUI equivalent yet.
+- **Adapter-owned capacity**: the context hint only displays `contextWindow` reported by the active model adapter; it never infers capacity from a model name. The official DeepSeek adapter currently defaults to 1M, while third-party routes may differ or omit the value.
 - **Single active step**: the projection tracks one active step per session and the dock row shows that session's view; concurrent sessions each get their own projection.
 - **Density assumption**: `charsPerToken` defaults to 4 characters, which undercounts CJK text and overcounts pure ASCII; tune it per deployment if estimates drift.

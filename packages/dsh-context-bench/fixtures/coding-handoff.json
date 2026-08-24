@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "coding-handoff",
+  "title": "Exact engineering handoff across compaction",
+  "contextScale": "128K",
+  "transcript": [
+    { "id": "target-file", "role": "user", "kind": "fact", "position": "early", "content": "The failing implementation is /workspace/packages/context/src/replay.ts." },
+    { "id": "failure", "role": "assistant", "kind": "fact", "position": "middle", "content": "The exact failure is REPLAY_HASH_MISMATCH after event 44." },
+    { "id": "verification", "role": "user", "kind": "pending", "position": "late", "content": "Next run pnpm --filter context-bench test -- replay.spec.ts after sorting sourceEventSeqs." }
+  ],
+  "requiredFacts": [
+    { "id": "handoff-file", "category": "exact", "value": "/workspace/packages/context/src/replay.ts", "aliases": [], "position": "early", "weight": 4, "critical": true },
+    { "id": "handoff-error", "category": "exact", "value": "REPLAY_HASH_MISMATCH after event 44", "aliases": [], "position": "middle", "weight": 4, "critical": true },
+    { "id": "handoff-command", "category": "pending", "value": "pnpm --filter context-bench test -- replay.spec.ts", "aliases": [], "position": "late", "weight": 5, "critical": true },
+    { "id": "handoff-fix", "category": "pending", "value": "sorting sourceEventSeqs", "aliases": ["sort sourceEventSeqs"], "position": "late", "weight": 3, "critical": true }
+  ],
+  "supersededFacts": [],
+  "toolPairs": [],
+  "expectedNextStep": "Sort sourceEventSeqs, then run pnpm --filter context-bench test -- replay.spec.ts."
+}

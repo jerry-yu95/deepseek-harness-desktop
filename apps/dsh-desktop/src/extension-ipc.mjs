@@ -19,6 +19,7 @@ const CHANNELS = [
   'extensions:connector-list',
   'extensions:connector-save',
   'extensions:connector-remove',
+  'extensions:connector-enable',
   'extensions:connector-check',
   'extensions:mcp-preview',
   'extensions:mcp-import',
@@ -180,6 +181,12 @@ export function registerExtensionIpc({
       throw new TypeError('MCP import input is invalid')
     }
     const parsed = parseMcpServersJson(text)
+    const selectedNames = Array.isArray(input.selectedNames)
+      ? new Set(input.selectedNames)
+      : new Set(parsed.servers.map((server) => server.sourceName))
+    if (parsed.servers.some((server) => selectedNames.has(server.sourceName) && server.transport === 'stdio') && input.allowLocalCommand !== true) {
+      throw new Error('local-command-trust-required')
+    }
     const existing = await connectorStore.list()
     const built = buildMcpConnectorImport({
       parsed,
@@ -216,6 +223,7 @@ export function registerExtensionIpc({
   }
   ipcMain.handle('extensions:connector-list', () => connectorStore.list())
   ipcMain.handle('extensions:connector-save', (_event, input) => mutateConnector(() => connectorStore.save(input)))
+  ipcMain.handle('extensions:connector-enable', (_event, id, enabled) => mutateConnector(() => connectorStore.setEnabled(id, enabled)))
   ipcMain.handle('extensions:connector-remove', async (_event, id) => {
     const existing = (await connectorStore.list()).find((connector) => connector.id === id)
     const references = existing === undefined ? [] : [

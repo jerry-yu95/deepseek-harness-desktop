@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "tier": "deterministic",
+  "officialPackages": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-compaction": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-compaction-basic": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-compaction-tool-result-pruner": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-token-meter": "0.1.0-rc.6"
+  },
+  "adapter": {
+    "provider": "official-harness-fixture",
+    "model": "deterministic-oracle"
+  },
+  "fixtures": {
+    "bilingual-noise": "10a53894f6db11b9b0bb8efeffbac9949ed55b115cc823b5beb5fef31146621a",
+    "coding-handoff": "a4255cb734fd79759d4a47e033e7dd4eb5e3a4ee08f5c5f0d28f261a624af341",
+    "multi-compaction": "cb6960e1b5d1e283d7071ee5bb4f24dae36a0f3b1e6ebaa767652eb0ccf446d2",
+    "needle-position": "c7956be53aabcf65c4627f2b53f29e7aedf931681f50e880425aa0d5bf93a769",
+    "superseded-decisions": "1757ef944a250ead1bea2163c2dcb01795de9303176ca082e266c8465216ce4a",
+    "tool-pairing": "cdd880484a7e6778a305a248a24078e22afef284e4867b8d2d877355f16e7620",
+    "user-constraints": "15c056a10ceaee78c905a722b2667e722dacf13958842dc7700c470b0669f754"
+  },
+  "contextWindows": {
+    "bilingual-noise": 32768,
+    "coding-handoff": 131072,
+    "multi-compaction": 131072,
+    "needle-position": 32768,
+    "superseded-decisions": 32768,
+    "tool-pairing": 131072,
+    "user-constraints": 32768
+  },
+  "gates": {
+    "criticalRecall": 100,
+    "exactLiteralRecall": 100,
+    "latestStateAccuracy": 100,
+    "staleLeakage": 0,
+    "toolIntegrity": 100,
+    "sectionCompleteness": 100
+  }
+}
