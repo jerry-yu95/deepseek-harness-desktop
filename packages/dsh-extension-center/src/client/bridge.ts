@@ -166,6 +166,19 @@ export interface ConnectorCheckResult {
   }>
 }
 
+/** Renderer-safe connector authorization status. Secret values never cross this boundary. */
+export interface ConnectorAuthorizationStatus {
+  connectorId: string
+  providerId: 'github' | 'feishu' | 'gitlab' | 'dingtalk'
+  mode: 'oauth' | 'pat' | 'official-cli' | 'app-credentials'
+  state: 'not-configured' | 'authorizing' | 'ready' | 'missing-permission' | 'reauthorization-required' | 'error'
+  expiresAt?: string
+  grantedScopes?: string[]
+  missingPermissions?: string[]
+  detailKey?: string
+  checkedAt?: string
+}
+
 /** The typed window.dshDesktop slice this plugin depends on. */
 export interface DesktopBridge {
   listExtensions(): Promise<ExtensionInventory>
@@ -177,6 +190,14 @@ export interface DesktopBridge {
   saveConnector(input: ConnectorSaveInput): Promise<ConnectorRecord>
   removeConnector(id: string): Promise<unknown>
   checkConnector(id: string): Promise<ConnectorCheckResult>
+  /** Optional on newer desktop builds; returns only renderer-safe authorization metadata. */
+  getConnectorAuthorizationStatus?: (id: string) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on newer desktop builds; starts provider authorization in the main process. */
+  authorizeConnector?: (id: string, input?: unknown) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on newer desktop builds; disconnects app-owned provider authorization. */
+  disconnectConnector?: (id: string) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on newer desktop builds; performs a read-only authorization verification. */
+  verifyConnectorAuthorization?: (id: string) => Promise<ConnectorAuthorizationStatus>
   /** Optional on older desktop builds; toggles profile registration without deleting secrets. */
   setConnectorEnabled?: (id: string, enabled: boolean) => Promise<ConnectorRecord>
   /** Optional on older desktop builds; advanced connector form remains usable. */

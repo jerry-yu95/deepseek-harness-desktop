@@ -232,6 +232,39 @@ describe('getDesktopBridge', () => {
     expect(getDesktopBridge()).toBe(bridge)
   })
 
+  it('accepts optional authorization methods without making older desktop builds unavailable', async () => {
+    const bridge = {
+      ...stubBridge(),
+      getConnectorAuthorizationStatus: async () => ({
+        connectorId: 'github',
+        providerId: 'github' as const,
+        mode: 'oauth' as const,
+        state: 'ready' as const,
+      }),
+      authorizeConnector: async () => ({
+        connectorId: 'github',
+        providerId: 'github' as const,
+        mode: 'oauth' as const,
+        state: 'ready' as const,
+      }),
+      disconnectConnector: async () => ({
+        connectorId: 'github',
+        providerId: 'github' as const,
+        mode: 'oauth' as const,
+        state: 'not-configured' as const,
+      }),
+      verifyConnectorAuthorization: async () => ({
+        connectorId: 'github',
+        providerId: 'github' as const,
+        mode: 'oauth' as const,
+        state: 'ready' as const,
+      }),
+    }
+    vi.stubGlobal('window', { dshDesktop: bridge })
+    expect(getDesktopBridge()).toBe(bridge)
+    expect(await bridge.getConnectorAuthorizationStatus?.('github')).toMatchObject({ state: 'ready' })
+  })
+
   it('never throws on non-object dshDesktop values', () => {
     vi.stubGlobal('window', { dshDesktop: 'nope' })
     expect(getDesktopBridge()).toBeUndefined()
