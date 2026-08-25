@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.36 - 2026-08-25
+
+- Added a provider-neutral desktop-main-process authorization layer for GitHub, Feishu/Lark, GitLab, and DingTalk without replacing the official DSH MCP client.
+- Added OAuth discovery, PKCE, loopback callbacks, cancellation, encrypted secret bindings, refresh/reauthorization states, and renderer-safe authorization status projection.
+- Added Connector Center authorization actions for authorize, reauthorize, verify, disconnect, and cancellation, with localized scopes and actionable failure states.
+- Added deterministic authorization lifecycle, OAuth cancellation, provider adapter, IPC, preload, UI, and cross-platform loopback-binding regression coverage.
+- Added a redacted live-account evidence schema and verifier. Local account evidence is ignored by Git and must be supplied manually; CI never receives production credentials.
+- Hardened the bundled DSH runtime to bind only to explicit loopback addresses instead of accepting wildcard binds.
+- This is an authorization-integration preview. The catalog and code paths do not claim that any provider has passed a real personal-account end-to-end test until the redacted matrix is completed.
+
 ## 0.1.35 - 2026-08-24
 
 - Added a verified connector catalog covering one-click official MCP templates for GitHub, Feishu/Lark, GitLab, and DingTalk.

@@ -10,7 +10,7 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-Current development version: `0.1.35`. This release focuses on connector lifecycle management, official JSON onboarding, context-usage visibility, and long-context compaction-quality benchmarks; real service authorization still depends on the user's own account and permissions.
+Current development version: `0.1.36`. This release adds desktop-main-process authorization flows and a redacted acceptance baseline for GitHub, Feishu/Lark, GitLab, and DingTalk; real service authorization still depends on the user's own account and permissions, and no personal account result is presented as an official certification.
 
 ## Why this project exists
 
