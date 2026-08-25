@@ -45,8 +45,11 @@ export interface ConnectorRecord {
     placeholder?: string
   }>
   source?: {
-    kind: 'custom' | 'json' | 'preset' | 'external-client'
+    kind: 'custom' | 'json' | 'preset' | 'provider-json' | 'external-client'
     presetId?: string
+    providerId?: ProviderJsonProviderId
+    configurationHash?: string
+    capturedAt?: string
     clientId?: string
     scope?: McpClientSourceScope
   }
@@ -106,6 +109,7 @@ export interface McpJsonPreview {
 
 export type McpClientSourceScope = 'user' | 'project' | 'selected-file'
 export type McpClientSourceStatus = 'available' | 'empty' | 'not-found' | 'invalid' | 'manual'
+export type ProviderJsonProviderId = 'tapd' | 'tencent-gongfeng'
 
 /** Renderer-safe metadata for an external MCP client configuration. */
 export interface McpClientSourceSummary {
@@ -142,7 +146,10 @@ export interface McpJsonImportInput {
   selectedNames?: string[]
   conflict?: 'reject' | 'replace' | 'rename'
   secrets?: Record<string, string>
-  source?: { kind: 'json' | 'preset'; presetId?: string }
+  source?:
+    | { kind: 'json' }
+    | { kind: 'preset'; presetId: string }
+    | { kind: 'provider-json'; providerId: ProviderJsonProviderId }
   allowLocalCommand?: boolean
 }
 

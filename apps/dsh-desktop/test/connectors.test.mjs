@@ -42,6 +42,38 @@ test('connector validation preserves safe external-client provenance', () => {
   }), /client id/u)
 })
 
+test('connector validation preserves redacted provider JSON provenance', () => {
+  const connector = validateConnectorInput({
+    id: 'tapd',
+    name: 'TAPD',
+    kind: 'mcp',
+    command: 'npx',
+    args: ['-y', '@example/tapd-mcp'],
+    source: {
+      kind: 'provider-json',
+      providerId: 'tapd',
+      configurationHash: 'a'.repeat(64),
+      capturedAt: '2026-08-25T00:00:00.000Z',
+    },
+  })
+  assert.deepEqual(connector.source, {
+    kind: 'provider-json',
+    providerId: 'tapd',
+    configurationHash: 'a'.repeat(64),
+    capturedAt: '2026-08-25T00:00:00.000Z',
+  })
+  assert.throws(() => validateConnectorInput({
+    id: 'tapd', name: 'TAPD', kind: 'mcp', command: 'npx', args: [], source: {
+      kind: 'provider-json', providerId: 'unknown', configurationHash: 'a'.repeat(64), capturedAt: '2026-08-25T00:00:00.000Z',
+    },
+  }), /provider id/u)
+  assert.throws(() => validateConnectorInput({
+    id: 'tapd', name: 'TAPD', kind: 'mcp', command: 'npx', args: [], source: {
+      kind: 'provider-json', providerId: 'tapd', configurationHash: 'not-a-hash', capturedAt: '2026-08-25T00:00:00.000Z',
+    },
+  }), /configuration hash/u)
+})
+
 test('MCP connectors render as official dsh-mcp-client Cordis entries', () => {
   const patch = renderMcpConnectorPatch([{
     id: 'tapd-tools', name: 'TAPD', kind: 'mcp', command: 'npx', args: ['-y', 'tapd-mcp'], secretEnvKeys: ['TAPD_TOKEN'],

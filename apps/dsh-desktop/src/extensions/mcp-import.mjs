@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto'
+
 import { parseMcpServersJson } from './mcp-config.mjs'
 import { validateConnectorInput } from './connectors.mjs'
 
 const CONFLICTS = new Set(['reject', 'replace', 'rename'])
+const PROVIDER_JSON_IDS = new Set(['tapd', 'tencent-gongfeng'])
 
 function ownRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -31,6 +34,45 @@ function credentialInput(input) {
     result[reference] = value
   }
   return result
+}
+
+function sortedRecord(value) {
+  return Object.fromEntries(Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right)))
+}
+
+function canonicalProviderJson(parsed) {
+  return parsed.servers
+    .map((server) => ({
+      sourceName: server.sourceName,
+      transport: server.transport,
+      ...(server.command !== undefined ? { command: server.command, args: [...server.args] } : { url: server.url }),
+      ...(server.cwd !== undefined ? { cwd: server.cwd } : {}),
+      plainEnv: sortedRecord(server.plainEnv),
+      plainHeaders: sortedRecord(server.plainHeaders),
+      secretSlots: server.secretSlots
+        .map(({ location, targetKey, template }) => ({
+          location,
+          targetKey,
+          template,
+        }))
+        .toSorted((left, right) => `${left.location}:${left.targetKey}`.localeCompare(`${right.location}:${right.targetKey}`)),
+    }))
+    .toSorted((left, right) => left.sourceName.localeCompare(right.sourceName))
+}
+
+/**
+ * Create a stable, redacted provenance record for a provider-supplied JSON
+ * document. Parsed credential values are deliberately excluded from the
+ * fingerprint so rotating a token does not create a false configuration
+ * change. The main process is responsible for supplying capturedAt.
+ */
+export function createProviderJsonSource({ providerId, parsed, capturedAt = new Date().toISOString() }) {
+  if (typeof providerId !== 'string' || !PROVIDER_JSON_IDS.has(providerId)) throw new TypeError('unsupported provider id')
+  if (!parsed || !Array.isArray(parsed.servers)) throw new TypeError('invalid parsed MCP configuration')
+  const configurationHash = createHash('sha256')
+    .update(JSON.stringify(canonicalProviderJson(parsed)))
+    .digest('hex')
+  return { kind: 'provider-json', providerId, configurationHash, capturedAt }
 }
 
 /**

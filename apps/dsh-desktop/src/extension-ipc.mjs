@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { ConnectorStore } from './extensions/connectors.mjs'
 import { discoverMcpClientSources, readMcpClientSource, readMcpSourceFile } from './extensions/mcp-client-sources.mjs'
 import { parseMcpServersJson } from './extensions/mcp-config.mjs'
-import { buildMcpConnectorImport, previewMcpJson } from './extensions/mcp-import.mjs'
+import { buildMcpConnectorImport, createProviderJsonSource, previewMcpJson } from './extensions/mcp-import.mjs'
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
 import { ConnectorAuthManager, AUTH_PROVIDERS } from './extensions/connector-auth.mjs'
 import { OAuthFlowManager } from './extensions/oauth-flow.mjs'
@@ -282,13 +282,16 @@ export function registerExtensionIpc({
       throw new Error('local-command-trust-required')
     }
     const existing = await connectorStore.list()
+    const connectorSource = source?.kind === 'provider-json'
+      ? createProviderJsonSource({ providerId: source.providerId, parsed })
+      : source
     const built = buildMcpConnectorImport({
       parsed,
       existing,
       selectedNames: input.selectedNames,
       conflict: input.conflict ?? 'reject',
       secrets: input.secrets,
-      source,
+      source: connectorSource,
     })
     const newReferences = [...built.credentials.keys()]
     const previouslyPresent = new Set(newReferences.filter((reference) => connectorSecretStore.has(reference)))
