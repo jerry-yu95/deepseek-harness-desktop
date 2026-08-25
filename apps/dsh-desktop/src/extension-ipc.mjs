@@ -8,12 +8,15 @@ import { discoverMcpClientSources, readMcpClientSource, readMcpSourceFile } from
 import { parseMcpServersJson } from './extensions/mcp-config.mjs'
 import { buildMcpConnectorImport, createProviderJsonSource, previewMcpJson } from './extensions/mcp-import.mjs'
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
+import { installSkillPackage, previewSkillPackage } from './extensions/skill-packages.mjs'
 import { ConnectorAuthManager, AUTH_PROVIDERS } from './extensions/connector-auth.mjs'
 import { OAuthFlowManager } from './extensions/oauth-flow.mjs'
 import { createDingTalkAuthAdapter } from './extensions/providers/dingtalk-auth.mjs'
 import { createFeishuAuthAdapter } from './extensions/providers/feishu-auth.mjs'
 import { createGitHubAuthAdapter } from './extensions/providers/github-auth.mjs'
 import { createGitLabAuthAdapter } from './extensions/providers/gitlab-auth.mjs'
+import { validateTencentMeetingSkillSource } from './extensions/providers/tencent-meeting-skill.mjs'
+import { validateWecomSkillSource } from './extensions/providers/wecom-skill.mjs'
 
 const CHANNELS = [
   'extensions:list',
@@ -23,6 +26,8 @@ const CHANNELS = [
   'extensions:skill-create',
   'extensions:skill-open',
   'extensions:skill-root',
+  'extensions:official-skill-preview',
+  'extensions:official-skill-install',
   'extensions:connector-list',
   'extensions:connector-save',
   'extensions:connector-remove',
@@ -43,6 +48,8 @@ const CHANNELS = [
 
 const SOURCE_SESSION_TTL_MS = 15 * 60 * 1_000
 const MAX_SOURCE_SESSIONS = 16
+const OFFICIAL_SKILL_SESSION_TTL_MS = 15 * 60 * 1_000
+const MAX_OFFICIAL_SKILL_SESSIONS = 8
 
 const AUTH_INPUT_KEYS = Object.freeze([
   'mode', 'token', 'scopes', 'baseUrl', 'clientId', 'appId', 'appSecret', 'domain',
@@ -148,6 +155,23 @@ export function registerExtensionIpc({
   })
   const sourceOptions = { projectRoot, ...mcpSourceOptions }
   const sourceSessions = new Map()
+  const officialSkillSessions = new Map()
+  const officialSkillSource = (providerId) => {
+    if (providerId === 'tencent-meeting') return validateTencentMeetingSkillSource('https://meeting.tencent.com/support/topic/2233/index.html')
+    if (providerId === 'wecom') return validateWecomSkillSource()
+    throw new TypeError('unsupported official Skill provider')
+  }
+  const pruneOfficialSkillSessions = () => {
+    const cutoff = Date.now() - OFFICIAL_SKILL_SESSION_TTL_MS
+    for (const [token, session] of officialSkillSessions) {
+      if (session.createdAt < cutoff) officialSkillSessions.delete(token)
+    }
+    while (officialSkillSessions.size >= MAX_OFFICIAL_SKILL_SESSIONS) {
+      const oldest = officialSkillSessions.keys().next().value
+      if (oldest === undefined) break
+      officialSkillSessions.delete(oldest)
+    }
+  }
   const authRuntime = connectorAuthManager
     ? { manager: connectorAuthManager, context: connectorAuthContext ?? {} }
     : createDefaultConnectorAuthManager({ connectorSecretStore, dshHome, openExternal: url => shell.openExternal(url) })
@@ -261,6 +285,38 @@ export function registerExtensionIpc({
     const root = join(dshHome, 'skills')
     await mkdir(root, { recursive: true })
     return shell.openPath(root)
+  })
+  ipcMain.handle('extensions:official-skill-preview', async (_event, providerId) => {
+    const sourceUrl = officialSkillSource(providerId)
+    const result = await dialog.showOpenDialog(getWindow(), {
+      title: '选择官方 Skill 包目录 / Select official Skill package directory',
+      properties: ['openDirectory'],
+    })
+    if (result.canceled || result.filePaths.length !== 1) return { canceled: true }
+    const preview = await previewSkillPackage({
+      providerId,
+      sourceDirectory: result.filePaths[0],
+      sourceUrl,
+    })
+    pruneOfficialSkillSessions()
+    const token = randomUUID()
+    officialSkillSessions.set(token, { providerId, sourceDirectory: result.filePaths[0], sourceUrl, preview, createdAt: Date.now() })
+    return { canceled: false, token, preview }
+  })
+  ipcMain.handle('extensions:official-skill-install', async (_event, token) => {
+    pruneOfficialSkillSessions()
+    if (typeof token !== 'string') throw new TypeError('official Skill session token is invalid')
+    const session = officialSkillSessions.get(token)
+    if (!session) throw new Error('official Skill preview is unavailable or expired')
+    officialSkillSessions.delete(token)
+    const installed = await installSkillPackage({
+      providerId: session.providerId,
+      sourceDirectory: session.sourceDirectory,
+      targetRoot: join(dshHome, 'skills'),
+      sourceUrl: session.sourceUrl,
+      expectedSha256: session.preview.sha256,
+    })
+    return { name: installed.name, version: installed.version, description: installed.description }
   })
   const mutateConnector = async (operation) => {
     await controller.stop()

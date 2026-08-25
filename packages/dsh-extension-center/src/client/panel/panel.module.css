@@ -460,6 +460,15 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
 }
 
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+}
+
 .catalogBody {
   min-width: 0;
   display: flex;

@@ -236,3 +236,32 @@ test('extension IPC requires explicit local-command trust and can toggle a conne
     await rm(dshHome, { recursive: true, force: true })
   }
 })
+
+test('extension IPC previews and installs an official Skill package without exposing the source path', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-extension-official-skill-'))
+  const source = join(root, 'wecom-skill')
+  await mkdir(source, { recursive: true })
+  await writeFile(join(source, 'SKILL.md'), '---\nname: wecom-skill\ndescription: Safe WeCom skill\n---\n\nUse the official workflow.\n', 'utf8')
+  await writeFile(join(source, 'skill.json'), JSON.stringify({
+    name: 'wecom-skill', version: '1.0.0', runtime: 'none', scripts: [],
+  }), 'utf8')
+  const dialog = { showOpenDialog: async () => ({ canceled: false, filePaths: [source] }) }
+  const dshHome = join(root, 'dsh')
+  const { handlers, registration } = fixture(dshHome, { dialog })
+  try {
+    const previewed = await handlers.get('extensions:official-skill-preview')(null, 'wecom')
+    assert.equal(previewed.canceled, false)
+    assert.match(previewed.token, /^[0-9a-f-]{36}$/u)
+    assert.equal(previewed.preview.name, 'wecom-skill')
+    assert.equal(previewed.preview.sourceUrl, 'https://github.com/WecomTeam/wecom-cli')
+    assert.doesNotMatch(JSON.stringify(previewed), /sourceDirectory|\/tmp\/|\\\\tmp\\\\/u)
+
+    const installed = await handlers.get('extensions:official-skill-install')(null, previewed.token)
+    assert.deepEqual(installed, { name: 'wecom-skill', version: '1.0.0', description: 'Safe WeCom skill' })
+    assert.match(await readFile(join(dshHome, 'skills', 'wecom-skill', 'SKILL.md'), 'utf8'), /official workflow/u)
+    await assert.rejects(handlers.get('extensions:official-skill-install')(null, previewed.token), /unavailable or expired/u)
+  } finally {
+    registration()
+    await rm(root, { recursive: true, force: true })
+  }
+})

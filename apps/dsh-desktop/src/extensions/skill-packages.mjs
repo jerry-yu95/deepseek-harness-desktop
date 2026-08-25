@@ -10,6 +10,7 @@ export const SKILL_PACKAGE_LIMITS = Object.freeze({
 })
 
 const MANAGER = 'dsh-official-skill-installer'
+const PROVIDER_IDS = new Set(['tencent-meeting', 'wecom'])
 const MANIFEST = 'skill.json'
 const PROVENANCE = '.dsh-skill-install.json'
 const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
@@ -63,6 +64,12 @@ function validateName(name) {
 function validateVersion(version) {
   if (typeof version !== 'string' || !VERSION_PATTERN.test(version)) fail('skill package version must be semver')
   return version
+}
+
+function validateProviderId(providerId) {
+  if (providerId === undefined) return undefined
+  if (typeof providerId !== 'string' || !PROVIDER_IDS.has(providerId)) fail('unsupported official Skill provider')
+  return providerId
 }
 
 function readOptionalJson(path) {
@@ -197,9 +204,11 @@ async function inspectPackage({ sourceDirectory, sourceUrl, resolvedSourceUrl, e
 
 export async function previewSkillPackage(options) {
   const inspected = await inspectPackage(options)
+  const providerId = validateProviderId(options?.providerId)
   const sourceUrl = inspected.sourceInfo.sourceUrl
   return {
     name: inspected.metadata.name,
+    ...(providerId ? { providerId } : {}),
     description: inspected.metadata.description,
     version: inspected.manifest.version,
     runtime: inspected.manifest.runtime,
@@ -244,8 +253,9 @@ async function backupExisting({ root, target, name, version }) {
   return backup
 }
 
-export async function installSkillPackage({ sourceDirectory, targetRoot, sourceUrl, resolvedSourceUrl, expectedSha256 }) {
+export async function installSkillPackage({ sourceDirectory, targetRoot, sourceUrl, resolvedSourceUrl, expectedSha256, providerId }) {
   const inspected = await inspectPackage({ sourceDirectory, sourceUrl, resolvedSourceUrl, expectedSha256 })
+  const normalizedProviderId = validateProviderId(providerId)
   const { root, target } = targetFor(targetRoot, inspected.metadata.name)
   await mkdir(root, { recursive: true })
   const temporary = join(root, `.dsh-skill-stage-${inspected.metadata.name}-${randomUUID()}`)
@@ -256,6 +266,7 @@ export async function installSkillPackage({ sourceDirectory, targetRoot, sourceU
       manager: MANAGER,
       schemaVersion: 1,
       name: inspected.metadata.name,
+      ...(normalizedProviderId ? { providerId: normalizedProviderId } : {}),
       version: inspected.manifest.version,
       sourceUrl: inspected.sourceInfo.sourceUrl,
       resolvedSourceUrl: inspected.sourceInfo.resolvedSourceUrl,

@@ -212,6 +212,14 @@ export interface DesktopBridge {
   createSkill(input: SkillCreateInput): Promise<{ name: string }>
   openSkill(id: string): Promise<unknown>
   openSkillRoot(): Promise<unknown>
+  /** Optional on newer desktop builds; selects and validates a provider-owned Skill package directory. */
+  previewOfficialSkill?: (providerId: 'tencent-meeting' | 'wecom') => Promise<{
+    canceled: boolean
+    token?: string
+    preview?: { name: string; version: string; files: string[]; bytes: number; sha256: string; sourceUrl?: string }
+  }>
+  /** Optional on newer desktop builds; installs an already previewed package by opaque session token. */
+  installOfficialSkill?: (token: string) => Promise<{ name: string; version: string; description: string }>
   listConnectors(): Promise<ConnectorRecord[]>
   saveConnector(input: ConnectorSaveInput): Promise<ConnectorRecord>
   removeConnector(id: string): Promise<unknown>

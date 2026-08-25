@@ -429,6 +429,31 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     }
   }
 
+  const onInstallOfficialSkill = async (preset: ConnectorPreset): Promise<void> => {
+    if (preset.id !== 'tencent-meeting' && preset.id !== 'wecom') return
+    if (bridge.previewOfficialSkill === undefined || bridge.installOfficialSkill === undefined) return
+    setBusy(true)
+    try {
+      const result = await bridge.previewOfficialSkill(preset.id)
+      if (result.canceled || result.token === undefined || result.preview === undefined) return
+      const { preview } = result
+      const summary = tt('connectors.officialSkill.preview', {
+        files: preview.files.length,
+        bytes: preview.bytes,
+        source: preview.sourceUrl ?? preset.docsUrl,
+      })
+      const approved = window.confirm(`${summary}\n\n${tt('connectors.officialSkill.confirm')}`)
+      if (!approved) return
+      const installed = await bridge.installOfficialSkill(result.token)
+      notify(tt('connectors.officialSkill.installed', { name: installed.name, version: installed.version }))
+      await load()
+    } catch (error) {
+      notify(errorMessage(error), true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onRemove = async (id: string): Promise<void> => {
     setBusy(true)
     try {
@@ -504,7 +529,12 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
           <p className={css.verificationLine}>{verification}</p>
         </div>
         {preset.integration === 'official-skill' ? (
-          <a className={css.secondaryButton} href={preset.docsUrl} target="_blank" rel="noreferrer">{tt('connectors.catalog.openSkill')}</a>
+          <div className={css.actionRow}>
+            {bridge.previewOfficialSkill !== undefined && bridge.installOfficialSkill !== undefined ? (
+              <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onInstallOfficialSkill(preset) }}>{tt('connectors.catalog.installSkill')}</button>
+            ) : null}
+            <a className={css.secondaryButton} href={preset.docsUrl} target="_blank" rel="noreferrer">{tt('connectors.catalog.openSkill')}</a>
+          </div>
         ) : preset.json === undefined ? (
           <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson || preset.providerId === undefined} onClick={() => { if (preset.providerId !== undefined) openJsonImport({ kind: 'provider-json', providerId: preset.providerId }, installed) }}>
             {installed ? tt('connectors.catalog.reconfigure') : tt('connectors.catalog.paste')}
