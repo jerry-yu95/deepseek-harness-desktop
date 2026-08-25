@@ -6,6 +6,7 @@ import { parse } from 'yaml'
 
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u
+const MANAGED_SKILL_PROVENANCE = '.dsh-skill-install.json'
 
 export function parseSkillFrontmatter(content) {
   const match = FRONTMATTER.exec(String(content))
@@ -56,6 +57,24 @@ async function readSkillCandidates(root) {
   return candidates
 }
 
+async function readManagedProvenance(container, skillName) {
+  try {
+    const value = JSON.parse(await readFile(join(container, MANAGED_SKILL_PROVENANCE), 'utf8'))
+    if (!value || value.manager !== 'dsh-official-skill-installer' || value.name !== skillName) return undefined
+    return {
+      managed: true,
+      version: typeof value.version === 'string' ? value.version : undefined,
+      sourceUrl: typeof value.sourceUrl === 'string' ? value.sourceUrl : undefined,
+      sha256: typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/u.test(value.sha256) ? value.sha256 : undefined,
+      installedAt: typeof value.installedAt === 'string' ? value.installedAt : undefined,
+      verificationTier: typeof value.verificationTier === 'string' ? value.verificationTier : undefined,
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') return undefined
+    return undefined
+  }
+}
+
 export async function discoverSkills({ roots }) {
   const skills = []
   const diagnostics = []
@@ -65,6 +84,7 @@ export async function discoverSkills({ roots }) {
       try {
         const metadata = parseSkillFrontmatter(await readFile(candidate.path, 'utf8'))
         const winner = winners.get(metadata.name)
+        const managed = await readManagedProvenance(candidate.container, metadata.name)
         const skill = {
           ...metadata,
           path: candidate.path,
@@ -72,6 +92,7 @@ export async function discoverSkills({ roots }) {
           source: root.source,
           rank: root.rank,
           shadowedBy: winner?.path,
+          managed,
         }
         if (!winner) winners.set(metadata.name, skill)
         skills.push(skill)

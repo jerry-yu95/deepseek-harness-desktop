@@ -75,6 +75,36 @@ test('skill discovery follows official root precedence and reports shadows', asy
   }
 })
 
+test('skill discovery exposes only safe app-managed provenance', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-managed-skill-'))
+  try {
+    const skillRoot = join(root, 'skills', 'managed-skill')
+    await mkdir(skillRoot, { recursive: true })
+    await writeFile(join(skillRoot, 'SKILL.md'), validSkill('managed-skill'))
+    await writeFile(join(skillRoot, '.dsh-skill-install.json'), JSON.stringify({
+      manager: 'dsh-official-skill-installer',
+      name: 'managed-skill',
+      version: '1.0.0',
+      sourceUrl: 'https://github.com/example/managed-skill',
+      sha256: 'a'.repeat(64),
+      installedAt: '2026-08-25T00:00:00.000Z',
+      verificationTier: 'source-allowlisted',
+      token: 'must-not-reach-renderer',
+    }))
+    const result = await discoverSkills({ roots: [{ rank: 100, source: 'test', path: join(root, 'skills') }] })
+    assert.deepEqual(result.skills[0].managed, {
+      managed: true,
+      version: '1.0.0',
+      sourceUrl: 'https://github.com/example/managed-skill',
+      sha256: 'a'.repeat(64),
+      installedAt: '2026-08-25T00:00:00.000Z',
+      verificationTier: 'source-allowlisted',
+    })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('skill import copies a valid bundle without overwriting and rejects symbolic links', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-skill-import-'))
   try {
