@@ -769,6 +769,12 @@ window.__ModuleLoader__.load({
 				],
 				integration: "mcp-template",
 				documentation: "official-mcp",
+				authModes: ["oauth", "pat"],
+				authScopes: [
+					"repo",
+					"read:user",
+					"user:email"
+				],
 				json: JSON.stringify({ mcpServers: { github: {
 					type: "http",
 					url: "https://api.githubcopilot.com/mcp/",
@@ -789,6 +795,8 @@ window.__ModuleLoader__.load({
 				],
 				integration: "mcp-template",
 				documentation: "official-mcp",
+				authModes: ["oauth"],
+				authScopes: ["mcp"],
 				json: JSON.stringify({ mcpServers: { "lark-mcp": {
 					command: "npx",
 					args: [
@@ -816,6 +824,8 @@ window.__ModuleLoader__.load({
 				],
 				integration: "mcp-template",
 				documentation: "official-mcp",
+				authModes: ["oauth"],
+				authScopes: ["mcp"],
 				json: JSON.stringify({ mcpServers: { gitlab: {
 					type: "http",
 					url: "https://gitlab.com/api/v4/mcp"

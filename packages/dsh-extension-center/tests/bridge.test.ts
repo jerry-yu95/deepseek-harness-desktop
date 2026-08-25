@@ -235,7 +235,7 @@ describe('getDesktopBridge', () => {
   it('accepts optional authorization methods without making older desktop builds unavailable', async () => {
     const bridge = {
       ...stubBridge(),
-      getConnectorAuthorizationStatus: async () => ({
+      getConnectorAuthorizationStatus: async (_id: string) => ({
         connectorId: 'github',
         providerId: 'github' as const,
         mode: 'oauth' as const,

@@ -163,12 +163,13 @@ export class OAuthFlowManager {
     this.now = now
   }
 
-  createAuthorizationRequest({ authorizationEndpoint, clientId, redirectUri, scope = [] }) {
+  createAuthorizationRequest({ authorizationEndpoint, clientId, redirectUri, scope = [], state: requestedState }) {
     const endpoint = validateOAuthEndpoint(authorizationEndpoint)
     validateOAuthEndpoint(redirectUri, { allowInsecureLoopback: true })
     assertNonEmptyString(clientId, 'clientId', 256)
     if (!Array.isArray(scope)) throw new TypeError('scope must be an array')
-    const state = base64Url(randomBytes(24))
+    const state = requestedState ?? base64Url(randomBytes(24))
+    assertNonEmptyString(state, 'state', 256)
     const codeVerifier = createPkceVerifier()
     const url = new URL(endpoint)
     url.searchParams.set('response_type', 'code')

@@ -28,6 +28,18 @@ describe('verified connector catalog', () => {
     expect(CONNECTOR_PRESETS.find((preset) => preset.id === 'tencent-gongfeng')?.documentation).toBe('official-api')
   })
 
+  it('describes GitHub and GitLab authorization without embedding credentials', () => {
+    const github = CONNECTOR_PRESETS.find((preset) => preset.id === 'github')
+    const gitlab = CONNECTOR_PRESETS.find((preset) => preset.id === 'gitlab')
+    expect(github?.authModes).toEqual(['oauth', 'pat'])
+    expect(github?.authScopes).toEqual(['repo', 'read:user', 'user:email'])
+    expect(gitlab?.authModes).toEqual(['oauth'])
+    expect(gitlab?.authScopes).toEqual(['mcp'])
+    for (const preset of [github, gitlab]) {
+      expect(JSON.stringify(preset)).not.toMatch(/gh[pousr]_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{20,}/u)
+    }
+  })
+
   it('points each verified entry at the provider-owned documentation host', () => {
     const expectedHosts: Record<string, string> = {
       github: 'github.com',

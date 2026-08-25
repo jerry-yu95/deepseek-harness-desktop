@@ -13,6 +13,9 @@ export interface ConnectorPreset {
   json?: string
   integration: 'mcp-template' | 'provider-json' | 'official-skill'
   documentation: 'official-mcp' | 'provider-config' | 'official-skill' | 'official-api'
+  /** Public authorization modes only; credentials never belong in catalog data. */
+  authModes?: readonly ('oauth' | 'pat' | 'official-cli' | 'app-credentials')[]
+  authScopes?: readonly string[]
 }
 
 export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
@@ -25,6 +28,8 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['仓库', 'Issue', 'Pull Request', 'Actions'],
     integration: 'mcp-template',
     documentation: 'official-mcp',
+    authModes: ['oauth', 'pat'],
+    authScopes: ['repo', 'read:user', 'user:email'],
     json: JSON.stringify({
       mcpServers: {
         github: {
@@ -62,6 +67,8 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['仓库', 'Issue', 'Merge Request', 'CI/CD'],
     integration: 'mcp-template',
     documentation: 'official-mcp',
+    authModes: ['oauth'],
+    authScopes: ['mcp'],
     json: JSON.stringify({
       mcpServers: {
         gitlab: {
