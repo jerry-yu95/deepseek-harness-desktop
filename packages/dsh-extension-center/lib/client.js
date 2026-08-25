@@ -230,6 +230,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.open": "导入 MCP JSON",
 			"connectors.import.title": "导入官方 MCP 配置",
 			"connectors.import.hint": "支持包含 mcpServers 的 JSON；应用会自动识别传输方式和凭证占位符。",
+			"connectors.import.providerSource": "来源：{provider} 官方页面提供的 JSON；接入后会保存脱敏来源指纹。",
 			"connectors.import.step.json": "第 1 步，共 2 步 · 粘贴配置",
 			"connectors.import.step.review": "第 2 步，共 2 步 · 补充凭证",
 			"connectors.import.jsonLabel": "MCP JSON",
@@ -427,6 +428,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.open": "Import MCP JSON",
 			"connectors.import.title": "Import official MCP config",
 			"connectors.import.hint": "Supports JSON with mcpServers; transport and credential placeholders are detected automatically.",
+			"connectors.import.providerSource": "Source: JSON supplied by the official {provider} page; a redacted provenance fingerprint is saved after import.",
 			"connectors.import.step.json": "Step 1 of 2 · Paste config",
 			"connectors.import.step.review": "Step 2 of 2 · Add credentials",
 			"connectors.import.jsonLabel": "MCP JSON",
@@ -939,7 +941,8 @@ window.__ModuleLoader__.load({
 					"项目管理"
 				],
 				integration: "provider-json",
-				documentation: "provider-config"
+				documentation: "provider-config",
+				providerId: "tapd"
 			},
 			{
 				id: "tencent-gongfeng",
@@ -954,7 +957,8 @@ window.__ModuleLoader__.load({
 					"流水线"
 				],
 				integration: "provider-json",
-				documentation: "official-api"
+				documentation: "official-api",
+				providerId: "tencent-gongfeng"
 			},
 			{
 				id: "tencent-meeting",
@@ -1017,6 +1021,9 @@ window.__ModuleLoader__.load({
 			if (id === "credentials") return tt("connectors.diagnostics.credentials");
 			if (id === "runtime") return tt("connectors.diagnostics.runtime");
 			return tt("connectors.diagnostics.registration");
+		}
+		function providerJsonLabel(providerId) {
+			return providerId === "tapd" ? "TAPD" : "腾讯工蜂";
 		}
 		function friendlyImportError(error) {
 			const message = errorMessage(error);
@@ -1464,7 +1471,10 @@ window.__ModuleLoader__.load({
 				}
 			};
 			const renderPreset = (preset) => {
-				const installed = connectors?.some((connector) => connector.source?.kind === "preset" && connector.source.presetId === preset.id) ?? false;
+				const installed = connectors?.some((connector) => {
+					if (preset.integration === "provider-json" && preset.providerId !== void 0) return connector.source?.kind === "provider-json" && connector.source.providerId === preset.providerId;
+					return connector.source?.kind === "preset" && connector.source.presetId === preset.id;
+				}) ?? false;
 				const typeLabel = preset.integration === "mcp-template" ? tt("connectors.catalog.official") : preset.integration === "provider-json" ? tt("connectors.catalog.providerJson") : tt("connectors.catalog.officialSkill");
 				const docsLabel = preset.documentation === "official-mcp" ? tt("connectors.catalog.docsOfficialMcp") : preset.documentation === "provider-config" ? tt("connectors.catalog.docsProviderConfig") : preset.documentation === "official-skill" ? tt("connectors.catalog.docsOfficialSkill") : tt("connectors.catalog.docsOfficialApi");
 				const verification = preset.integration === "mcp-template" ? tt("connectors.catalog.verifiedTemplate") : preset.integration === "provider-json" ? tt("connectors.catalog.verifiedProvider") : tt("connectors.catalog.verifiedSkill");
@@ -1527,11 +1537,11 @@ window.__ModuleLoader__.load({
 					}) : preset.json === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 						type: "button",
 						className: panel_module_css_default.secondaryButton,
-						disabled: busy || !canImportJson,
+						disabled: busy || !canImportJson || preset.providerId === void 0,
 						onClick: () => {
-							openJsonImport({
-								kind: "preset",
-								presetId: preset.id
+							if (preset.providerId !== void 0) openJsonImport({
+								kind: "provider-json",
+								providerId: preset.providerId
 							}, installed);
 						},
 						children: installed ? tt("connectors.catalog.reconfigure") : tt("connectors.catalog.paste")
@@ -1712,6 +1722,10 @@ window.__ModuleLoader__.load({
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: panel_module_css_default.formHint,
 											children: stagedSource === null ? tt("connectors.import.hint") : tt("connectors.sources.reviewHint")
+										}),
+										stagedSource === null && importSource.kind === "provider-json" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+											className: panel_module_css_default.verificationLine,
+											children: tt("connectors.import.providerSource", { provider: providerJsonLabel(importSource.providerId) })
 										})
 									] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 										type: "button",

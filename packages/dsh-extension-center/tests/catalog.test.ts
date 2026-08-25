@@ -23,9 +23,14 @@ describe('verified connector catalog', () => {
   })
 
   it('keeps TAPD and Tencent Gongfeng provider-managed instead of inventing endpoints', () => {
-    expect(CONNECTOR_PRESETS.find((preset) => preset.id === 'tapd')?.integration).toBe('provider-json')
-    expect(CONNECTOR_PRESETS.find((preset) => preset.id === 'tencent-gongfeng')?.integration).toBe('provider-json')
-    expect(CONNECTOR_PRESETS.find((preset) => preset.id === 'tencent-gongfeng')?.documentation).toBe('official-api')
+    const tapd = CONNECTOR_PRESETS.find((preset) => preset.id === 'tapd')
+    const gongfeng = CONNECTOR_PRESETS.find((preset) => preset.id === 'tencent-gongfeng')
+    expect(tapd?.integration).toBe('provider-json')
+    expect(tapd?.providerId).toBe('tapd')
+    expect(tapd?.documentation).toBe('provider-config')
+    expect(gongfeng?.integration).toBe('provider-json')
+    expect(gongfeng?.providerId).toBe('tencent-gongfeng')
+    expect(gongfeng?.documentation).toBe('official-api')
   })
 
   it('describes GitHub and GitLab authorization without embedding credentials', () => {

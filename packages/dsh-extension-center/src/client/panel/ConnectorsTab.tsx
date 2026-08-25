@@ -23,6 +23,7 @@ import {
   type McpClientSourceStatus,
   type McpClientSourceStage,
   type McpClientSourceSummary,
+  type ProviderJsonProviderId,
   splitComma,
 } from '../bridge.ts'
 import { CONNECTOR_PRESETS, type ConnectorPreset } from '../catalog.ts'
@@ -60,6 +61,10 @@ function diagnosticLabel(id: NonNullable<ConnectorCheckResult['checks']>[number]
   if (id === 'credentials') return tt('connectors.diagnostics.credentials')
   if (id === 'runtime') return tt('connectors.diagnostics.runtime')
   return tt('connectors.diagnostics.registration')
+}
+
+function providerJsonLabel(providerId: ProviderJsonProviderId): string {
+  return providerId === 'tapd' ? 'TAPD' : '腾讯工蜂'
 }
 
 export interface ConnectorsTabProps {
@@ -462,7 +467,12 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   }
 
   const renderPreset = (preset: ConnectorPreset) => {
-    const installed = connectors?.some((connector) => connector.source?.kind === 'preset' && connector.source.presetId === preset.id) ?? false
+    const installed = connectors?.some((connector) => {
+      if (preset.integration === 'provider-json' && preset.providerId !== undefined) {
+        return connector.source?.kind === 'provider-json' && connector.source.providerId === preset.providerId
+      }
+      return connector.source?.kind === 'preset' && connector.source.presetId === preset.id
+    }) ?? false
     const typeLabel = preset.integration === 'mcp-template'
       ? tt('connectors.catalog.official')
       : preset.integration === 'provider-json'
@@ -496,7 +506,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         {preset.integration === 'official-skill' ? (
           <a className={css.secondaryButton} href={preset.docsUrl} target="_blank" rel="noreferrer">{tt('connectors.catalog.openSkill')}</a>
         ) : preset.json === undefined ? (
-          <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson} onClick={() => { openJsonImport({ kind: 'preset', presetId: preset.id }, installed) }}>
+          <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson || preset.providerId === undefined} onClick={() => { if (preset.providerId !== undefined) openJsonImport({ kind: 'provider-json', providerId: preset.providerId }, installed) }}>
             {installed ? tt('connectors.catalog.reconfigure') : tt('connectors.catalog.paste')}
           </button>
         ) : (
@@ -566,6 +576,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                 <p className={css.dialogStep}>{preview === null ? tt('connectors.import.step.json') : tt('connectors.import.step.review')}</p>
                 <h3 id="mcp-import-title" className={css.dialogTitle}>{stagedSource === null ? tt('connectors.import.title') : tt('connectors.sources.reviewTitle', { client: stagedSource.source.clientName })}</h3>
                 <p className={css.formHint}>{stagedSource === null ? tt('connectors.import.hint') : tt('connectors.sources.reviewHint')}</p>
+                {stagedSource === null && importSource.kind === 'provider-json' && <p className={css.verificationLine}>{tt('connectors.import.providerSource', { provider: providerJsonLabel(importSource.providerId) })}</p>}
               </div>
               <button type="button" className={css.secondaryButton} disabled={busy} onClick={closeImport}>{tt('common.close')}</button>
             </header>

@@ -3,6 +3,8 @@
  * templates only; credentials are always entered in the import preview and
  * encrypted by the desktop main process.
  */
+import type { ProviderJsonProviderId } from './bridge.ts'
+
 export interface ConnectorPreset {
   id: string
   name: string
@@ -13,6 +15,7 @@ export interface ConnectorPreset {
   json?: string
   integration: 'mcp-template' | 'provider-json' | 'official-skill'
   documentation: 'official-mcp' | 'provider-config' | 'official-skill' | 'official-api'
+  providerId?: ProviderJsonProviderId
   /** Public authorization modes only; credentials never belong in catalog data. */
   authModes?: readonly ('oauth' | 'pat' | 'official-cli' | 'app-credentials')[]
   authScopes?: readonly string[]
@@ -114,6 +117,7 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['需求', '缺陷', '迭代', '项目管理'],
     integration: 'provider-json',
     documentation: 'provider-config',
+    providerId: 'tapd',
   },
   {
     id: 'tencent-gongfeng',
@@ -124,6 +128,7 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['仓库', 'Issue', 'Merge Request', '流水线'],
     integration: 'provider-json',
     documentation: 'official-api',
+    providerId: 'tencent-gongfeng',
   },
   {
     id: 'tencent-meeting',
