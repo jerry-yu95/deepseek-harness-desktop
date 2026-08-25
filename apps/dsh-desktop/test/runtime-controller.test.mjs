@@ -31,9 +31,10 @@ class FakeChild extends EventEmitter {
 
 test('ready parser accepts only the official loopback URL line', () => {
   assert.equal(parseDshReadyUrl('dsh web: http://127.0.0.1:43125'), 'http://127.0.0.1:43125/')
-  assert.equal(parseDshReadyUrl('dsh web: http://0.0.0.0:43125'), 'http://127.0.0.1:43125/')
   assert.equal(parseDshReadyUrl('prefix dsh web: http://127.0.0.1:43125'), undefined)
   assert.throws(() => validateLoopbackUrl('https://127.0.0.1:43125'), /loopback HTTP/)
+  assert.throws(() => validateLoopbackUrl('http://0.0.0.0:43125'), /loopback HTTP/)
+  assert.throws(() => validateLoopbackUrl('http://[::]:43125'), /loopback HTTP/)
   assert.throws(() => validateLoopbackUrl('http://example.com:43125'), /loopback HTTP/)
   assert.throws(() => validateLoopbackUrl('http://user:pass@127.0.0.1:43125'), /credentials/)
 })
@@ -95,7 +96,27 @@ test('controller reaches ready state from streamed output and stops cleanly', as
   assert.equal(child.killed, true)
 })
 
-test('personal public mode keeps Harness loopback-only and enables the tunnel through environment', async () => {
+test('controller fails closed if the runtime reports a non-loopback bind', async () => {
+  const child = new FakeChild()
+  const controller = new DshRuntimeController({
+    cliPath: 'dsh-bin.js',
+    cwd: process.cwd(),
+    dshHome: '/tmp/dsh-non-loopback-test',
+    spawnProcess: () => child,
+    logStore: { append: async () => {} },
+    probeReady: async () => {},
+    startupTimeoutMs: 2_000,
+  })
+
+  const ready = controller.start()
+  child.stdout.write('dsh web: http://0.0.0.0:43125\n')
+
+  await assert.rejects(ready, /loopback HTTP/)
+  assert.equal(controller.status.state, 'crashed')
+  assert.equal(child.killed, true)
+})
+
+test('personal public mode pins Harness to loopback and enables the tunnel through environment', async () => {
   const child = new FakeChild()
   let spawnArgs
   let spawnOptions
@@ -118,7 +139,7 @@ test('personal public mode keeps Harness loopback-only and enables the tunnel th
   await ready
 
   assert.equal(spawnOptions.env.DSH_DESKTOP_REMOTE_MODE, 'personal-public')
-  assert.equal(spawnArgs.includes('--host'), false)
+  assert.deepEqual(spawnArgs.slice(-4), ['--host', '127.0.0.1', '--port', '0'])
   await controller.stop()
 })
 

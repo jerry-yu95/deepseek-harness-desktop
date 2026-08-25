@@ -13,12 +13,11 @@ export function validateLoopbackUrl(value) {
   } catch {
     throw new TypeError(`invalid runtime URL: ${JSON.stringify(value)}`)
   }
-  if (url.protocol !== 'http:' || (!LOOPBACK_HOSTS.has(url.hostname) && url.hostname !== '0.0.0.0')) {
+  if (url.protocol !== 'http:' || !LOOPBACK_HOSTS.has(url.hostname)) {
     throw new TypeError('runtime URL must use loopback HTTP')
   }
   if (url.username || url.password) throw new TypeError('runtime URL must not contain credentials')
   if (!url.port) throw new TypeError('runtime URL must contain an explicit port')
-  if (url.hostname === '0.0.0.0') url.hostname = '127.0.0.1'
   return `${url.origin}/`
 }
 
@@ -187,7 +186,7 @@ export class DshRuntimeController extends EventEmitter {
         this.executable,
         [
           '--expose-internals', this.cliPath, '--profile', 'desktop',
-          '--port', '0',
+          '--host', '127.0.0.1', '--port', '0',
         ],
         {
           cwd: this.cwd,
