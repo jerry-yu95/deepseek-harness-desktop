@@ -83,7 +83,7 @@ async function openOAuth(context, input) {
   const metadata = await context.oauth.discoverAuthorizationServer(mcpEndpoint, { allowInsecureLoopback: input.allowInsecureLoopback === true })
   if (typeof context.oauth.createAuthorizationRequest !== 'function' || typeof context.oauth.openCallback !== 'function' || typeof context.oauth.exchangeAuthorizationCode !== 'function') throw new Error('oauth-orchestration-unavailable')
   const state = createPkceVerifier()
-  const callback = await context.oauth.openCallback({ expectedState: state, host: input.callbackHost ?? '127.0.0.1', timeoutMs: input.timeoutMs })
+  const callback = await context.oauth.openCallback({ expectedState: state, host: input.callbackHost ?? '127.0.0.1', timeoutMs: input.timeoutMs, signal: context.activeAuth?.signal })
   let clientId = input.clientId
   if (!clientId && metadata.registration_endpoint) {
     const registered = await registerGitLabClient({ registrationEndpoint: metadata.registration_endpoint, redirectUri: callback.redirectUri, fetchImpl: context.fetchImpl ?? globalThis.fetch })

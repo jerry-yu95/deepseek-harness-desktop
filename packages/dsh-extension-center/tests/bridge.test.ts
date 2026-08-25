@@ -7,6 +7,8 @@ import {
   buildConnectorInput,
   buildSkillInput,
   canPreviewMcpClientSource,
+  connectorAuthAction,
+  connectorAuthProvider,
   connectorEndpoint,
   mcpCredentialLabel,
   missingMcpCredentials,
@@ -268,5 +270,21 @@ describe('getDesktopBridge', () => {
   it('never throws on non-object dshDesktop values', () => {
     vi.stubGlobal('window', { dshDesktop: 'nope' })
     expect(getDesktopBridge()).toBeUndefined()
+  })
+})
+
+describe('connector authorization UI helpers', () => {
+  it('maps only supported preset or connector ids to providers', () => {
+    expect(connectorAuthProvider({ id: 'github' })).toBe('github')
+    expect(connectorAuthProvider({ id: 'custom', source: { kind: 'preset', presetId: 'feishu' } })).toBe('feishu')
+    expect(connectorAuthProvider({ id: 'custom' })).toBeUndefined()
+  })
+
+  it('prevents duplicate authorization and exposes the expected lifecycle actions', () => {
+    expect(connectorAuthAction(undefined)).toBe('authorize')
+    expect(connectorAuthAction('authorizing')).toBe('cancel')
+    expect(connectorAuthAction('ready')).toBe('disconnect')
+    expect(connectorAuthAction('reauthorization-required')).toBe('reauthorize')
+    expect(connectorAuthAction('error')).toBe('reauthorize')
   })
 })

@@ -182,7 +182,7 @@ export class OAuthFlowManager {
     return { url: url.href, state, codeVerifier, redirectUri }
   }
 
-  async openCallback({ expectedState, timeoutMs = 120000, host = '127.0.0.1' }) {
+  async openCallback({ expectedState, timeoutMs = 120000, host = '127.0.0.1', signal }) {
     assertNonEmptyString(expectedState, 'expectedState', 256)
     if (!LOOPBACK_HOSTS.has(host)) throw new TypeError('OAuth callback host must be loopback')
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 10 * 60 * 1000) throw new TypeError('invalid callback timeout')
@@ -226,6 +226,11 @@ export class OAuthFlowManager {
       server.close(() => {})
       if (error) rejectWait(error)
       else resolveWait(value)
+    }
+    if (signal !== undefined) {
+      if (!(signal instanceof AbortSignal)) throw new TypeError('OAuth callback signal is invalid')
+      if (signal.aborted) finish(oauthError('authorization-cancelled'))
+      else signal.addEventListener('abort', () => finish(oauthError('authorization-cancelled')), { once: true })
     }
     await new Promise((resolve, reject) => {
       server.once('error', reject)

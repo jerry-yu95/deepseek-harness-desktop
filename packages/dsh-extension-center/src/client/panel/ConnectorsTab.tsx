@@ -7,12 +7,15 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   buildConnectorInput,
   canPreviewMcpClientSource,
+  connectorAuthAction,
+  connectorAuthProvider,
   connectorEndpoint,
   mcpCredentialLabel,
   missingMcpCredentials,
   selectedMcpRequiresLocalExecution,
   selectedMcpServerNames,
   type ConnectorCheckResult,
+  type ConnectorAuthorizationStatus,
   type ConnectorRecord,
   type DesktopBridge,
   type McpJsonImportInput,
@@ -20,6 +23,7 @@ import {
   type McpClientSourceStatus,
   type McpClientSourceStage,
   type McpClientSourceSummary,
+  splitComma,
 } from '../bridge.ts'
 import { CONNECTOR_PRESETS, type ConnectorPreset } from '../catalog.ts'
 import { errorMessage, tt } from '../helpers.ts'
@@ -27,6 +31,7 @@ import css from './panel.module.css'
 
 type HealthMap = Record<string, ConnectorCheckResult>
 type ImportSource = NonNullable<McpJsonImportInput['source']>
+type AuthForm = { mode: 'oauth' | 'pat' | 'official-cli' | 'app-credentials'; token: string; appId: string; appSecret: string; domain: string; profiles: string; baseUrl: string; clientId: string; scopes: string }
 
 const CLIENT_NAMES: Record<string, string> = {
   workbuddy: 'WorkBuddy',
@@ -75,6 +80,9 @@ function friendlyImportError(error: unknown): string {
 export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps) {
   const [connectors, setConnectors] = useState<ConnectorRecord[] | null>(null)
   const [health, setHealth] = useState<HealthMap>({})
+  const [authStatuses, setAuthStatuses] = useState<Record<string, ConnectorAuthorizationStatus>>({})
+  const [authConnector, setAuthConnector] = useState<ConnectorRecord | null>(null)
+  const [authForm, setAuthForm] = useState<AuthForm>({ mode: 'oauth', token: '', appId: '', appSecret: '', domain: 'https://open.feishu.cn', profiles: 'dingtalk-contacts', baseUrl: 'https://gitlab.com', clientId: '', scopes: '' })
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
@@ -107,11 +115,109 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
 
   const load = useCallback(async (): Promise<void> => {
     try {
-      setConnectors(await bridge.listConnectors())
+      const next = await bridge.listConnectors()
+      setConnectors(next)
+      if (bridge.getConnectorAuthorizationStatus !== undefined) {
+        const statuses = await Promise.all(next.filter((item) => connectorAuthProvider(item) !== undefined).map(async (item) => {
+          try { return [item.id, await bridge.getConnectorAuthorizationStatus!(item.id)] as const } catch { return null }
+        }))
+        setAuthStatuses((current) => ({ ...current, ...Object.fromEntries(statuses.filter((item): item is Exclude<typeof item, null> => item !== null)) }))
+      }
     } catch (error) {
       notify(errorMessage(error), true)
     }
   }, [bridge, notify])
+
+  const refreshAuthStatus = useCallback(async (connector: ConnectorRecord): Promise<ConnectorAuthorizationStatus | undefined> => {
+    if (bridge.getConnectorAuthorizationStatus === undefined || connectorAuthProvider(connector) === undefined) return undefined
+    try {
+      const status = await bridge.getConnectorAuthorizationStatus(connector.id)
+      setAuthStatuses((current) => ({ ...current, [connector.id]: status }))
+      return status
+    } catch (error) {
+      notify(errorMessage(error), true)
+      return undefined
+    }
+  }, [bridge, notify])
+
+  const openAuthorization = (connector: ConnectorRecord): void => {
+    const provider = connectorAuthProvider(connector)
+    if (provider === undefined || bridge.authorizeConnector === undefined) {
+      notify(tt('connectors.auth.desktopRequired'), true)
+      return
+    }
+    const mode = provider === 'github' || provider === 'gitlab' ? 'oauth' : provider === 'feishu' ? 'official-cli' : 'app-credentials'
+    setAuthForm((current) => ({ ...current, mode, token: '', appId: '', appSecret: '', profiles: 'dingtalk-contacts' }))
+    setAuthConnector(connector)
+  }
+
+  const onAuthorize = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault()
+    if (authConnector === null || bridge.authorizeConnector === undefined) return
+    const provider = connectorAuthProvider(authConnector)
+    if (provider === undefined) return
+    setBusy(true)
+    setAuthStatuses((current) => ({ ...current, [authConnector.id]: { connectorId: authConnector.id, providerId: provider, mode: authForm.mode, state: 'authorizing' } }))
+    try {
+      const input = {
+        mode: authForm.mode,
+        ...(authForm.token ? { token: authForm.token } : {}),
+        ...(authForm.appId ? { appId: authForm.appId } : {}),
+        ...(authForm.appSecret ? { appSecret: authForm.appSecret } : {}),
+        ...(authForm.domain ? { domain: authForm.domain } : {}),
+        ...(authForm.profiles ? { profiles: splitComma(authForm.profiles) } : {}),
+        ...(authForm.baseUrl ? { baseUrl: authForm.baseUrl } : {}),
+        ...(authForm.clientId ? { clientId: authForm.clientId } : {}),
+        ...(authForm.scopes ? { scopes: splitComma(authForm.scopes) } : {}),
+      }
+      const status = await bridge.authorizeConnector(authConnector.id, input)
+      setAuthStatuses((current) => ({ ...current, [authConnector.id]: status }))
+      if (status.state === 'ready') {
+        notify(tt('connectors.auth.ready'))
+        setAuthConnector(null)
+      } else notify(tt('connectors.auth.failed', { detail: status.detailKey ?? status.state }), true)
+    } catch (error) {
+      notify(errorMessage(error), true)
+      await refreshAuthStatus(authConnector)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onAuthAction = async (connector: ConnectorRecord): Promise<void> => {
+    const status = authStatuses[connector.id]
+    const action = connectorAuthAction(status?.state)
+    if (action === 'cancel') {
+      if (bridge.cancelConnectorAuthorization === undefined) return
+      setBusy(true)
+      try {
+        const next = await bridge.cancelConnectorAuthorization(connector.id)
+        setAuthStatuses((current) => ({ ...current, [connector.id]: next }))
+      } catch (error) { notify(errorMessage(error), true) } finally { setBusy(false) }
+      return
+    }
+    if (action === 'disconnect') {
+      if (bridge.disconnectConnector === undefined) return
+      setBusy(true)
+      try {
+        const next = await bridge.disconnectConnector(connector.id)
+        setAuthStatuses((current) => ({ ...current, [connector.id]: next }))
+        notify(tt('connectors.auth.disconnected'))
+      } catch (error) { notify(errorMessage(error), true) } finally { setBusy(false) }
+      return
+    }
+    if (action === 'reauthorize' || action === 'authorize') openAuthorization(connector)
+  }
+
+  const onVerifyAuth = async (connector: ConnectorRecord): Promise<void> => {
+    if (bridge.verifyConnectorAuthorization === undefined) return
+    setBusy(true)
+    try {
+      const status = await bridge.verifyConnectorAuthorization(connector.id)
+      setAuthStatuses((current) => ({ ...current, [connector.id]: status }))
+      notify(status.state === 'ready' ? tt('connectors.auth.verified') : tt('connectors.auth.failed', { detail: status.detailKey ?? status.state }), status.state !== 'ready')
+    } catch (error) { notify(errorMessage(error), true) } finally { setBusy(false) }
+  }
 
   useEffect(() => { void load() }, [load, refreshKey])
 
@@ -578,15 +684,60 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         </form>
       )}
 
+      {authConnector !== null && (
+        <div className={css.connectorOverlay} role="dialog" aria-modal="true" aria-labelledby="connector-auth-title">
+          <form className={css.connectorDialog} onSubmit={(event) => { void onAuthorize(event) }}>
+            <header className={css.connectorDialogHeader}>
+              <div>
+                <p className={css.dialogStep}>{tt('connectors.auth.step')}</p>
+                <h3 id="connector-auth-title" className={css.dialogTitle}>{tt('connectors.auth.title', { name: authConnector.name })}</h3>
+                <p className={css.formHint}>{tt('connectors.auth.hint')}</p>
+              </div>
+              <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { setAuthConnector(null); setAuthForm((current) => ({ ...current, token: '', appSecret: '' })) }}>{tt('common.close')}</button>
+            </header>
+            <div className={css.connectorDialogBody}>
+              {connectorAuthProvider(authConnector) === 'github' && <>
+                <label className={css.dialogField}><span>{tt('connectors.auth.mode')}</span><select value={authForm.mode} onChange={(event) => { setAuthForm((current) => ({ ...current, mode: event.target.value as AuthForm['mode'] })) }}><option value="oauth">OAuth（浏览器授权）</option><option value="pat">Fine-grained PAT</option></select></label>
+                {authForm.mode === 'pat' && <label className={css.dialogField}><span>Personal Access Token</span><input type="password" autoComplete="off" value={authForm.token} onChange={(event) => { setAuthForm((current) => ({ ...current, token: event.target.value })) }} required /></label>}
+              </>}
+              {connectorAuthProvider(authConnector) === 'gitlab' && <>
+                <label className={css.dialogField}><span>{tt('connectors.auth.gitlabBaseUrl')}</span><input type="url" value={authForm.baseUrl} onChange={(event) => { setAuthForm((current) => ({ ...current, baseUrl: event.target.value })) }} required /></label>
+                <label className={css.dialogField}><span>{tt('connectors.auth.gitlabClientId')}</span><input value={authForm.clientId} onChange={(event) => { setAuthForm((current) => ({ ...current, clientId: event.target.value })) }} placeholder={tt('connectors.auth.gitlabClientPlaceholder')} /></label>
+              </>}
+              {connectorAuthProvider(authConnector) === 'feishu' && <>
+                <label className={css.dialogField}><span>App ID</span><input value={authForm.appId} onChange={(event) => { setAuthForm((current) => ({ ...current, appId: event.target.value })) }} required /></label>
+                <label className={css.dialogField}><span>App Secret</span><input type="password" autoComplete="off" value={authForm.appSecret} onChange={(event) => { setAuthForm((current) => ({ ...current, appSecret: event.target.value })) }} required /></label>
+                <label className={css.dialogField}><span>{tt('connectors.auth.feishuDomain')}</span><select value={authForm.domain} onChange={(event) => { setAuthForm((current) => ({ ...current, domain: event.target.value })) }}><option value="https://open.feishu.cn">飞书（中国大陆）</option><option value="https://open.larksuite.com">Lark（国际版）</option></select></label>
+              </>}
+              {connectorAuthProvider(authConnector) === 'dingtalk' && <>
+                <label className={css.dialogField}><span>Client ID</span><input value={authForm.clientId} onChange={(event) => { setAuthForm((current) => ({ ...current, clientId: event.target.value })) }} required /></label>
+                <label className={css.dialogField}><span>Client Secret</span><input type="password" autoComplete="off" value={authForm.appSecret} onChange={(event) => { setAuthForm((current) => ({ ...current, appSecret: event.target.value })) }} required /></label>
+                <label className={css.dialogField}><span>{tt('connectors.auth.dingtalkProfiles')}</span><input value={authForm.profiles} onChange={(event) => { setAuthForm((current) => ({ ...current, profiles: event.target.value })) }} /></label>
+              </>}
+            </div>
+            <footer className={css.connectorDialogFooter}>
+              <div className={css.dialogFooterStatus}>{tt('connectors.auth.security')}</div>
+              <div className={css.connectorDialogActions}><button type="submit" className={css.primaryButton} disabled={busy}>{tt('connectors.auth.submit')}</button></div>
+            </footer>
+          </form>
+        </div>
+      )}
+
       {connectors === null ? <p className={css.empty}>{tt('common.loading')}</p> : connectors.length === 0 ? <p className={css.empty}>{tt('connectors.empty')}</p> : <div className={css.list} aria-live="polite">
         {connectors.map((connector) => {
           const endpoint = connectorEndpoint(connector)
           const checked = health[connector.id]
+          const authStatus = authStatuses[connector.id]
           return <article key={connector.id} className={css.item}>
             <div className={css.itemBody}>
               <div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span><span className={css.badge} data-success={connector.enabled === false ? undefined : 'true'}>{connector.enabled === false ? tt('connectors.state.disabled') : tt('connectors.state.enabled')}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div>
               <p className={css.description}>{connector.description || endpoint}</p>
               <p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p>
+              {authStatus !== undefined && <p className={css.authStatus} data-state={authStatus.state}>
+                {tt(`connectors.auth.state.${authStatus.state}`)}
+                {authStatus.grantedScopes?.length ? ` · ${authStatus.grantedScopes.join(', ')}` : ''}
+                {authStatus.missingPermissions?.length ? ` · ${tt('connectors.auth.missing', { permissions: authStatus.missingPermissions.join(', ') })}` : ''}
+              </p>}
               {checked?.checks !== undefined && <section className={css.diagnostics} aria-label={tt('connectors.diagnostics.title')}>
                 {checked.checks.map((check) => <div key={check.id} className={css.diagnosticRow} data-status={check.status}>
                   <span className={css.diagnosticDot} aria-hidden="true" />
@@ -595,7 +746,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                 </div>)}
               </section>}
             </div>
-            <div className={css.itemActions}>{bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
+            <div className={css.itemActions}>{connectorAuthProvider(connector) !== undefined && bridge.authorizeConnector !== undefined && <><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onAuthAction(connector) }}>{connectorAuthAction(authStatuses[connector.id]?.state) === 'cancel' ? tt('connectors.auth.cancel') : connectorAuthAction(authStatuses[connector.id]?.state) === 'disconnect' ? tt('connectors.auth.disconnect') : authStatuses[connector.id]?.state === 'reauthorization-required' || authStatuses[connector.id]?.state === 'error' ? tt('connectors.auth.reauthorize') : tt('connectors.auth.authorize')}</button>{(authStatuses[connector.id]?.state === 'ready' || authStatuses[connector.id]?.state === 'missing-permission') && bridge.verifyConnectorAuthorization !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onVerifyAuth(connector) }}>{tt('connectors.auth.verify')}</button>}</>} {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
           </article>
         })}
       </div>}

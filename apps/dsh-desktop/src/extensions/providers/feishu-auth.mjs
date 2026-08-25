@@ -121,7 +121,7 @@ export function createFeishuAuthAdapter() {
         assertCredential(appSecret, 'Feishu App Secret')
         await context.secretStore.setMany({ [feishuCredentialReferences.appId]: appId, [feishuCredentialReferences.appSecret]: appSecret })
         if (mode === 'app-credentials') return status({ mode, state: 'ready', grantedScopes: scopes })
-        const result = await runCommand(context, buildFeishuLoginCommand({ appId, appSecret, domain, scopes, userAccessToken }))
+    const result = await runCommand(context, { ...buildFeishuLoginCommand({ appId, appSecret, domain, scopes, userAccessToken }), signal: context.activeAuth?.signal })
         const failure = commandResult(result, 'feishu')
         return failure ?? status({ mode, state: 'ready', grantedScopes: scopes })
       } catch (error) {

@@ -43,7 +43,7 @@ async function openOAuth(context, input) {
   if (typeof input.clientId !== 'string' || input.clientId.length === 0) return status({ mode: 'oauth', state: 'missing-permission', detailKey: 'github.oauth-client-required', missingPermissions: ['oauth-client'] })
   if (typeof context.oauth.createAuthorizationRequest !== 'function' || typeof context.oauth.openCallback !== 'function' || typeof context.oauth.exchangeAuthorizationCode !== 'function') throw new Error('oauth-orchestration-unavailable')
   const state = createPkceVerifier()
-  const callback = await context.oauth.openCallback({ expectedState: state, host: input.callbackHost ?? '127.0.0.1', timeoutMs: input.timeoutMs })
+  const callback = await context.oauth.openCallback({ expectedState: state, host: input.callbackHost ?? '127.0.0.1', timeoutMs: input.timeoutMs, signal: context.activeAuth?.signal })
   const request = context.oauth.createAuthorizationRequest({
     authorizationEndpoint: metadata.authorization_endpoint,
     clientId: input.clientId,

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -7,6 +8,12 @@ import { discoverMcpClientSources, readMcpClientSource, readMcpSourceFile } from
 import { parseMcpServersJson } from './extensions/mcp-config.mjs'
 import { buildMcpConnectorImport, previewMcpJson } from './extensions/mcp-import.mjs'
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
+import { ConnectorAuthManager, AUTH_PROVIDERS } from './extensions/connector-auth.mjs'
+import { OAuthFlowManager } from './extensions/oauth-flow.mjs'
+import { createDingTalkAuthAdapter } from './extensions/providers/dingtalk-auth.mjs'
+import { createFeishuAuthAdapter } from './extensions/providers/feishu-auth.mjs'
+import { createGitHubAuthAdapter } from './extensions/providers/github-auth.mjs'
+import { createGitLabAuthAdapter } from './extensions/providers/gitlab-auth.mjs'
 
 const CHANNELS = [
   'extensions:list',
@@ -21,6 +28,11 @@ const CHANNELS = [
   'extensions:connector-remove',
   'extensions:connector-enable',
   'extensions:connector-check',
+  'extensions:connector-auth-status',
+  'extensions:connector-authorize',
+  'extensions:connector-disconnect',
+  'extensions:connector-auth-cancel',
+  'extensions:connector-auth-verify',
   'extensions:mcp-preview',
   'extensions:mcp-import',
   'extensions:mcp-source-list',
@@ -31,6 +43,82 @@ const CHANNELS = [
 
 const SOURCE_SESSION_TTL_MS = 15 * 60 * 1_000
 const MAX_SOURCE_SESSIONS = 16
+
+const AUTH_INPUT_KEYS = Object.freeze([
+  'mode', 'token', 'scopes', 'baseUrl', 'clientId', 'appId', 'appSecret', 'domain',
+  'userAccessToken', 'profiles', 'timeoutMs', 'callbackHost', 'allowInsecureLoopback',
+])
+
+function providerForConnector(connector) {
+  const candidate = connector?.source?.presetId ?? connector?.id
+  return AUTH_PROVIDERS.includes(candidate) ? candidate : undefined
+}
+
+function safeAuthInput(input) {
+  if (input === undefined) return {}
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('connector authorization input is invalid')
+  const output = {}
+  for (const key of AUTH_INPUT_KEYS) {
+    if (!(key in input)) continue
+    const value = input[key]
+    if (['scopes', 'profiles'].includes(key)) {
+      if (!Array.isArray(value) || value.length > 64 || value.some(item => typeof item !== 'string' || item.length > 256)) throw new TypeError(`invalid connector authorization ${key}`)
+      output[key] = [...value]
+    } else if (typeof value === 'string') {
+      if (value.length > 8192) throw new TypeError(`invalid connector authorization ${key}`)
+      output[key] = value
+    } else if (typeof value === 'boolean' || (key === 'timeoutMs' && Number.isInteger(value))) {
+      output[key] = value
+    } else {
+      throw new TypeError(`invalid connector authorization ${key}`)
+    }
+  }
+  return output
+}
+
+function runConnectorCommand(spec) {
+  if (!spec || typeof spec.command !== 'string' || !Array.isArray(spec.args)) throw new TypeError('connector command is invalid')
+  const executable = process.platform === 'win32' && !/\.(?:cmd|bat|exe)$/iu.test(spec.command) ? `${spec.command}.cmd` : spec.command
+  return new Promise((resolve) => {
+    const child = spawn(executable, spec.args, {
+      cwd: spec.cwd,
+      env: { ...process.env, ...(spec.env ?? {}) },
+      stdio: ['ignore', 'ignore', 'ignore'],
+      windowsHide: true,
+      signal: spec.signal,
+    })
+    let settled = false
+    const finish = (result) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(result)
+    }
+    const timer = setTimeout(() => {
+      child.kill()
+      finish({ timedOut: true })
+    }, Number.isInteger(spec.timeoutMs) ? spec.timeoutMs : 120_000)
+    child.once('error', (error) => finish({ error: error.code === 'ABORT_ERR' ? undefined : error }))
+    child.once('exit', (exitCode, signal) => finish({ exitCode, signal, cancelled: signal === 'SIGINT' || signal === 'SIGTERM' }))
+  })
+}
+
+function createDefaultConnectorAuthManager({ connectorSecretStore, dshHome, openExternal }) {
+  const oauth = new OAuthFlowManager({ secretStore: connectorSecretStore })
+  const context = {
+    secretStore: connectorSecretStore,
+    oauth,
+    openExternal,
+    runCommand: (spec) => runConnectorCommand({ ...spec, signal: context.activeAuth?.signal }),
+    detectFeishuCli: async () => ({ userAccessToken: false }),
+    probe: async () => ({ ok: true }),
+    activeAuth: undefined,
+  }
+  return { manager: new ConnectorAuthManager({
+    adapters: [createGitHubAuthAdapter(), createFeishuAuthAdapter(), createGitLabAuthAdapter(), createDingTalkAuthAdapter()],
+    context,
+  }), context }
+}
 
 export function registerExtensionIpc({
   ipcMain,
@@ -45,6 +133,8 @@ export function registerExtensionIpc({
   agentsHome,
   connectorSecretStore,
   mcpSourceOptions,
+  connectorAuthManager,
+  connectorAuthContext,
 }) {
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
@@ -58,6 +148,10 @@ export function registerExtensionIpc({
   })
   const sourceOptions = { projectRoot, ...mcpSourceOptions }
   const sourceSessions = new Map()
+  const authRuntime = connectorAuthManager
+    ? { manager: connectorAuthManager, context: connectorAuthContext ?? {} }
+    : createDefaultConnectorAuthManager({ connectorSecretStore, dshHome, openExternal: url => shell.openExternal(url) })
+  const pendingAuth = new Map()
 
   const pruneSourceSessions = () => {
     const cutoff = Date.now() - SOURCE_SESSION_TTL_MS
@@ -237,6 +331,58 @@ export function registerExtensionIpc({
     })
   })
   ipcMain.handle('extensions:connector-check', (_event, id) => connectorStore.check(id))
+  const authConnector = async (id) => {
+    if (typeof id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id)) throw new TypeError('invalid connector id')
+    const connector = (await connectorStore.list()).find(item => item.id === id)
+    if (!connector) throw new Error('connector-not-found')
+    const providerId = providerForConnector(connector)
+    if (!providerId) throw new Error('connector-authorization-unsupported')
+    return { connector, providerId }
+  }
+  const plainAuthStatus = (providerId, state, detailKey) => ({
+    connectorId: providerId, providerId, mode: providerId === 'dingtalk' ? 'app-credentials' : providerId === 'feishu' ? 'official-cli' : 'oauth', state,
+    ...(detailKey ? { detailKey } : {}),
+  })
+  ipcMain.handle('extensions:connector-auth-status', async (_event, id) => {
+    const { connector, providerId } = await authConnector(id)
+    return authRuntime.manager.status(providerId, connector)
+  })
+  ipcMain.handle('extensions:connector-authorize', async (_event, id, input) => {
+    const { connector, providerId } = await authConnector(id)
+    if (pendingAuth.has(id)) return plainAuthStatus(providerId, 'authorizing')
+    const controller = new AbortController()
+    const task = (async () => {
+      if (authRuntime.context && typeof authRuntime.context === 'object') authRuntime.context.activeAuth = { connectorId: id, signal: controller.signal }
+      try {
+        return await authRuntime.manager.authorize(providerId, { ...safeAuthInput(input), connectorId: id })
+      } finally {
+        if (authRuntime.context?.activeAuth?.connectorId === id) authRuntime.context.activeAuth = undefined
+      }
+    })()
+    pendingAuth.set(id, { controller, task })
+    try {
+      return await task
+    } finally {
+      if (pendingAuth.get(id)?.task === task) pendingAuth.delete(id)
+    }
+  })
+  ipcMain.handle('extensions:connector-disconnect', async (_event, id) => {
+    const { connector, providerId } = await authConnector(id)
+    const pending = pendingAuth.get(id)
+    if (pending) pending.controller.abort()
+    return authRuntime.manager.disconnect(providerId, connector)
+  })
+  ipcMain.handle('extensions:connector-auth-verify', async (_event, id) => {
+    const { connector, providerId } = await authConnector(id)
+    return authRuntime.manager.verify(providerId, connector)
+  })
+  ipcMain.handle('extensions:connector-auth-cancel', async (_event, id) => {
+    const { providerId } = await authConnector(id)
+    const pending = pendingAuth.get(id)
+    if (!pending) return authRuntime.manager.status(providerId, { id })
+    pending.controller.abort()
+    return plainAuthStatus(providerId, 'error', 'authorization-cancelled')
+  })
   ipcMain.handle('extensions:mcp-preview', (_event, text) => previewMcpJson(text))
   ipcMain.handle('extensions:mcp-import', (_event, input) => importMcpDocument(input, input?.text, input?.source ?? { kind: 'json' }))
   ipcMain.handle('extensions:mcp-source-list', () => discoverMcpClientSources(sourceOptions))

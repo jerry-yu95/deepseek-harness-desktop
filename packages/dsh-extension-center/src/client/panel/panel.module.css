@@ -494,6 +494,26 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
 }
 
+.authStatus {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.authStatus[data-state="ready"] {
+  color: var(--dsw-alias-state-success-primary, #1aa260);
+}
+
+.authStatus[data-state="error"],
+.authStatus[data-state="missing-permission"],
+.authStatus[data-state="reauthorization-required"] {
+  color: var(--dsw-alias-state-danger-primary, #d64545);
+}
+
+.authStatus[data-state="authorizing"] {
+  color: var(--dsw-alias-state-business-primary);
+}
+
 .catalogLink {
   width: fit-content;
   font-size: 11px;

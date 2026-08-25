@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import { registerExtensionIpc } from '../src/extension-ipc.mjs'
 import { ConnectorSecretStore } from '../src/extensions/connector-secrets.mjs'
+import { ConnectorAuthManager } from '../src/extensions/connector-auth.mjs'
 
 function fixture(dshHome, options = {}) {
   const handlers = new Map()
@@ -23,7 +24,7 @@ function fixture(dshHome, options = {}) {
   const registration = registerExtensionIpc({
     ipcMain,
     dialog: options.dialog ?? { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
-    shell: { openPath: async () => '' },
+    shell: { openPath: async () => '', openExternal: async () => {} },
     getWindow: () => ({ isDestroyed: () => false }),
     pluginManager: {
       inventory: async () => ({ plugins: [], diagnostics: [] }),
@@ -40,9 +41,48 @@ function fixture(dshHome, options = {}) {
     agentsHome: undefined,
     connectorSecretStore,
     mcpSourceOptions: options.mcpSourceOptions,
+    connectorAuthManager: options.connectorAuthManager,
+    connectorAuthContext: options.connectorAuthContext,
   })
   return { handlers, calls, connectorSecretStore, registration }
 }
+
+test('extension IPC exposes redacted connector authorization lifecycle and cancellation', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-auth-'))
+  const authCalls = []
+  const connectorAuthManager = new ConnectorAuthManager({
+    adapters: [{
+      id: 'github', modes: ['oauth', 'pat'],
+      async authorize(_context, input) {
+        authCalls.push(input)
+        return { connectorId: 'github', providerId: 'github', mode: input.mode ?? 'oauth', state: 'ready', accessToken: 'must-not-cross' }
+      },
+      async status() { return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'not-configured', token: 'must-not-cross' } },
+      async disconnect() { return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'not-configured' } },
+      async verify() { return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'ready' } },
+    }],
+    context: {},
+  })
+  const { handlers, registration } = fixture(dshHome, { connectorAuthManager })
+  try {
+    await handlers.get('extensions:connector-save')(null, {
+      id: 'github', name: 'GitHub', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp',
+      source: { kind: 'preset', presetId: 'github' },
+    })
+    const status = await handlers.get('extensions:connector-auth-status')(null, 'github')
+    assert.equal(status.state, 'not-configured')
+    assert.equal('token' in status, false)
+    const authorized = await handlers.get('extensions:connector-authorize')(null, 'github', { mode: 'pat', token: 'secret-token', unexpected: 'discard' })
+    assert.equal(authorized.state, 'ready')
+    assert.equal('accessToken' in authorized, false)
+    assert.deepEqual(authCalls, [{ mode: 'pat', token: 'secret-token', connectorId: 'github' }])
+    assert.equal((await handlers.get('extensions:connector-auth-verify')(null, 'github')).state, 'ready')
+    assert.equal((await handlers.get('extensions:connector-disconnect')(null, 'github')).state, 'not-configured')
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})
 
 test('extension IPC discovers and imports an external client source without renderer secret exposure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-extension-source-'))

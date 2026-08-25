@@ -179,6 +179,20 @@ export interface ConnectorAuthorizationStatus {
   checkedAt?: string
 }
 
+/** Map a connector record to the provider authorization adapter, if supported. */
+export function connectorAuthProvider(connector: Pick<ConnectorRecord, 'id' | 'source'>): ConnectorAuthorizationStatus['providerId'] | undefined {
+  const provider = connector.source?.presetId ?? connector.id
+  return provider === 'github' || provider === 'feishu' || provider === 'gitlab' || provider === 'dingtalk' ? provider : undefined
+}
+
+/** Renderer-only action semantics; pending auth must not be started twice. */
+export function connectorAuthAction(state: ConnectorAuthorizationStatus['state'] | undefined): 'authorize' | 'reauthorize' | 'cancel' | 'disconnect' {
+  if (state === 'authorizing') return 'cancel'
+  if (state === 'ready' || state === 'missing-permission') return 'disconnect'
+  if (state === 'reauthorization-required' || state === 'error') return 'reauthorize'
+  return 'authorize'
+}
+
 /** The typed window.dshDesktop slice this plugin depends on. */
 export interface DesktopBridge {
   listExtensions(): Promise<ExtensionInventory>
@@ -196,6 +210,8 @@ export interface DesktopBridge {
   authorizeConnector?: (id: string, input?: unknown) => Promise<ConnectorAuthorizationStatus>
   /** Optional on newer desktop builds; disconnects app-owned provider authorization. */
   disconnectConnector?: (id: string) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on newer desktop builds; cancels a pending main-process authorization. */
+  cancelConnectorAuthorization?: (id: string) => Promise<ConnectorAuthorizationStatus>
   /** Optional on newer desktop builds; performs a read-only authorization verification. */
   verifyConnectorAuthorization?: (id: string) => Promise<ConnectorAuthorizationStatus>
   /** Optional on older desktop builds; toggles profile registration without deleting secrets. */

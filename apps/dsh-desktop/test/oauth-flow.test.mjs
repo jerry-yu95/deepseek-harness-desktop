@@ -107,6 +107,12 @@ test('callback rejects state mismatch, times out, and supports browser-close can
   const canceledWait = assert.rejects(canceled.wait, /browser-closed/)
   canceled.cancel('browser-closed')
   await canceledWait
+
+  const controller = new AbortController()
+  const aborted = await manager.openCallback({ expectedState: 'expected', timeoutMs: 500, signal: controller.signal })
+  const abortedWait = assert.rejects(aborted.wait, /authorization-cancelled/)
+  controller.abort()
+  await abortedWait
 })
 
 test('DCR responses require a public client id and never expose client secrets', () => {
