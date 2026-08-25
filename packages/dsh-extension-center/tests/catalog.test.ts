@@ -40,6 +40,20 @@ describe('verified connector catalog', () => {
     }
   })
 
+  it('describes Feishu official CLI and keeps DingTalk defaults read-only', () => {
+    const feishu = CONNECTOR_PRESETS.find((preset) => preset.id === 'feishu')
+    const dingtalk = CONNECTOR_PRESETS.find((preset) => preset.id === 'dingtalk')
+    expect(feishu?.authModes).toEqual(['official-cli', 'app-credentials'])
+    expect(feishu?.authScopes).toEqual(['offline_access'])
+    expect(dingtalk?.authModes).toEqual(['app-credentials'])
+    expect(dingtalk?.authScopes).toEqual(['dingtalk-contacts'])
+    expect(dingtalk?.json).toContain('DINGTALK_Client_ID')
+    expect(dingtalk?.json).toContain('DINGTALK_Client_Secret')
+    expect(dingtalk?.json).toContain('ACTIVE_PROFILES')
+    expect(dingtalk?.json).toContain('dingtalk-contacts')
+    expect(dingtalk?.json).not.toContain('dingtalk-robot-send-message')
+  })
+
   it('points each verified entry at the provider-owned documentation host', () => {
     const expectedHosts: Record<string, string> = {
       github: 'github.com',

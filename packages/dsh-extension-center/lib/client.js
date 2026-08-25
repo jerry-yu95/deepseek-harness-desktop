@@ -795,8 +795,8 @@ window.__ModuleLoader__.load({
 				],
 				integration: "mcp-template",
 				documentation: "official-mcp",
-				authModes: ["oauth"],
-				authScopes: ["mcp"],
+				authModes: ["official-cli", "app-credentials"],
+				authScopes: ["offline_access"],
 				json: JSON.stringify({ mcpServers: { "lark-mcp": {
 					command: "npx",
 					args: [
@@ -845,13 +845,15 @@ window.__ModuleLoader__.load({
 				],
 				integration: "mcp-template",
 				documentation: "official-mcp",
+				authModes: ["app-credentials"],
+				authScopes: ["dingtalk-contacts"],
 				json: JSON.stringify({ mcpServers: { "dingtalk-mcp": {
 					command: "npx",
 					args: ["-y", "dingtalk-mcp@latest"],
 					env: {
-						DINGTALK_Client_ID: "${DINGTALK_CLIENT_ID}",
-						DINGTALK_Client_Secret: "${DINGTALK_CLIENT_SECRET}",
-						ACTIVE_PROFILES: "dingtalk-contacts,dingtalk-calendar"
+						DINGTALK_Client_ID: "${DINGTALK_Client_ID}",
+						DINGTALK_Client_Secret: "${DINGTALK_Client_Secret}",
+						ACTIVE_PROFILES: "dingtalk-contacts"
 					}
 				} } }, null, 2)
 			},

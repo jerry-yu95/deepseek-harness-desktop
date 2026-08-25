@@ -40,6 +40,17 @@ The layer must:
 
 This does not introduce a second MCP runtime. It adds authorization orchestration around the official bridge's existing `headers`/`env` configuration seam.
 
+## Provider constraints recorded for 0.1.36 adapters
+
+The following constraints are copied from the providers' official MCP/CLI documentation and are enforced by the adapter tests:
+
+| Provider | Official entry point | Constraint enforced in desktop |
+| --- | --- | --- |
+| Feishu / Lark | `@larksuiteoapi/lark-mcp` | Login/logout use an argv array (`npx -y @larksuiteoapi/lark-mcp login/logout`); only `https://open.feishu.cn` and `https://open.larksuite.com` are accepted; user-access mode is offered only after the installed CLI reports support. |
+| DingTalk | `dingtalk-mcp@latest` | The exact official environment keys `DINGTALK_Client_ID`, `DINGTALK_Client_Secret`, and `ACTIVE_PROFILES` are preserved; profiles are allowlisted and the default is read-only `dingtalk-contacts`. |
+
+The Feishu App Secret and DingTalk Client Secret are written through the main-process encrypted secret store. They are never returned in an authorization status, catalog record, or renderer-facing bridge response. The adapters classify cancellation, timeout, expired authorization, and missing permission separately so the later IPC/UI task can provide an actionable retry path.
+
 ## Baseline verification
 
 `CI=true pnpm --filter @harness-design/desktop test` passed with **101/101** tests after allowing the local integration test to bind its temporary loopback Host server. The initial sandboxed run failed only because the environment denied `listen(127.0.0.1)`; it was not a project assertion failure.

@@ -49,6 +49,8 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['文档', '多维表格', '消息', '日历'],
     integration: 'mcp-template',
     documentation: 'official-mcp',
+    authModes: ['official-cli', 'app-credentials'],
+    authScopes: ['offline_access'],
     json: JSON.stringify({
       mcpServers: {
         'lark-mcp': {
@@ -87,15 +89,17 @@ export const CONNECTOR_PRESETS: readonly ConnectorPreset[] = [
     capabilities: ['通讯录', '日历', '待办', '机器人'],
     integration: 'mcp-template',
     documentation: 'official-mcp',
+    authModes: ['app-credentials'],
+    authScopes: ['dingtalk-contacts'],
     json: JSON.stringify({
       mcpServers: {
         'dingtalk-mcp': {
           command: 'npx',
           args: ['-y', 'dingtalk-mcp@latest'],
           env: {
-            DINGTALK_Client_ID: '${DINGTALK_CLIENT_ID}',
-            DINGTALK_Client_Secret: '${DINGTALK_CLIENT_SECRET}',
-            ACTIVE_PROFILES: 'dingtalk-contacts,dingtalk-calendar',
+            DINGTALK_Client_ID: '${DINGTALK_Client_ID}',
+            DINGTALK_Client_Secret: '${DINGTALK_Client_Secret}',
+            ACTIVE_PROFILES: 'dingtalk-contacts',
           },
         },
       },
