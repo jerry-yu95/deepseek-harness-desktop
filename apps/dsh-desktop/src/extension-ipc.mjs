@@ -206,6 +206,13 @@ export function registerExtensionIpc({
         description: skill.description,
         source: skill.source,
         shadowed: Boolean(skill.shadowedBy),
+        ...(skill.managed ? {
+          managed: {
+            version: skill.managed.version,
+            sourceUrl: skill.managed.sourceUrl,
+            verificationTier: skill.managed.verificationTier,
+          },
+        } : {}),
       }
     })
     return {

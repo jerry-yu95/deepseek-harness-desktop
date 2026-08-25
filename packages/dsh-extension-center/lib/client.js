@@ -169,6 +169,8 @@ window.__ModuleLoader__.load({
 			"skills.created": "{name} 已创建并进入 Harness 技能目录",
 			"skills.imported": "{name} 已导入",
 			"skills.badge.shadowed": "已被同名技能覆盖",
+			"skills.badge.managed": "应用托管",
+			"skills.managedVersion": "应用托管版本：{version}",
 			"learning.eyebrow": "DEEPSEEK HARNESS 学习平台",
 			"learning.title": "先看懂这台机器，再决定给它装什么",
 			"learning.intro": "Harness 不是一个只会聊天的页面。它把模型、工具、权限、插件和反复执行的 Agent 循环装在一起。桌面版在官方机制上增加了更容易使用、观察和交付的入口。",
@@ -367,6 +369,8 @@ window.__ModuleLoader__.load({
 			"skills.created": "{name} created and added to the Harness skill catalog",
 			"skills.imported": "{name} imported",
 			"skills.badge.shadowed": "shadowed by a same-name skill",
+			"skills.badge.managed": "APP MANAGED",
+			"skills.managedVersion": "App-managed version: {version}",
 			"learning.eyebrow": "DEEPSEEK HARNESS LEARNING PLATFORM",
 			"learning.title": "Understand the machine before extending it",
 			"learning.intro": "Harness is more than a chat page. It combines models, tools, permissions, plugins, and an iterative Agent loop. The desktop app adds approachable surfaces for using, observing, and shipping that foundation.",
@@ -797,19 +801,34 @@ window.__ModuleLoader__.load({
 							className: panel_module_css_default.item,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: panel_module_css_default.itemBody,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-									className: panel_module_css_default.nameRow,
-									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: panel_module_css_default.name,
-										children: skill.name
-									}), skill.shadowed === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: panel_module_css_default.badge,
-										children: tt("skills.badge.shadowed")
-									})]
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-									className: panel_module_css_default.description,
-									children: skill.description
-								})]
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: panel_module_css_default.nameRow,
+										children: [
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: panel_module_css_default.name,
+												children: skill.name
+											}),
+											skill.shadowed === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: panel_module_css_default.badge,
+												children: tt("skills.badge.shadowed")
+											}),
+											skill.managed !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: panel_module_css_default.badge,
+												"data-success": "true",
+												children: tt("skills.badge.managed")
+											})
+										]
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+										className: panel_module_css_default.description,
+										children: skill.description
+									}),
+									skill.managed?.version !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+										className: panel_module_css_default.providerLine,
+										children: tt("skills.managedVersion", { version: skill.managed.version })
+									})
+								]
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,

@@ -15,6 +15,11 @@ export interface SkillSummary {
   description: string
   source: string
   shadowed?: boolean
+  managed?: {
+    version?: string
+    sourceUrl?: string
+    verificationTier?: string
+  }
 }
 
 /** The extension inventory slice this plugin renders. */

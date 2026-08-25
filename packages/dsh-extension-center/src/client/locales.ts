@@ -40,6 +40,8 @@ export const zh = {
   'skills.created': '{name} 已创建并进入 Harness 技能目录',
   'skills.imported': '{name} 已导入',
   'skills.badge.shadowed': '已被同名技能覆盖',
+  'skills.badge.managed': '应用托管',
+  'skills.managedVersion': '应用托管版本：{version}',
   // learning
   'learning.eyebrow': 'DEEPSEEK HARNESS 学习平台',
   'learning.title': '先看懂这台机器，再决定给它装什么',
@@ -241,6 +243,8 @@ export const en = {
   'skills.created': '{name} created and added to the Harness skill catalog',
   'skills.imported': '{name} imported',
   'skills.badge.shadowed': 'shadowed by a same-name skill',
+  'skills.badge.managed': 'APP MANAGED',
+  'skills.managedVersion': 'App-managed version: {version}',
   'learning.eyebrow': 'DEEPSEEK HARNESS LEARNING PLATFORM',
   'learning.title': 'Understand the machine before extending it',
   'learning.intro': 'Harness is more than a chat page. It combines models, tools, permissions, plugins, and an iterative Agent loop. The desktop app adds approachable surfaces for using, observing, and shipping that foundation.',

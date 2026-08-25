@@ -125,8 +125,10 @@ export function SkillsTab({ bridge, refreshKey, notify }: SkillsTabProps) {
                 <div className={css.nameRow}>
                   <span className={css.name}>{skill.name}</span>
                   {skill.shadowed === true && <span className={css.badge}>{tt('skills.badge.shadowed')}</span>}
+                  {skill.managed !== undefined && <span className={css.badge} data-success="true">{tt('skills.badge.managed')}</span>}
                 </div>
                 <p className={css.description}>{skill.description}</p>
+                {skill.managed?.version !== undefined && <p className={css.providerLine}>{tt('skills.managedVersion', { version: skill.managed.version })}</p>}
               </div>
               <button type="button" className={css.secondaryButton} onClick={() => { void bridge.openSkill(skill.id) }}>
                 {skill.source}
