@@ -682,6 +682,12 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   outline-offset: 1px;
 }
 
+.importInputActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .dialogError {
   margin-bottom: 12px;
   padding: 9px 11px;

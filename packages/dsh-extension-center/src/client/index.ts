@@ -22,7 +22,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { getDesktopBridge } from './bridge.ts'
 import { en, zh, type ExtensionCenterKey } from './locales.ts'
 import { mountPanel } from './mount.tsx'
-import { PanelController } from './panel/controller.ts'
+import { PanelController, type ExtensionTab } from './panel/controller.ts'
 import { mountSidebarEntries } from './sidebar-entry.ts'
 
 /** Locale namespace this plugin owns. */
@@ -38,6 +38,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Required services (fiber inject waiting — the runtime must be up first). */
 export const inject = ['slots', 'locale']
 
+function initialExtensionTab(): ExtensionTab | undefined {
+  if (typeof window === 'undefined') return undefined
+  const tab = new URLSearchParams(window.location.search).get('dsh-extension-tab')
+  return tab === 'skills' || tab === 'connectors' || tab === 'learning' ? tab : undefined
+}
+
 /** Type-only surface (export discipline: no value exports beyond the plugin contract). */
 export type { DesktopBridge, ConnectorRecord, SkillSummary } from './bridge.ts'
 export type { ExtensionTab, PanelControllerSnapshot } from './panel/controller.ts'
@@ -52,6 +58,8 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-extension-center: dictionaries')
 
   const controller = new PanelController()
+  const tab = initialExtensionTab()
+  if (tab !== undefined) controller.open(tab)
   const disposers: Array<() => void> = []
   try {
     disposers.push(mountSidebarEntries(controller))

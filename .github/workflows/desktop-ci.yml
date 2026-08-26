@@ -27,4 +27,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm desktop:test
+      - run: node --test apps/dsh-desktop/test/connector-lifecycle-integration.test.mjs
+      - run: pnpm --filter @linxin666/dsh-client-ui-extension-center typecheck
+      - run: pnpm --filter @linxin666/dsh-client-ui-extension-center test
       - run: git diff --check

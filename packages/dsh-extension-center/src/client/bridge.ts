@@ -144,10 +144,18 @@ export interface PickedMcpClientSource extends Partial<McpClientSourceStage> {
   canceled: boolean
 }
 
+export interface PickedMcpJsonFile {
+  canceled: boolean
+  token?: string
+  preview?: McpJsonPreview
+}
+
 export type McpSecretSlot = McpJsonServerPreview['secretSlots'][number]
 
 export interface McpJsonImportInput {
-  text: string
+  /** Either pasted JSON or a one-use desktop file session token. */
+  text?: string
+  fileToken?: string
   selectedNames?: string[]
   conflict?: 'reject' | 'replace' | 'rename'
   secrets?: Record<string, string>
@@ -183,8 +191,11 @@ export interface ConnectorAuthorizationStatus {
   connectorId: string
   providerId: 'github' | 'feishu' | 'gitlab' | 'dingtalk'
   mode: 'oauth' | 'pat' | 'official-cli' | 'app-credentials'
-  state: 'not-configured' | 'authorizing' | 'ready' | 'missing-permission' | 'reauthorization-required' | 'error'
+  state: 'not-configured' | 'authorizing' | 'ready' | 'refreshing' | 'expiring' | 'expired' | 'revoked' | 'missing-permission' | 'reauthorization-required' | 'provider-unavailable' | 'disabled' | 'error'
   expiresAt?: string
+  lastHealthyAt?: string
+  lastFailureCategory?: string
+  retryAfter?: string
   grantedScopes?: string[]
   missingPermissions?: string[]
   detailKey?: string
@@ -200,8 +211,9 @@ export function connectorAuthProvider(connector: Pick<ConnectorRecord, 'id' | 's
 /** Renderer-only action semantics; pending auth must not be started twice. */
 export function connectorAuthAction(state: ConnectorAuthorizationStatus['state'] | undefined): 'authorize' | 'reauthorize' | 'cancel' | 'disconnect' {
   if (state === 'authorizing') return 'cancel'
-  if (state === 'ready' || state === 'missing-permission') return 'disconnect'
-  if (state === 'reauthorization-required' || state === 'error') return 'reauthorize'
+  if (state === 'ready' || state === 'refreshing' || state === 'expiring' || state === 'provider-unavailable') return 'disconnect'
+  if (state === 'disabled') return 'authorize'
+  if (state === 'missing-permission' || state === 'expired' || state === 'revoked' || state === 'reauthorization-required' || state === 'error') return 'reauthorize'
   return 'authorize'
 }
 
@@ -230,6 +242,12 @@ export interface DesktopBridge {
   authorizeConnector?: (id: string, input?: unknown) => Promise<ConnectorAuthorizationStatus>
   /** Optional on newer desktop builds; disconnects app-owned provider authorization. */
   disconnectConnector?: (id: string) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on 0.1.38+; preserves connector config while deleting app-owned auth. */
+  revokeConnectorAuthorization?: (id: string) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on 0.1.38+; swaps provider credentials atomically and reloads Harness once. */
+  reconnectConnector?: (id: string, input?: unknown) => Promise<ConnectorAuthorizationStatus>
+  /** Optional on 0.1.38+; returns status without touching provider credentials. */
+  getConnectorLifecycle?: (id: string) => Promise<ConnectorAuthorizationStatus>
   /** Optional on newer desktop builds; cancels a pending main-process authorization. */
   cancelConnectorAuthorization?: (id: string) => Promise<ConnectorAuthorizationStatus>
   /** Optional on newer desktop builds; performs a read-only authorization verification. */
@@ -239,6 +257,8 @@ export interface DesktopBridge {
   /** Optional on older desktop builds; advanced connector form remains usable. */
   previewMcpJson?: (text: string) => Promise<McpJsonPreview>
   importMcpJson?: (input: McpJsonImportInput) => Promise<{ imported: ConnectorRecord[] }>
+  /** Optional on newer desktop builds; reads one user-selected MCP file in the main process. */
+  pickMcpJsonFile?: () => Promise<PickedMcpJsonFile>
   /** Optional on older builds; source text and file paths remain in the main process. */
   listMcpClientSources?: () => Promise<McpClientSourceSummary[]>
   previewMcpClientSource?: (clientId: string) => Promise<McpClientSourceStage>

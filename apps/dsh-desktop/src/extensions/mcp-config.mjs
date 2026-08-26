@@ -8,6 +8,7 @@ const SECRET_KEY_PATTERN = /(?:token|secret|password|api[_-]?key|authorization|c
 const PLACEHOLDER_PATTERN = /(?:\$\{([A-Z][A-Z0-9_]{0,63})\}|<((?:YOUR[_-])?[A-Z][A-Z0-9_-]{0,63})>)/giu
 const PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const SUPPORTED_TRANSPORTS = new Set(['stdio', 'streamable-http'])
+const MCP_SERVER_FIELDS = new Set(['url', 'command', 'args', 'env', 'headers', 'cwd', 'transport', 'transportType', 'type'])
 
 function stripJsonComments(input) {
   let output = ''
@@ -199,7 +200,10 @@ function parseStringMap(value, field, { location, sourceName, usedRefs }) {
 }
 
 function parseTransport(server, sourceName) {
-  const declared = server.type ?? server.transport
+  // Cursor and several vendor clients export `transportType`, while the
+  // official examples commonly use `type` or `transport`. Prefer the
+  // explicit transportType when more than one compatibility field exists.
+  const declared = server.transportType ?? server.type ?? server.transport
   const rawTransport = declared === undefined ? (server.url === undefined ? 'stdio' : 'streamable-http') : String(declared).trim().toLowerCase()
   // Official clients use both `http` and `streamable-http` for the current
   // streamable HTTP transport. `local` is the equivalent of stdio in a few
@@ -258,6 +262,39 @@ function parseUrl(value, field) {
   return parsed.toString()
 }
 
+function looksLikeMcpServer(value) {
+  return isRecord(value) && Object.keys(value).some((key) => MCP_SERVER_FIELDS.has(key))
+}
+
+function isBareMcpServerMap(value) {
+  const entries = Object.entries(value)
+  return entries.length > 0 && entries.every(([, server]) => looksLikeMcpServer(server))
+}
+
+function parseMcpDocument(input) {
+  let root
+  try {
+    root = parseJsonDocument(input)
+  } catch (error) {
+    // Some clients show the contents of `mcpServers` without the outer
+    // object when users copy a single JSON member from their settings page.
+    // Accept that narrow, unambiguous shape without turning the parser into
+    // an arbitrary JavaScript/JSON5 evaluator.
+    const trimmed = input.trim()
+    if (!trimmed.startsWith('"')) throw error
+    try {
+      root = parseJsonDocument(`{${input}}`)
+    } catch {
+      throw error
+    }
+  }
+  if (!isRecord(root)) throw new TypeError('MCP JSON root must be an object')
+  scanPrototypeKeys(root)
+  if (!isRecord(root.mcpServers) && isBareMcpServerMap(root)) root = { mcpServers: root }
+  if (!isRecord(root.mcpServers)) throw new TypeError('mcpServers must be an object')
+  return root
+}
+
 /**
  * Parse an official-style mcpServers JSON document without evaluating code.
  * Secret values are returned only in the transient Map and never in servers.
@@ -265,10 +302,7 @@ function parseUrl(value, field) {
 export function parseMcpServersJson(input) {
   if (typeof input !== 'string') throw new TypeError('MCP JSON must be a string')
   if (Buffer.byteLength(input, 'utf8') > MAX_INPUT_BYTES) throw new TypeError('MCP JSON is too large')
-  const root = parseJsonDocument(input)
-  if (!isRecord(root)) throw new TypeError('MCP JSON root must be an object')
-  scanPrototypeKeys(root)
-  if (!isRecord(root.mcpServers)) throw new TypeError('mcpServers must be an object')
+  const root = parseMcpDocument(input)
   const entries = Object.entries(root.mcpServers)
   if (entries.length > MAX_SERVERS) throw new TypeError(`mcpServers has too many servers (maximum ${MAX_SERVERS})`)
 

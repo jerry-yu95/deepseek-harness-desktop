@@ -1,3 +1,5 @@
+import { CONNECTOR_LIFECYCLE_STATES } from './connector-lifecycle.mjs'
+
 /**
  * Provider-neutral connector authorization boundary.
  *
@@ -7,14 +9,7 @@
  * main process and is deliberately ignored by the sanitizer.
  */
 
-export const AUTH_STATES = Object.freeze([
-  'not-configured',
-  'authorizing',
-  'ready',
-  'missing-permission',
-  'reauthorization-required',
-  'error',
-])
+export const AUTH_STATES = CONNECTOR_LIFECYCLE_STATES
 
 export const AUTH_PROVIDERS = Object.freeze(['github', 'feishu', 'gitlab', 'dingtalk'])
 
@@ -23,6 +18,7 @@ export const AUTH_MODES = Object.freeze(['oauth', 'pat', 'official-cli', 'app-cr
 const CONNECTOR_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const DETAIL_KEY_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/i
 const MAX_STRING_LENGTH = 256
+const FAILURE_CATEGORIES = new Set(['invalid', 'revoked', 'missing', 'missing-permission', 'provider-unavailable', 'network', 'timeout', 'unknown'])
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -75,9 +71,16 @@ export function sanitizeAuthorizationStatus(input) {
   const mode = assertEnum(input.mode, 'mode', AUTH_MODES)
   const state = assertEnum(input.state, 'state', AUTH_STATES)
   const expiresAt = optionalIsoDate(input.expiresAt, 'expiresAt')
+  const lastHealthyAt = optionalIsoDate(input.lastHealthyAt, 'lastHealthyAt')
+  const retryAfter = optionalIsoDate(input.retryAfter, 'retryAfter')
   const checkedAt = optionalIsoDate(input.checkedAt, 'checkedAt')
   const grantedScopes = optionalStringList(input.grantedScopes, 'grantedScopes')
   const missingPermissions = optionalStringList(input.missingPermissions, 'missingPermissions')
+  let lastFailureCategory
+  if (input.lastFailureCategory !== undefined) {
+    lastFailureCategory = assertString(input.lastFailureCategory, 'lastFailureCategory', { maxLength: 32 })
+    if (!FAILURE_CATEGORIES.has(lastFailureCategory)) throw new TypeError('invalid lastFailureCategory')
+  }
 
   let detailKey
   if (input.detailKey !== undefined) {
@@ -93,6 +96,9 @@ export function sanitizeAuthorizationStatus(input) {
     mode,
     state,
     ...(expiresAt === undefined ? {} : { expiresAt }),
+    ...(lastHealthyAt === undefined ? {} : { lastHealthyAt }),
+    ...(retryAfter === undefined ? {} : { retryAfter }),
+    ...(lastFailureCategory === undefined ? {} : { lastFailureCategory }),
     ...(grantedScopes === undefined ? {} : { grantedScopes }),
     ...(missingPermissions === undefined ? {} : { missingPermissions }),
     ...(detailKey === undefined ? {} : { detailKey }),

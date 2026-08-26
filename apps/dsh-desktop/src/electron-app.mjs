@@ -125,6 +125,14 @@ export async function startElectronApp(metadata) {
   const saveWindowState = attachWindowStatePersistence(mainWindow, statePath)
   let activeOrigin
   let extensionWindow
+  let connectorRendererRecovery
+
+  const prepareRendererForConnectorRestart = (hint) => {
+    const checkIds = Array.isArray(hint?.checkIds)
+      ? hint.checkIds.filter(id => typeof id === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id)).slice(0, 32)
+      : []
+    connectorRendererRecovery = { tab: 'connectors', checkIds }
+  }
 
   installNavigationPolicy({
     webContents: mainWindow.webContents,
@@ -274,6 +282,7 @@ export async function startElectronApp(metadata) {
     dshHome,
     agentsHome: process.env.DSH_AGENTS_HOME,
     connectorSecretStore,
+    prepareRendererForConnectorRestart,
   })
   const updateIpc = registerUpdateIpc({
     ipcMain,
@@ -312,9 +321,15 @@ export async function startElectronApp(metadata) {
   controller.on('status', (status) => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     if (status.state === 'ready' && status.url) {
+      const recovery = connectorRendererRecovery
+      connectorRendererRecovery = undefined
       activeOrigin = new URL(status.url).origin
       const target = new URL(status.url)
       if (controller.remoteMode === 'personal-public') target.searchParams.set('dsh-remote-auto-open', 'personal-public')
+      if (recovery?.tab === 'connectors') {
+        target.searchParams.set('dsh-extension-tab', recovery.tab)
+        if (recovery.checkIds.length > 0) target.searchParams.set('dsh-extension-check', recovery.checkIds.join(','))
+      }
       void mainWindow.loadURL(target.toString()).then(() => {
         if (process.env.DSH_DESKTOP_SMOKE_EXIT === '1') {
           console.log(`desktop smoke ready: ${activeOrigin}`)
@@ -324,7 +339,12 @@ export async function startElectronApp(metadata) {
         void logStore.append(`[renderer] ${error.message}`)
         void loadStartup().catch(() => {})
       })
-    } else if (['crashed', 'stopping', 'restarting'].includes(status.state) && !mainWindow.webContents.getURL().startsWith('file:')) {
+    } else if (status.state === 'crashed') {
+      connectorRendererRecovery = undefined
+      if (!mainWindow.webContents.getURL().startsWith('file:')) void loadStartup().catch(() => {})
+    } else if (['stopping', 'restarting'].includes(status.state)
+      && connectorRendererRecovery === undefined
+      && !mainWindow.webContents.getURL().startsWith('file:')) {
       void loadStartup().catch(() => {})
     }
   })

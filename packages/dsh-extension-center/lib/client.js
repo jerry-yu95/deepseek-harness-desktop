@@ -16,8 +16,9 @@ window.__ModuleLoader__.load({
 		/** Renderer-only action semantics; pending auth must not be started twice. */
 		function connectorAuthAction(state) {
 			if (state === "authorizing") return "cancel";
-			if (state === "ready" || state === "missing-permission") return "disconnect";
-			if (state === "reauthorization-required" || state === "error") return "reauthorize";
+			if (state === "ready" || state === "refreshing" || state === "expiring" || state === "provider-unavailable") return "disconnect";
+			if (state === "disabled") return "authorize";
+			if (state === "missing-permission" || state === "expired" || state === "revoked" || state === "reauthorization-required" || state === "error") return "reauthorize";
 			return "authorize";
 		}
 		/** Every bridge method the plugin calls; presence-checked as a set. */
@@ -195,6 +196,20 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.providerJson": "服务方 JSON",
 			"connectors.catalog.officialSkill": "官方 Skill",
 			"connectors.catalog.installed": "已接入",
+			"connectors.catalog.tier.verified": "已验证",
+			"connectors.catalog.tier.community": "社区",
+			"connectors.catalog.tier.experimental": "实验性",
+			"connectors.catalog.liveVerified": "已验证：{date} · {version}",
+			"connectors.catalog.permissions": "权限：{permissions} · 认证：{auth}",
+			"connectors.catalog.noAuth": "无需预置认证",
+			"connectors.catalog.searchLabel": "连接器商店筛选",
+			"connectors.catalog.searchPlaceholder": "搜索连接器、提供方或能力",
+			"connectors.catalog.search": "搜索连接器",
+			"connectors.catalog.statusLabel": "安装状态",
+			"connectors.catalog.status.all": "全部状态",
+			"connectors.catalog.status.installed": "已接入",
+			"connectors.catalog.status.uninstalled": "未接入",
+			"connectors.catalog.noMatches": "没有符合筛选条件的连接器。",
 			"connectors.catalog.provider": "提供方：{provider}",
 			"connectors.catalog.docs": "查看来源",
 			"connectors.catalog.docsOfficialMcp": "官方 MCP 文档",
@@ -241,6 +256,8 @@ window.__ModuleLoader__.load({
 			"connectors.import.step.review": "第 2 步，共 2 步 · 补充凭证",
 			"connectors.import.jsonLabel": "MCP JSON",
 			"connectors.import.jsonPlaceholder": "{\n  \"mcpServers\": { ... }\n}",
+			"connectors.import.chooseFile": "选择本地 mcp.json",
+			"connectors.import.fileReady": "已读取本地配置文件；文件内容只在桌面主进程中暂存，凭证不会回显。",
 			"connectors.import.noSecret": "令牌只在桌面主进程中加密保存，不会写入配置或日志。",
 			"connectors.import.preview": "预览配置",
 			"connectors.import.edit": "返回修改 JSON",
@@ -334,8 +351,14 @@ window.__ModuleLoader__.load({
 			"connectors.auth.state.not-configured": "未配置授权",
 			"connectors.auth.state.authorizing": "授权进行中",
 			"connectors.auth.state.ready": "已授权",
+			"connectors.auth.state.refreshing": "刷新授权中",
+			"connectors.auth.state.expiring": "授权即将过期",
+			"connectors.auth.state.expired": "授权已过期",
+			"connectors.auth.state.revoked": "授权已撤销",
 			"connectors.auth.state.missing-permission": "缺少权限",
 			"connectors.auth.state.reauthorization-required": "需要重新授权",
+			"connectors.auth.state.provider-unavailable": "服务暂不可用",
+			"connectors.auth.state.disabled": "连接器已停用",
 			"connectors.auth.state.error": "授权异常"
 		};
 		const en = {
@@ -399,6 +422,20 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.providerJson": "Provider JSON",
 			"connectors.catalog.officialSkill": "Official Skill",
 			"connectors.catalog.installed": "Connected",
+			"connectors.catalog.tier.verified": "Verified",
+			"connectors.catalog.tier.community": "Community",
+			"connectors.catalog.tier.experimental": "Experimental",
+			"connectors.catalog.liveVerified": "Verified: {date} · {version}",
+			"connectors.catalog.permissions": "Permissions: {permissions} · Authentication: {auth}",
+			"connectors.catalog.noAuth": "No preconfigured authentication",
+			"connectors.catalog.searchLabel": "Connector store filters",
+			"connectors.catalog.searchPlaceholder": "Search connectors, providers, or capabilities",
+			"connectors.catalog.search": "Search connectors",
+			"connectors.catalog.statusLabel": "Installation status",
+			"connectors.catalog.status.all": "All statuses",
+			"connectors.catalog.status.installed": "Connected",
+			"connectors.catalog.status.uninstalled": "Not connected",
+			"connectors.catalog.noMatches": "No connectors match these filters.",
 			"connectors.catalog.provider": "Provider: {provider}",
 			"connectors.catalog.docs": "Open source",
 			"connectors.catalog.docsOfficialMcp": "Official MCP docs",
@@ -445,6 +482,8 @@ window.__ModuleLoader__.load({
 			"connectors.import.step.review": "Step 2 of 2 · Add credentials",
 			"connectors.import.jsonLabel": "MCP JSON",
 			"connectors.import.jsonPlaceholder": "{\n  \"mcpServers\": { ... }\n}",
+			"connectors.import.chooseFile": "Choose local mcp.json",
+			"connectors.import.fileReady": "Local configuration loaded; the file stays staged in the desktop main process and credentials are never shown.",
 			"connectors.import.noSecret": "Credentials are encrypted in the desktop main process and never written to config or logs.",
 			"connectors.import.preview": "Preview config",
 			"connectors.import.edit": "Edit JSON",
@@ -538,8 +577,14 @@ window.__ModuleLoader__.load({
 			"connectors.auth.state.not-configured": "Not authorized",
 			"connectors.auth.state.authorizing": "Authorizing",
 			"connectors.auth.state.ready": "Authorized",
+			"connectors.auth.state.refreshing": "Refreshing authorization",
+			"connectors.auth.state.expiring": "Authorization expiring",
+			"connectors.auth.state.expired": "Authorization expired",
+			"connectors.auth.state.revoked": "Authorization revoked",
 			"connectors.auth.state.missing-permission": "Missing permission",
 			"connectors.auth.state.reauthorization-required": "Reauthorization required",
+			"connectors.auth.state.provider-unavailable": "Provider unavailable",
+			"connectors.auth.state.disabled": "Connector disabled",
 			"connectors.auth.state.error": "Authorization error"
 		};
 		/** Tiny interpolation: {name} -> value. */
@@ -570,7 +615,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:1fr}}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_importInputActions{justify-content:flex-end;margin-top:8px;display:flex}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:1fr}}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -617,6 +662,7 @@ window.__ModuleLoader__.load({
 			"formHint": "bid-pG_formHint",
 			"headerActions": "bid-pG_headerActions",
 			"health": "bid-pG_health",
+			"importInputActions": "bid-pG_importInputActions",
 			"importPreview": "bid-pG_importPreview",
 			"importServer": "bid-pG_importServer",
 			"importServerHeader": "bid-pG_importServerHeader",
@@ -1019,6 +1065,109 @@ window.__ModuleLoader__.load({
 			}
 		];
 		//#endregion
+		//#region src/client/connector-store.ts
+		const PLATFORMS = [
+			"darwin-arm64",
+			"darwin-x64",
+			"win32-x64"
+		];
+		const AUTH_MODES = /* @__PURE__ */ new Set([
+			"oauth",
+			"pat",
+			"official-cli",
+			"app-credentials"
+		]);
+		const TIERS = /* @__PURE__ */ new Set([
+			"verified",
+			"community",
+			"experimental"
+		]);
+		const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+		function isHttps(value) {
+			try {
+				return new URL(value).protocol === "https:";
+			} catch {
+				return false;
+			}
+		}
+		function stringList(value, field, required = true) {
+			if (!Array.isArray(value) || required && value.length === 0) throw new TypeError(`${field} must be a non-empty array`);
+			if (value.some((item) => typeof item !== "string" || item.trim().length === 0 || item.length > 256)) throw new TypeError(`${field} must contain short strings`);
+			return [...new Set(value.map((item) => item.trim()))];
+		}
+		function validateConnectorStoreEntry(input) {
+			if (input === null || typeof input !== "object") throw new TypeError("connector store entry must be an object");
+			if (typeof input.id !== "string" || !ID_PATTERN.test(input.id)) throw new TypeError("connector store entry id is invalid");
+			if (!TIERS.has(input.tier)) throw new TypeError(`connector store tier is invalid: ${input.id}`);
+			if (typeof input.sourceUrl !== "string" || !isHttps(input.sourceUrl)) throw new TypeError(`connector source URL must use HTTPS: ${input.id}`);
+			if (typeof input.docsUrl !== "string" || !isHttps(input.docsUrl)) throw new TypeError(`connector docs URL must use HTTPS: ${input.id}`);
+			const platforms = stringList(input.platforms, "platforms").filter((item) => PLATFORMS.includes(item));
+			if (platforms.length !== input.platforms.length) throw new TypeError(`connector platforms are invalid: ${input.id}`);
+			const authModes = stringList(input.authModes, "authModes", false).filter((item) => AUTH_MODES.has(item));
+			if (authModes.length !== input.authModes.length) throw new TypeError(`connector auth modes are invalid: ${input.id}`);
+			const permissionSummary = stringList(input.permissionSummary, "permissionSummary");
+			const knownLimitations = stringList(input.knownLimitations, "knownLimitations");
+			const liveVerified = input.liveVerified === true;
+			if (input.tier === "verified" && (!liveVerified || typeof input.lastVerifiedAt !== "string" || typeof input.verifiedVersion !== "string")) throw new TypeError(`verified connector requires dated live evidence and version: ${input.id}`);
+			if (input.tier === "community" && (typeof input.sourceUrl !== "string" || typeof input.license !== "string" || input.license.trim().length === 0)) throw new TypeError(`community connector requires public source and license: ${input.id}`);
+			if (input.tier === "experimental" && liveVerified) throw new TypeError(`experimental connector cannot claim live verification: ${input.id}`);
+			if (input.lastVerifiedAt !== void 0 && Number.isNaN(Date.parse(input.lastVerifiedAt))) throw new TypeError(`invalid verification date: ${input.id}`);
+			if (input.verifiedVersion !== void 0 && (typeof input.verifiedVersion !== "string" || input.verifiedVersion.length > 128)) throw new TypeError(`invalid verified version: ${input.id}`);
+			return {
+				...input,
+				platforms: [...platforms],
+				authModes: [...authModes],
+				permissionSummary,
+				knownLimitations
+			};
+		}
+		function validateConnectorStore(entries) {
+			if (!Array.isArray(entries)) throw new TypeError("connector store must be an array");
+			const ids = /* @__PURE__ */ new Set();
+			return entries.map((entry) => {
+				const validated = validateConnectorStoreEntry(entry);
+				if (ids.has(validated.id)) throw new TypeError(`duplicate connector store id: ${validated.id}`);
+				ids.add(validated.id);
+				return validated;
+			});
+		}
+		const COMMON_LIMITATIONS = ["本地实现尚未完成真实账号验收；安装前请核对官方权限与数据范围。"];
+		/**
+		* Built-in reviewed manifest. The current release intentionally labels all
+		* entries experimental until disposable live credentials have been recorded;
+		* this is safer than presenting a deterministic parser test as live proof.
+		*/
+		const CONNECTOR_STORE_ENTRIES = validateConnectorStore(CONNECTOR_PRESETS.map((preset) => ({
+			...preset,
+			tier: "experimental",
+			sourceUrl: preset.docsUrl,
+			platforms: PLATFORMS,
+			authModes: preset.authModes ?? [],
+			permissionSummary: preset.capabilities,
+			knownLimitations: [...COMMON_LIMITATIONS, ...preset.integration === "provider-json" ? ["需要从服务方复制官方 JSON；应用不猜测端点。"] : []],
+			...preset.integration === "mcp-template" && preset.id === "feishu" ? { requiresLocalExecution: true } : {},
+			liveVerified: false
+		})));
+		function filterConnectorStore(entries, filter = {}, installedIds = /* @__PURE__ */ new Set()) {
+			const keyword = filter.keyword?.trim().toLocaleLowerCase() ?? "";
+			return entries.filter((entry) => {
+				if (filter.tier && filter.tier !== "all" && entry.tier !== filter.tier) return false;
+				if (filter.provider && entry.provider !== filter.provider) return false;
+				if (filter.capability && !entry.capabilities.includes(filter.capability)) return false;
+				if (filter.authMode && filter.authMode !== "all" && !entry.authModes.includes(filter.authMode)) return false;
+				if (filter.platform && filter.platform !== "all" && !entry.platforms.includes(filter.platform)) return false;
+				if (filter.installed !== void 0 && installedIds.has(entry.id) !== filter.installed) return false;
+				if (keyword && ![
+					entry.id,
+					entry.name,
+					entry.provider,
+					entry.description,
+					...entry.capabilities
+				].join(" ").toLocaleLowerCase().includes(keyword)) return false;
+				return true;
+			});
+		}
+		//#endregion
 		//#region src/client/panel/ConnectorsTab.tsx
 		/**
 		* Connector catalog and registry. The normal path is provider template or
@@ -1031,6 +1180,18 @@ window.__ModuleLoader__.load({
 			trae: "TRAE",
 			qoder: "Qoder"
 		};
+		const CONNECTOR_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+		function pendingConnectorCheckIds() {
+			if (typeof window === "undefined") return [];
+			const value = new URLSearchParams(window.location.search).get("dsh-extension-check") ?? "";
+			return [...new Set(value.split(",").filter((id) => CONNECTOR_ID_PATTERN.test(id)))].slice(0, 32);
+		}
+		function clearPendingConnectorChecks() {
+			if (typeof window === "undefined" || !window.history.replaceState) return;
+			const url = new URL(window.location.href);
+			url.searchParams.delete("dsh-extension-check");
+			window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+		}
 		function sourceStatusText(status, count) {
 			if (status === "available") return tt("connectors.sources.status.available", { count });
 			if (status === "empty") return tt("connectors.sources.status.empty");
@@ -1076,10 +1237,15 @@ window.__ModuleLoader__.load({
 				scopes: ""
 			});
 			const [catalogOpen, setCatalogOpen] = (0, react.useState)(true);
+			const [storeFilter, setStoreFilter] = (0, react.useState)({
+				keyword: "",
+				installed: "all"
+			});
 			const [formOpen, setFormOpen] = (0, react.useState)(false);
 			const [sourcePickerOpen, setSourcePickerOpen] = (0, react.useState)(false);
 			const [clientSources, setClientSources] = (0, react.useState)(null);
 			const [stagedSource, setStagedSource] = (0, react.useState)(null);
+			const [stagedJsonFile, setStagedJsonFile] = (0, react.useState)(null);
 			const [importOpen, setImportOpen] = (0, react.useState)(false);
 			const [jsonText, setJsonText] = (0, react.useState)("");
 			const [preview, setPreview] = (0, react.useState)(null);
@@ -1093,13 +1259,20 @@ window.__ModuleLoader__.load({
 			const [kind, setKind] = (0, react.useState)("mcp");
 			const [transport, setTransport] = (0, react.useState)("stdio");
 			const secretInputs = (0, react.useRef)({});
+			const initialCheckIds = (0, react.useRef)(pendingConnectorCheckIds());
 			const mcp = kind === "mcp";
 			const remote = !mcp || transport !== "stdio";
 			const canImportJson = typeof bridge.previewMcpJson === "function" && typeof bridge.importMcpJson === "function";
+			const canPickJsonFile = canImportJson && typeof bridge.pickMcpJsonFile === "function";
 			const canImportClientSource = typeof bridge.listMcpClientSources === "function" && typeof bridge.previewMcpClientSource === "function" && typeof bridge.pickMcpClientSource === "function" && typeof bridge.importMcpClientSource === "function";
 			const selectedNames = preview === null ? [] : selectedMcpServerNames(preview, selected);
 			const missingSecrets = preview === null ? [] : missingMcpCredentials(preview, selected, secretValues);
 			const requiresLocalExecution = preview !== null && selectedMcpRequiresLocalExecution(preview, selected);
+			const installedStoreIds = new Set((connectors ?? []).flatMap((connector) => CONNECTOR_STORE_ENTRIES.filter((entry) => entry.integration === "provider-json" && entry.providerId !== void 0 ? connector.source?.kind === "provider-json" && connector.source.providerId === entry.providerId : connector.source?.kind === "preset" && connector.source.presetId === entry.id).map((entry) => entry.id)));
+			const storeEntries = filterConnectorStore(CONNECTOR_STORE_ENTRIES, {
+				keyword: storeFilter.keyword,
+				installed: storeFilter.installed === "all" ? void 0 : storeFilter.installed === "installed"
+			}, installedStoreIds);
 			const load = (0, react.useCallback)(async () => {
 				try {
 					const next = await bridge.listConnectors();
@@ -1121,6 +1294,20 @@ window.__ModuleLoader__.load({
 					notify(errorMessage(error), true);
 				}
 			}, [bridge, notify]);
+			const checkConnectorIds = (0, react.useCallback)(async (ids) => {
+				if (ids.length === 0) return;
+				const completedChecks = (await Promise.all(ids.map(async (id) => {
+					try {
+						return [id, await bridge.checkConnector(id)];
+					} catch {
+						return null;
+					}
+				}))).filter((check) => check !== null);
+				if (completedChecks.length > 0) setHealth((current) => ({
+					...current,
+					...Object.fromEntries(completedChecks)
+				}));
+			}, [bridge]);
 			const refreshAuthStatus = (0, react.useCallback)(async (connector) => {
 				if (bridge.getConnectorAuthorizationStatus === void 0 || connectorAuthProvider(connector) === void 0) return void 0;
 				try {
@@ -1250,8 +1437,24 @@ window.__ModuleLoader__.load({
 				}
 			};
 			(0, react.useEffect)(() => {
-				load();
-			}, [load, refreshKey]);
+				const checkIds = initialCheckIds.current;
+				(async () => {
+					await load();
+					if (checkIds.length === 0) return;
+					setBusy(true);
+					try {
+						await checkConnectorIds(checkIds);
+					} finally {
+						initialCheckIds.current = [];
+						clearPendingConnectorChecks();
+						setBusy(false);
+					}
+				})();
+			}, [
+				checkConnectorIds,
+				load,
+				refreshKey
+			]);
 			const closeImport = (0, react.useCallback)(() => {
 				setImportOpen(false);
 				setJsonText("");
@@ -1261,6 +1464,7 @@ window.__ModuleLoader__.load({
 				setConflict("reject");
 				setImportSource({ kind: "json" });
 				setStagedSource(null);
+				setStagedJsonFile(null);
 				setImportError(null);
 				setLocalCommandTrusted(false);
 				secretInputs.current = {};
@@ -1290,6 +1494,7 @@ window.__ModuleLoader__.load({
 			]);
 			const stageClientSource = (0, react.useCallback)((source) => {
 				setStagedSource(source);
+				setStagedJsonFile(null);
 				setJsonText("");
 				setImportSource({ kind: "json" });
 				setPreview(source.preview);
@@ -1322,6 +1527,8 @@ window.__ModuleLoader__.load({
 				stageClientSource
 			]);
 			const openJsonImport = (0, react.useCallback)((source = { kind: "json" }, replaceExisting = false) => {
+				setStagedSource(null);
+				setStagedJsonFile(null);
 				setImportSource(source);
 				setJsonText("");
 				setPreview(null);
@@ -1338,6 +1545,8 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				setImportSource(source);
+				setStagedSource(null);
+				setStagedJsonFile(null);
 				setJsonText(text);
 				setImportOpen(true);
 				setPreview(null);
@@ -1358,6 +1567,40 @@ window.__ModuleLoader__.load({
 			}, [
 				bridge,
 				canImportJson,
+				notify
+			]);
+			const pickJsonFile = (0, react.useCallback)(async () => {
+				if (!canPickJsonFile || bridge.pickMcpJsonFile === void 0) {
+					notify(tt("connectors.import.desktopRequired"), true);
+					return;
+				}
+				setBusy(true);
+				setImportError(null);
+				try {
+					const picked = await bridge.pickMcpJsonFile();
+					if (!picked.canceled && picked.token !== void 0 && picked.preview !== void 0) {
+						setStagedSource(null);
+						setStagedJsonFile({
+							token: picked.token,
+							preview: picked.preview
+						});
+						setImportSource({ kind: "json" });
+						setJsonText("");
+						setPreview(picked.preview);
+						setSelected(Object.fromEntries(picked.preview.servers.map((server) => [server.sourceName, true])));
+						setSecretValues({});
+						setConflict("reject");
+						setLocalCommandTrusted(false);
+						setImportOpen(true);
+					}
+				} catch (error) {
+					notify(friendlyImportError(error), true);
+				} finally {
+					setBusy(false);
+				}
+			}, [
+				bridge,
+				canPickJsonFile,
 				notify
 			]);
 			const onPreviewSubmit = async (event) => {
@@ -1394,7 +1637,7 @@ window.__ModuleLoader__.load({
 						allowLocalCommand: localCommandTrusted
 					};
 					const result = stagedSource === null ? await bridge.importMcpJson({
-						text: jsonText,
+						...stagedJsonFile === null ? { text: jsonText } : { fileToken: stagedJsonFile.token },
 						...importOptions,
 						source: importSource
 					}) : await bridge.importMcpClientSource({
@@ -1531,7 +1774,7 @@ window.__ModuleLoader__.load({
 				}) ?? false;
 				const typeLabel = preset.integration === "mcp-template" ? tt("connectors.catalog.official") : preset.integration === "provider-json" ? tt("connectors.catalog.providerJson") : tt("connectors.catalog.officialSkill");
 				const docsLabel = preset.documentation === "official-mcp" ? tt("connectors.catalog.docsOfficialMcp") : preset.documentation === "provider-config" ? tt("connectors.catalog.docsProviderConfig") : preset.documentation === "official-skill" ? tt("connectors.catalog.docsOfficialSkill") : tt("connectors.catalog.docsOfficialApi");
-				const verification = preset.integration === "mcp-template" ? tt("connectors.catalog.verifiedTemplate") : preset.integration === "provider-json" ? tt("connectors.catalog.verifiedProvider") : tt("connectors.catalog.verifiedSkill");
+				const tierLabel = tt(`connectors.catalog.tier.${preset.tier}`);
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
 					className: panel_module_css_default.catalogItem,
 					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -1552,6 +1795,11 @@ window.__ModuleLoader__.load({
 										className: panel_module_css_default.badge,
 										"data-success": "true",
 										children: tt("connectors.catalog.installed")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: panel_module_css_default.badge,
+										"data-tier": preset.tier,
+										children: tierLabel
 									})
 								]
 							}),
@@ -1579,7 +1827,17 @@ window.__ModuleLoader__.load({
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 								className: panel_module_css_default.verificationLine,
-								children: verification
+								children: preset.liveVerified ? tt("connectors.catalog.liveVerified", {
+									date: preset.lastVerifiedAt ?? "",
+									version: preset.verifiedVersion ?? ""
+								}) : preset.knownLimitations[0]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.verificationLine,
+								children: tt("connectors.catalog.permissions", {
+									permissions: preset.permissionSummary.join(", "),
+									auth: preset.authModes.join(", ") || tt("connectors.catalog.noAuth")
+								})
 							})
 						]
 					}), preset.integration === "official-skill" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -1670,10 +1928,55 @@ window.__ModuleLoader__.load({
 					}),
 					catalogOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 						className: panel_module_css_default.catalog,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-							className: panel_module_css_default.sectionTitle,
-							children: tt("connectors.catalog.title")
-						}), CONNECTOR_PRESETS.map(renderPreset)]
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+								className: panel_module_css_default.sectionTitle,
+								children: tt("connectors.catalog.title")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.toolbar,
+								role: "search",
+								"aria-label": tt("connectors.catalog.searchLabel"),
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									value: storeFilter.keyword,
+									onChange: (event) => {
+										setStoreFilter((current) => ({
+											...current,
+											keyword: event.target.value
+										}));
+									},
+									placeholder: tt("connectors.catalog.searchPlaceholder"),
+									"aria-label": tt("connectors.catalog.search")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+									value: storeFilter.installed,
+									onChange: (event) => {
+										setStoreFilter((current) => ({
+											...current,
+											installed: event.target.value
+										}));
+									},
+									"aria-label": tt("connectors.catalog.statusLabel"),
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "all",
+											children: tt("connectors.catalog.status.all")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "installed",
+											children: tt("connectors.catalog.status.installed")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "uninstalled",
+											children: tt("connectors.catalog.status.uninstalled")
+										})
+									]
+								})]
+							}),
+							storeEntries.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.empty,
+								children: tt("connectors.catalog.noMatches")
+							}) : storeEntries.map(renderPreset)
+						]
 					}),
 					sourcePickerOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: panel_module_css_default.connectorOverlay,
@@ -1791,6 +2094,10 @@ window.__ModuleLoader__.load({
 										stagedSource === null && importSource.kind === "provider-json" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: panel_module_css_default.verificationLine,
 											children: tt("connectors.import.providerSource", { provider: providerJsonLabel(importSource.providerId) })
+										}),
+										stagedJsonFile !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+											className: panel_module_css_default.verificationLine,
+											children: tt("connectors.import.fileReady")
 										})
 									] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 										type: "button",
@@ -1802,12 +2109,12 @@ window.__ModuleLoader__.load({
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 									className: panel_module_css_default.connectorDialogBody,
-									children: preview === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("form", {
+									children: preview === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
 										id: "mcp-json-import-form",
 										onSubmit: (event) => {
 											onPreviewSubmit(event);
 										},
-										children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
 											className: panel_module_css_default.dialogField,
 											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("connectors.import.jsonLabel") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
 												className: panel_module_css_default.jsonEditor,
@@ -1819,7 +2126,18 @@ window.__ModuleLoader__.load({
 												placeholder: tt("connectors.import.jsonPlaceholder"),
 												autoFocus: true
 											})]
-										})
+										}), canPickJsonFile && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+											className: panel_module_css_default.importInputActions,
+											children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: panel_module_css_default.secondaryButton,
+												disabled: busy,
+												onClick: () => {
+													pickJsonFile();
+												},
+												children: tt("connectors.import.chooseFile")
+											})
+										})]
 									}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: panel_module_css_default.importPreview,
 										children: [
@@ -2846,6 +3164,11 @@ window.__ModuleLoader__.load({
 		const NS = "dsh-extension-center";
 		/** Required services (fiber inject waiting — the runtime must be up first). */
 		const inject = ["slots", "locale"];
+		function initialExtensionTab() {
+			if (typeof window === "undefined") return void 0;
+			const tab = new URLSearchParams(window.location.search).get("dsh-extension-tab");
+			return tab === "skills" || tab === "connectors" || tab === "learning" ? tab : void 0;
+		}
 		/**
 		* Mount the extension center.
 		* @param ctx - client root context (locale service).
@@ -2856,6 +3179,8 @@ window.__ModuleLoader__.load({
 				en
 			}), "dsh-extension-center: dictionaries");
 			const controller = new PanelController();
+			const tab = initialExtensionTab();
+			if (tab !== void 0) controller.open(tab);
 			const disposers = [];
 			try {
 				disposers.push(mountSidebarEntries(controller));

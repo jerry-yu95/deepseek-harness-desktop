@@ -51,6 +51,39 @@ test('MCP JSON parser normalizes official aliases and hides credential arguments
   assert.doesNotMatch(JSON.stringify(server), /literal-secret|secret-value/)
 })
 
+test('MCP JSON parser prefers transportType when Cursor exports a legacy type alias', () => {
+  const parsed = parseMcpServersJson(JSON.stringify({
+    mcpServers: {
+      tapd_mcp_http: {
+        url: 'https://mcp.example.com/mcp/',
+        transportType: 'streamable-http',
+        type: 'sse',
+        headers: { 'X-Tapd-Access-Token': 'tapd-literal-secret' },
+      },
+    },
+  }))
+
+  assert.equal(parsed.servers[0].transport, 'streamable-http')
+  assert.equal(parsed.servers[0].secretSlots[0].targetKey, 'X-Tapd-Access-Token')
+  assert.equal(parsed.credentials.size, 1)
+  assert.doesNotMatch(JSON.stringify(parsed.servers), /tapd-literal-secret/u)
+})
+
+test('MCP JSON parser accepts a copied server map or member fragment', () => {
+  const server = { type: 'http', url: 'https://example.com/mcp' }
+  const map = parseMcpServersJson(JSON.stringify({ tapd_mcp_http: server }))
+  const fragment = parseMcpServersJson(`"tapd_mcp_http": ${JSON.stringify(server)}`)
+
+  assert.deepEqual(map.servers.map((item) => item.sourceName), ['tapd_mcp_http'])
+  assert.deepEqual(fragment.servers.map((item) => item.sourceName), ['tapd_mcp_http'])
+})
+
+test('MCP JSON parser still rejects legacy SSE when no streamable transport is declared', () => {
+  assert.throws(() => parseMcpServersJson(JSON.stringify({
+    mcpServers: { legacy: { type: 'sse', url: 'https://example.com/mcp' } },
+  })), /unsupported-mcp-transport:sse/u)
+})
+
 test('MCP JSON parser accepts only supported stdio and streamable HTTP configurations', () => {
   assert.throws(() => parseMcpServersJson(JSON.stringify({ mcpServers: [] })), /mcpServers must be an object/)
   assert.throws(() => parseMcpServersJson(JSON.stringify({ mcpServers: { bad: { command: 'npx -y server' } } })), /args array/)

@@ -70,8 +70,46 @@ export async function verifyEvidenceDirectory(directory, { requireAll = false } 
   return { files: entries.length, providers: [...seen].sort() }
 }
 
+const SECRET_FIELD = /(?:^|["'\s])(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|authorization)\s*["']?\s*[:=]/iu
+
+/**
+ * Scan generated profiles, logs, snapshots, backups, and packaged resources
+ * with explicit test sentinels. The caller supplies the disposable fixture
+ * values; this avoids pretending a generic regex can identify every provider
+ * secret while still making accidental fixture leakage a hard failure.
+ */
+export async function verifyResourceDirectory(directory, { sentinels = [] } = {}) {
+  if (!Array.isArray(sentinels) || sentinels.some((value) => typeof value !== 'string' || value.length < 8)) {
+    throw new TypeError('sentinels must contain strings of at least 8 characters')
+  }
+  const files = []
+  async function walk(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue
+      const filename = path.join(current, entry.name)
+      if (entry.isDirectory()) await walk(filename)
+      else if (entry.isFile()) files.push(filename)
+    }
+  }
+  await walk(directory)
+  for (const filename of files) {
+    const text = await readFile(filename, 'utf8')
+    for (const sentinel of sentinels) assert(!text.includes(sentinel), `${filename} contains a credential sentinel`)
+    assert(!SECRET_FIELD.test(text), `${filename} contains a raw credential field`)
+  }
+  return { files: files.length }
+}
+
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? '')) {
-  const directory = process.argv[2] ?? '.local-evidence/connectors/0.1.36'
-  const result = await verifyEvidenceDirectory(directory, { requireAll: true })
-  process.stdout.write(`verified ${result.files} redacted connector evidence files: ${result.providers.join(', ')}\n`)
+  if (process.argv[2] === '--scan') {
+    const directory = process.argv[3]
+    const sentinels = process.argv.slice(4)
+    if (!directory) throw new Error('usage: verify-connector-auth-evidence.mjs --scan <directory> [sentinel ...]')
+    const result = await verifyResourceDirectory(directory, { sentinels })
+    process.stdout.write(`verified ${result.files} generated resource files contain no credential sentinels\n`)
+  } else {
+    const directory = process.argv[2] ?? '.local-evidence/connectors/0.1.38'
+    const result = await verifyEvidenceDirectory(directory, { requireAll: true })
+    process.stdout.write(`verified ${result.files} redacted connector evidence files: ${result.providers.join(', ')}\n`)
+  }
 }

@@ -14,8 +14,14 @@ test('authorization constants expose the supported public state contract', () =>
     'not-configured',
     'authorizing',
     'ready',
+    'refreshing',
+    'expiring',
+    'expired',
+    'revoked',
     'missing-permission',
     'reauthorization-required',
+    'provider-unavailable',
+    'disabled',
     'error',
   ])
   assert.deepEqual(AUTH_PROVIDERS, ['github', 'feishu', 'gitlab', 'dingtalk'])

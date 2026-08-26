@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { ConnectorStore } from './extensions/connectors.mjs'
@@ -10,6 +10,8 @@ import { buildMcpConnectorImport, createProviderJsonSource, previewMcpJson } fro
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
 import { installSkillPackage, previewSkillPackage } from './extensions/skill-packages.mjs'
 import { ConnectorAuthManager, AUTH_PROVIDERS } from './extensions/connector-auth.mjs'
+import { ConnectorAuthMetadataStore } from './extensions/connector-auth-metadata.mjs'
+import { ConnectorSessionManager } from './extensions/connector-session-manager.mjs'
 import { OAuthFlowManager } from './extensions/oauth-flow.mjs'
 import { createDingTalkAuthAdapter } from './extensions/providers/dingtalk-auth.mjs'
 import { createFeishuAuthAdapter } from './extensions/providers/feishu-auth.mjs'
@@ -32,14 +34,18 @@ const CHANNELS = [
   'extensions:connector-save',
   'extensions:connector-remove',
   'extensions:connector-enable',
+  'extensions:connector-disable',
   'extensions:connector-check',
   'extensions:connector-auth-status',
   'extensions:connector-authorize',
   'extensions:connector-disconnect',
+  'extensions:connector-revoke',
+  'extensions:connector-reconnect',
   'extensions:connector-auth-cancel',
   'extensions:connector-auth-verify',
   'extensions:mcp-preview',
   'extensions:mcp-import',
+  'extensions:mcp-file-pick',
   'extensions:mcp-source-list',
   'extensions:mcp-source-preview',
   'extensions:mcp-source-pick',
@@ -48,6 +54,8 @@ const CHANNELS = [
 
 const SOURCE_SESSION_TTL_MS = 15 * 60 * 1_000
 const MAX_SOURCE_SESSIONS = 16
+const JSON_FILE_SESSION_TTL_MS = 15 * 60 * 1_000
+const MAX_JSON_FILE_SESSIONS = 8
 const OFFICIAL_SKILL_SESSION_TTL_MS = 15 * 60 * 1_000
 const MAX_OFFICIAL_SKILL_SESSIONS = 8
 
@@ -142,6 +150,7 @@ export function registerExtensionIpc({
   mcpSourceOptions,
   connectorAuthManager,
   connectorAuthContext,
+  prepareRendererForConnectorRestart,
 }) {
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
@@ -153,8 +162,11 @@ export function registerExtensionIpc({
     path: join(dshHome, 'desktop', 'connectors.json'),
     environmentProvider: connectorEnvironment,
   })
+  const connectorAuthMetadata = new ConnectorAuthMetadataStore({ path: join(dshHome, 'desktop', 'connector-auth-metadata.json') })
+  const connectorSessions = new ConnectorSessionManager({ metadataStore: connectorAuthMetadata, secretStore: connectorSecretStore })
   const sourceOptions = { projectRoot, ...mcpSourceOptions }
   const sourceSessions = new Map()
+  const jsonFileSessions = new Map()
   const officialSkillSessions = new Map()
   const officialSkillSource = (providerId) => {
     if (providerId === 'tencent-meeting') return validateTencentMeetingSkillSource('https://meeting.tencent.com/support/topic/2233/index.html')
@@ -211,6 +223,35 @@ export function registerExtensionIpc({
     if (typeof token !== 'string') throw new TypeError('MCP source session token is invalid')
     const session = sourceSessions.get(token)
     if (!session) throw new Error('MCP source session is unavailable or expired')
+    return session
+  }
+
+  const pruneJsonFileSessions = () => {
+    const cutoff = Date.now() - JSON_FILE_SESSION_TTL_MS
+    for (const [token, session] of jsonFileSessions) {
+      if (session.createdAt < cutoff) jsonFileSessions.delete(token)
+    }
+    while (jsonFileSessions.size >= MAX_JSON_FILE_SESSIONS) {
+      const oldest = jsonFileSessions.keys().next().value
+      if (oldest === undefined) break
+      jsonFileSessions.delete(oldest)
+    }
+  }
+
+  const stageJsonFile = async (filePath) => {
+    const text = await readFile(filePath, 'utf8')
+    const preview = previewMcpJson(text)
+    pruneJsonFileSessions()
+    const token = randomUUID()
+    jsonFileSessions.set(token, { text, createdAt: Date.now() })
+    return { canceled: false, token, preview }
+  }
+
+  const jsonFileSession = (token) => {
+    pruneJsonFileSessions()
+    if (typeof token !== 'string') throw new TypeError('MCP file session token is invalid')
+    const session = jsonFileSessions.get(token)
+    if (!session) throw new Error('MCP file session is unavailable or expired')
     return session
   }
 
@@ -318,7 +359,13 @@ export function registerExtensionIpc({
     })
     return { name: installed.name, version: installed.version, description: installed.description }
   })
-  const mutateConnector = async (operation) => {
+  const mutateConnector = async (operation, recovery = {}) => {
+    if (typeof prepareRendererForConnectorRestart === 'function') {
+      prepareRendererForConnectorRestart({
+        tab: 'connectors',
+        checkIds: Array.isArray(recovery.checkIds) ? recovery.checkIds : [],
+      })
+    }
     await controller.stop()
     try {
       const result = await operation()
@@ -334,10 +381,14 @@ export function registerExtensionIpc({
   const importMcpDocument = async (input, text, source) => {
     if (!connectorSecretStore) throw new Error('secure-storage-unavailable')
     await connectorSecretStore.load()
-    if (!input || typeof input !== 'object' || Array.isArray(input) || typeof text !== 'string') {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
       throw new TypeError('MCP import input is invalid')
     }
-    const parsed = parseMcpServersJson(text)
+    const fileSession = input.fileToken === undefined ? undefined : jsonFileSession(input.fileToken)
+    if (fileSession !== undefined && text !== undefined) throw new TypeError('MCP import cannot include both text and fileToken')
+    const documentText = fileSession?.text ?? text
+    if (typeof documentText !== 'string') throw new TypeError('MCP import input is invalid')
+    const parsed = parseMcpServersJson(documentText)
     const selectedNames = Array.isArray(input.selectedNames)
       ? new Set(input.selectedNames)
       : new Set(parsed.servers.map((server) => server.sourceName))
@@ -379,11 +430,37 @@ export function registerExtensionIpc({
         if (orphaned.length) await connectorSecretStore.removeMany(orphaned).catch(() => {})
         throw error
       }
-    })
+    }, { checkIds: built.connectors.map(item => item.connector.id) })
   }
-  ipcMain.handle('extensions:connector-list', () => connectorStore.list())
-  ipcMain.handle('extensions:connector-save', (_event, input) => mutateConnector(() => connectorStore.save(input)))
-  ipcMain.handle('extensions:connector-enable', (_event, id, enabled) => mutateConnector(() => connectorStore.setEnabled(id, enabled)))
+  ipcMain.handle('extensions:connector-list', async () => {
+    const connectors = await connectorStore.list()
+    await connectorAuthMetadata.migrate(connectors)
+    return connectors
+  })
+  ipcMain.handle('extensions:connector-save', async (_event, input) => {
+    const saved = await mutateConnector(() => connectorStore.save(input), { checkIds: [input?.id] })
+    await connectorAuthMetadata.migrate([saved])
+    return saved
+  })
+  ipcMain.handle('extensions:connector-enable', async (_event, id, enabled) => {
+    const updated = await mutateConnector(() => connectorStore.setEnabled(id, enabled), { checkIds: [id] })
+    const existing = await connectorAuthMetadata.get(id)
+    if (enabled) {
+      // Re-enabling only makes the connector available again; it must not
+      // manufacture a healthy authorization state. The next explicit auth
+      // or reconnect action is responsible for reaching `ready`.
+      await connectorAuthMetadata.set({ ...(existing ?? { connectorId: id, providerId: updated.source?.presetId ?? id, mode: id === 'dingtalk' ? 'app-credentials' : id === 'feishu' ? 'official-cli' : 'oauth' }), state: existing?.state === 'disabled' ? 'not-configured' : (existing?.state ?? 'not-configured') })
+    } else {
+      await connectorAuthMetadata.set({ ...(existing ?? { connectorId: id, providerId: updated.source?.presetId ?? id, mode: id === 'dingtalk' ? 'app-credentials' : id === 'feishu' ? 'official-cli' : 'oauth' }), state: 'disabled' })
+    }
+    return updated
+  })
+  ipcMain.handle('extensions:connector-disable', async (_event, id) => {
+    const updated = await mutateConnector(() => connectorStore.setEnabled(id, false), { checkIds: [id] })
+    const existing = await connectorAuthMetadata.get(id)
+    await connectorAuthMetadata.set({ ...(existing ?? { connectorId: id, providerId: updated.source?.presetId ?? id, mode: id === 'dingtalk' ? 'app-credentials' : id === 'feishu' ? 'official-cli' : 'oauth' }), state: 'disabled' })
+    return updated
+  })
   ipcMain.handle('extensions:connector-remove', async (_event, id) => {
     const existing = (await connectorStore.list()).find((connector) => connector.id === id)
     const references = existing === undefined ? [] : [
@@ -391,10 +468,17 @@ export function registerExtensionIpc({
       ...existing.secretEnvKeys.filter((key) => /^DSH_CONNECTOR_[A-Z0-9_]+$/u.test(key)),
     ]
     return mutateConnector(async () => {
+      const providerId = providerForConnector(existing)
+      if (providerId) {
+        const pending = pendingAuth.get(id)
+        if (pending) pending.controller.abort()
+        await authRuntime.manager.disconnect(providerId, existing).catch(() => {})
+      }
       const result = await connectorStore.remove(id)
       if (connectorSecretStore && references.length) await connectorSecretStore.removeMany([...new Set(references)])
+      await connectorAuthMetadata.remove(id)
       return result
-    })
+    }, { checkIds: [] })
   })
   ipcMain.handle('extensions:connector-check', (_event, id) => connectorStore.check(id))
   const authConnector = async (id) => {
@@ -409,9 +493,24 @@ export function registerExtensionIpc({
     connectorId: providerId, providerId, mode: providerId === 'dingtalk' ? 'app-credentials' : providerId === 'feishu' ? 'official-cli' : 'oauth', state,
     ...(detailKey ? { detailKey } : {}),
   })
+  const persistAuthStatus = async (status) => {
+    const safe = status && typeof status === 'object' ? status : undefined
+    if (!safe?.connectorId || !safe?.providerId || !safe?.mode || !safe?.state) return safe
+    await connectorAuthMetadata.set(safe).catch(() => {})
+    return safe
+  }
+  const statusWithMetadata = async (id, providerId, connector) => {
+    const status = await authRuntime.manager.status(providerId, connector)
+    const metadata = await connectorAuthMetadata.get(id)
+    if (!metadata) return persistAuthStatus({ ...status, connectorId: id })
+    // Metadata may intentionally be revoked/expired even when a provider's
+    // local token probe still sees ciphertext. Keep the recovery state visible.
+    const merged = { ...status, connectorId: id, ...metadata, providerId, mode: status.mode ?? metadata.mode }
+    return persistAuthStatus(merged)
+  }
   ipcMain.handle('extensions:connector-auth-status', async (_event, id) => {
     const { connector, providerId } = await authConnector(id)
-    return authRuntime.manager.status(providerId, connector)
+    return statusWithMetadata(id, providerId, connector)
   })
   ipcMain.handle('extensions:connector-authorize', async (_event, id, input) => {
     const { connector, providerId } = await authConnector(id)
@@ -420,7 +519,8 @@ export function registerExtensionIpc({
     const task = (async () => {
       if (authRuntime.context && typeof authRuntime.context === 'object') authRuntime.context.activeAuth = { connectorId: id, signal: controller.signal }
       try {
-        return await authRuntime.manager.authorize(providerId, { ...safeAuthInput(input), connectorId: id })
+        const status = await authRuntime.manager.authorize(providerId, { ...safeAuthInput(input), connectorId: id })
+        return persistAuthStatus({ ...status, connectorId: id })
       } finally {
         if (authRuntime.context?.activeAuth?.connectorId === id) authRuntime.context.activeAuth = undefined
       }
@@ -436,21 +536,62 @@ export function registerExtensionIpc({
     const { connector, providerId } = await authConnector(id)
     const pending = pendingAuth.get(id)
     if (pending) pending.controller.abort()
-    return authRuntime.manager.disconnect(providerId, connector)
+    const result = await authRuntime.manager.disconnect(providerId, connector)
+    await connectorAuthMetadata.set({ ...result, connectorId: id, state: 'not-configured', lastFailureCategory: undefined }).catch(() => {})
+    return result
+  })
+  ipcMain.handle('extensions:connector-revoke', async (_event, id) => {
+    const { connector, providerId } = await authConnector(id)
+    const pending = pendingAuth.get(id)
+    if (pending) pending.controller.abort()
+    const result = await authRuntime.manager.disconnect(providerId, connector)
+    await connectorAuthMetadata.set({ ...result, connectorId: id, state: 'revoked', lastFailureCategory: 'revoked' }).catch(() => {})
+    return { ...result, connectorId: id, state: 'revoked', detailKey: 'connector.authorization-revoked' }
+  })
+  ipcMain.handle('extensions:connector-reconnect', async (_event, id, input) => {
+    const { connector, providerId } = await authConnector(id)
+    if (pendingAuth.has(id)) return plainAuthStatus(providerId, 'authorizing')
+    const controller = new AbortController()
+    const task = (async () => {
+      if (authRuntime.context && typeof authRuntime.context === 'object') authRuntime.context.activeAuth = { connectorId: id, signal: controller.signal }
+      try {
+        const status = await authRuntime.manager.authorize(providerId, { ...safeAuthInput(input), connectorId: id })
+        const safe = await persistAuthStatus({ ...status, connectorId: id })
+        if (safe?.state === 'ready') await mutateConnector(async () => connector, { checkIds: [id] })
+        return safe
+      } finally {
+        if (authRuntime.context?.activeAuth?.connectorId === id) authRuntime.context.activeAuth = undefined
+      }
+    })()
+    pendingAuth.set(id, { controller, task })
+    try { return await task } finally { if (pendingAuth.get(id)?.task === task) pendingAuth.delete(id) }
   })
   ipcMain.handle('extensions:connector-auth-verify', async (_event, id) => {
     const { connector, providerId } = await authConnector(id)
-    return authRuntime.manager.verify(providerId, connector)
+    return persistAuthStatus({ ...(await authRuntime.manager.verify(providerId, connector)), connectorId: id })
   })
   ipcMain.handle('extensions:connector-auth-cancel', async (_event, id) => {
     const { providerId } = await authConnector(id)
     const pending = pendingAuth.get(id)
-    if (!pending) return authRuntime.manager.status(providerId, { id })
+    if (!pending) return statusWithMetadata(id, providerId, { id })
     pending.controller.abort()
     return plainAuthStatus(providerId, 'error', 'authorization-cancelled')
   })
   ipcMain.handle('extensions:mcp-preview', (_event, text) => previewMcpJson(text))
-  ipcMain.handle('extensions:mcp-import', (_event, input) => importMcpDocument(input, input?.text, input?.source ?? { kind: 'json' }))
+  ipcMain.handle('extensions:mcp-import', async (_event, input) => {
+    const result = await importMcpDocument(input, input?.text, input?.source ?? { kind: 'json' })
+    if (typeof input?.fileToken === 'string') jsonFileSessions.delete(input.fileToken)
+    return result
+  })
+  ipcMain.handle('extensions:mcp-file-pick', async () => {
+    const result = await dialog.showOpenDialog(getWindow(), {
+      title: '选择 MCP 配置 / Select MCP configuration',
+      filters: [{ name: 'MCP JSON', extensions: ['json', 'jsonc'] }],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length !== 1) return { canceled: true }
+    return stageJsonFile(result.filePaths[0])
+  })
   ipcMain.handle('extensions:mcp-source-list', () => discoverMcpClientSources(sourceOptions))
   ipcMain.handle('extensions:mcp-source-preview', async (_event, clientId) => {
     const source = await readMcpClientSource(clientId, sourceOptions)
@@ -478,7 +619,10 @@ export function registerExtensionIpc({
   })
 
   return () => {
+    connectorSessions.shutdown()
     sourceSessions.clear()
+    jsonFileSessions.clear()
+    officialSkillSessions.clear()
     for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   }
 }

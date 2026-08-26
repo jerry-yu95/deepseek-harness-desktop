@@ -11,6 +11,7 @@ import { ConnectorAuthManager } from '../src/extensions/connector-auth.mjs'
 function fixture(dshHome, options = {}) {
   const handlers = new Map()
   const calls = { stops: 0, starts: 0, profiles: 0 }
+  const rendererRecoveryHints = []
   const ipcMain = {
     handle(channel, callback) { handlers.set(channel, callback) },
     removeHandler(channel) { handlers.delete(channel) },
@@ -43,8 +44,9 @@ function fixture(dshHome, options = {}) {
     mcpSourceOptions: options.mcpSourceOptions,
     connectorAuthManager: options.connectorAuthManager,
     connectorAuthContext: options.connectorAuthContext,
+    prepareRendererForConnectorRestart: hint => rendererRecoveryHints.push(hint),
   })
-  return { handlers, calls, connectorSecretStore, registration }
+  return { handlers, calls, rendererRecoveryHints, connectorSecretStore, registration }
 }
 
 test('extension IPC exposes redacted connector authorization lifecycle and cancellation', async () => {
@@ -153,9 +155,51 @@ test('extension IPC imports a manually selected TRAE project source through the 
   }
 })
 
+test('extension IPC stages a generic MCP JSON file without exposing its contents to the renderer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-extension-json-file-'))
+  const dshHome = join(root, 'dsh')
+  const selectedPath = join(root, 'cursor-mcp.json')
+  await writeFile(selectedPath, JSON.stringify({
+    mcpServers: {
+      tapd_mcp_http: {
+        url: 'https://mcp.example.com/mcp/',
+        transportType: 'streamable-http',
+        type: 'sse',
+        headers: { 'X-Tapd-Access-Token': 'file-literal-secret' },
+      },
+    },
+  }), 'utf8')
+  const dialog = { showOpenDialog: async () => ({ canceled: false, filePaths: [selectedPath] }) }
+  const { handlers, connectorSecretStore, registration } = fixture(dshHome, { dialog })
+  try {
+    const picked = await handlers.get('extensions:mcp-file-pick')()
+    assert.equal(picked.canceled, false)
+    assert.match(picked.token, /^[0-9a-f-]{36}$/u)
+    assert.equal(picked.preview.servers[0].transport, 'streamable-http')
+    assert.equal(picked.preview.servers[0].secretSlots[0].detected, true)
+    assert.doesNotMatch(JSON.stringify(picked), /file-literal-secret|cursor-mcp\.json/u)
+
+    const imported = await handlers.get('extensions:mcp-import')(null, {
+      fileToken: picked.token,
+      selectedNames: ['tapd_mcp_http'],
+      conflict: 'reject',
+    })
+    assert.equal(imported.imported[0].source.kind, 'json')
+    assert.match(Object.values(connectorSecretStore.environment())[0], /file-literal-secret/u)
+    await assert.rejects(handlers.get('extensions:mcp-import')(null, {
+      fileToken: picked.token,
+      selectedNames: ['tapd_mcp_http'],
+      conflict: 'rename',
+    }), /file session/u)
+  } finally {
+    registration()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('extension IPC imports official MCP JSON with encrypted credentials and removes them cleanly', async () => {
   const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-ipc-'))
-  const { handlers, calls, connectorSecretStore, registration } = fixture(dshHome)
+  const { handlers, calls, rendererRecoveryHints, connectorSecretStore, registration } = fixture(dshHome)
   try {
     const document = JSON.stringify({
       mcpServers: {
@@ -178,6 +222,7 @@ test('extension IPC imports official MCP JSON with encrypted credentials and rem
       source: { kind: 'preset', presetId: 'github' },
     })
     assert.equal(imported.imported.length, 1)
+    assert.deepEqual(rendererRecoveryHints[0], { tab: 'connectors', checkIds: ['github'] })
     assert.equal(imported.imported[0].id, 'github')
     assert.equal(imported.imported[0].source.presetId, 'github')
 
@@ -231,6 +276,40 @@ test('extension IPC requires explicit local-command trust and can toggle a conne
     assert.equal((await handlers.get('extensions:connector-list')())[0].enabled, false)
     assert.ok(calls.stops >= 2)
     assert.ok(calls.starts >= 2)
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})
+
+test('extension IPC keeps disable, revoke and reconnect as distinct actions', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-lifecycle-'))
+  const events = []
+  const connectorAuthManager = new ConnectorAuthManager({
+    adapters: [{
+      id: 'github', modes: ['oauth', 'pat'],
+      async authorize(_context, input) { events.push(['authorize', input.mode]); return { connectorId: 'github', providerId: 'github', mode: input.mode ?? 'oauth', state: 'ready' } },
+      async status() { return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'ready' } },
+      async disconnect() { events.push(['disconnect']); return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'not-configured' } },
+      async verify() { return { connectorId: 'github', providerId: 'github', mode: 'oauth', state: 'ready' } },
+    }],
+    context: {},
+  })
+  const { handlers, calls, registration } = fixture(dshHome, { connectorAuthManager })
+  try {
+    await handlers.get('extensions:connector-save')(null, { id: 'github', name: 'GitHub', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp', source: { kind: 'preset', presetId: 'github' } })
+    const disabled = await handlers.get('extensions:connector-disable')(null, 'github')
+    assert.equal(disabled.enabled, false)
+    const enabled = await handlers.get('extensions:connector-enable')(null, 'github', true)
+    assert.equal(enabled.enabled, true)
+    const revoked = await handlers.get('extensions:connector-revoke')(null, 'github')
+    assert.equal(revoked.state, 'revoked')
+    assert.equal((await handlers.get('extensions:connector-list')()).length, 1)
+    const reconnected = await handlers.get('extensions:connector-reconnect')(null, 'github', { mode: 'oauth' })
+    assert.equal(reconnected.state, 'ready')
+    assert.deepEqual(events, [['disconnect'], ['authorize', 'oauth']])
+    assert.ok(calls.stops >= 4)
+    assert.ok(calls.starts >= 4)
   } finally {
     registration()
     await rm(dshHome, { recursive: true, force: true })
