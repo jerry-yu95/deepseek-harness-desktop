@@ -10,7 +10,7 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 
 [下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
-当前开发版本：`0.1.36`。本版本加入 GitHub、飞书/Lark、GitLab、钉钉的桌面主进程授权流程与脱敏验收基线；真实平台授权仍以用户自己的账号和权限为准，尚未把任何个人账号测试结果冒充为官方认证。
+当前开发版本：`0.1.38`。本版本补齐服务方 MCP JSON 与本地 `mcp.json` 安全导入、官方 Skill 包校验安装，以及连接器过期、撤销、断开、重连和可信分级；没有真实账号脱敏证据的连接器仍明确标为实验性。
 
 ## 为什么做这个项目
 

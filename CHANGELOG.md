@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.38 - 2026-08-26
+
+- Added safe import for complete MCP configuration files, `mcpServers` objects, bare server maps, and copied single-server JSON fragments, including Cursor-compatible `transportType` normalization and native local `mcp.json` selection.
+- Kept raw configuration paths, documents, and credentials in short-lived Electron main-process staging; the renderer receives a redacted preview and one-use import handle only.
+- Added provider-supplied JSON onboarding for TAPD and Tencent Gongfeng without guessing undocumented endpoints, plus validated no-script installation for official Tencent Meeting and WeCom Skill packages.
+- Added provider-neutral connector states for expiry, refresh, revocation, missing permission, provider outages, disable, disconnect, and reauthorization, with bounded refresh retries and concurrent-request deduplication.
+- Added safe non-secret lifecycle metadata, encrypted credential rotation, explicit reconnect/revoke/disable IPC actions, and post-restart recovery back to the Connector Center instead of the desktop home page.
+- Added an evidence-gated connector manifest with verified, community, and experimental tiers. Every bundled entry remains experimental until dated, redacted, real-account evidence exists.
+- Added lifecycle, metadata, session-manager, MCP compatibility, connector-store, renderer recovery, resource-leak, and cross-platform CI regression coverage.
+
 ## 0.1.36 - 2026-08-25
 
 - Added a provider-neutral desktop-main-process authorization layer for GitHub, Feishu/Lark, GitLab, and DingTalk without replacing the official DSH MCP client.

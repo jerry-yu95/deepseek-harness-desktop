@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop-workspace",
-  "version": "0.1.36",
+  "version": "0.1.38",
   "private": true,
   "description": "Cross-platform community desktop application and extension workspace for DeepSeek Harness.",
   "author": "jerry-yu95 and contributors",

@@ -10,7 +10,7 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-Current development version: `0.1.36`. This release adds desktop-main-process authorization flows and a redacted acceptance baseline for GitHub, Feishu/Lark, GitLab, and DingTalk; real service authorization still depends on the user's own account and permissions, and no personal account result is presented as an official certification.
+Current development version: `0.1.38`. This release adds secure provider-JSON and local `mcp.json` import, validated official Skill package installation, and recoverable connector expiry, revocation, disconnect, reconnect, and trust tiers. Connectors without redacted live-account evidence remain explicitly experimental.
 
 ## Why this project exists
 
