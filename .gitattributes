@@ -1,0 +1,2 @@
+packages/dsh-context-bench/fixtures/*.json text eol=lf
+packages/dsh-context-bench/baselines/*.json text eol=lf

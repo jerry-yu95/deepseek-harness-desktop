@@ -146,5 +146,9 @@ export async function writeBenchmarkReport(report: BenchmarkReport, outputDirect
 
 export async function readFixtureBytes(path: string): Promise<{ bytes: Buffer; hash: string }> {
   const bytes = await readFile(path);
-  return { bytes, hash: sha256(bytes) };
+  // Git may materialize tracked text with CRLF on Windows. The fixture hash is
+  // a semantic baseline guard, so line-ending conversion must not look like a
+  // reviewed fixture change.
+  const normalized = bytes.toString("utf8").replace(/\r\n/g, "\n");
+  return { bytes, hash: sha256(normalized) };
 }

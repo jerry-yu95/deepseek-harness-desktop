@@ -1,5 +1,8 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertBaselineComparable, assertSafeReport, formatBenchmarkReportMarkdown } from "../src/report.ts";
+import { assertBaselineComparable, assertSafeReport, formatBenchmarkReportMarkdown, readFixtureBytes } from "../src/report.ts";
 import type { BenchmarkReport } from "../src/schema.ts";
 
 function report(overrides: Partial<BenchmarkReport> = {}): BenchmarkReport {
@@ -52,5 +55,19 @@ describe("benchmark reports", () => {
       contextWindows: { "fixture-one": 32_768 },
       gates: { criticalRecall: 100, exactLiteralRecall: 100, latestStateAccuracy: 100, staleLeakage: 0, toolIntegrity: 100, sectionCompleteness: 100 },
     })).toThrow(/changed/);
+  });
+
+  it("keeps fixture hashes stable across LF and CRLF checkouts", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dsh-context-fixture-"));
+    const lfPath = join(directory, "lf.json");
+    const crlfPath = join(directory, "crlf.json");
+    try {
+      await writeFile(lfPath, "{\n  \"id\": \"fixture\"\n}\n", "utf8");
+      await writeFile(crlfPath, "{\r\n  \"id\": \"fixture\"\r\n}\r\n", "utf8");
+      const [lf, crlf] = await Promise.all([readFixtureBytes(lfPath), readFixtureBytes(crlfPath)]);
+      expect(crlf.hash).toBe(lf.hash);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
