@@ -37,7 +37,8 @@ jobs:
       matrix:
         runner: [ubuntu-latest, windows-latest, macos-15]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 2
+    # A cold pnpm install already exceeds two minutes on hosted Windows runners.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

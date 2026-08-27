@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { cp, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 import { parseSkillFrontmatter } from './skills.mjs'
 
@@ -40,6 +40,7 @@ const CREDENTIAL_PATTERNS = [
   /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{24,}\b/iu,
   /\b(?:api[_-]?key|access[_-]?token|secret|password|token)\s*[:=]\s*["']?[A-Za-z0-9._~+/=-]{24,}["']?/iu,
 ]
+const EXECUTABLE_SUFFIXES = new Set(['.bat', '.cmd', '.com', '.exe', '.ps1', '.sh'])
 
 function fail(message) {
   throw new Error(message)
@@ -143,6 +144,12 @@ function assertNoEmbeddedCredential(relativePath, buffer) {
   }
 }
 
+function isExecutableFile(relativePath, metadata, buffer) {
+  return (metadata.mode & 0o111) !== 0
+    || buffer.subarray(0, 2).toString('utf8') === '#!'
+    || EXECUTABLE_SUFFIXES.has(extname(relativePath).toLowerCase())
+}
+
 async function collectFiles(root, current, budget, files) {
   const entries = await readdir(current, { withFileTypes: true })
   for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
@@ -161,7 +168,7 @@ async function collectFiles(root, current, budget, files) {
     if (budget.bytes > SKILL_PACKAGE_LIMITS.bytes) fail('skill package exceeds 50 MB')
     const buffer = await readFile(entryPath)
     assertNoEmbeddedCredential(relativePath, buffer)
-    if ((metadata.mode & 0o111) !== 0 && !relativePath.startsWith('scripts/')) {
+    if (isExecutableFile(relativePath, metadata, buffer) && !relativePath.startsWith('scripts/')) {
       fail(`executable file outside scripts/ is not accepted: ${relativePath}`)
     }
     files.push({ relativePath, absolutePath: entryPath, size: metadata.size, mode: metadata.mode })

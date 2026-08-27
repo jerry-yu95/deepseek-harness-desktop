@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { basename, dirname } from 'node:path'
 import test from 'node:test'
 
 import {
@@ -24,7 +25,10 @@ test('WeCom managed plan never requests global install or sudo', () => {
   assert.equal(plan.package.name, '@wecom/cli')
   assert.equal(plan.package.globalInstall, false)
   assert.equal(plan.package.requiresSudo, false)
-  assert.match(plan.package.target, /desktop\/tools\/wecom-cli\/1\.1\.0$/u)
+  assert.equal(basename(plan.package.target), '1.1.0')
+  assert.equal(basename(dirname(plan.package.target)), 'wecom-cli')
+  assert.equal(basename(dirname(dirname(plan.package.target))), 'tools')
+  assert.equal(basename(dirname(dirname(dirname(plan.package.target)))), 'desktop')
   assert.deepEqual(plan.authorization.show, ['auth', 'show', '--status'])
 })
 
