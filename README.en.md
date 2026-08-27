@@ -10,7 +10,7 @@ DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows a
 
 [Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-Current development version: `0.1.38`. This release adds secure provider-JSON and local `mcp.json` import, validated official Skill package installation, and recoverable connector expiry, revocation, disconnect, reconnect, and trust tiers. Connectors without redacted live-account evidence remain explicitly experimental.
+Current development version: `0.1.39`. This release adds opt-in 32K/128K long-context quality probes and history: three deterministic samples run through the current session's official model route and report critical-fact, exact-literal, constraint, stale-state, and tool-pairing quality. It never spends API tokens automatically or stores raw prompts, model output, or credentials.
 
 ## Why this project exists
 
@@ -19,7 +19,7 @@ DeepSeek Harness is more than a chat interface: it is an Agent runtime for compo
 - **Official foundation stays intact**: the official Agent Loop, Cordis, permissions, and plugin semantics remain the source of truth, while official-core and community-desktop updates stay separate;
 - **Extension Center**: Skills, MCP/HTTP connectors, and learning live in the official sidebar with creation, import, diagnostics, and removal in one place;
 - **Official JSON first**: discover local WorkBuddy, CodeBuddy, TRAE, and Qoder MCP configs or paste a provider's `mcpServers` JSON and fill only missing credentials;
-- **Agent Harness layer**: select Standard, Adaptive, or Enhanced orchestration and inspect cache hits, Agent traces, model health, and period-based Token usage;
+- **Agent Harness layer**: select Standard, Adaptive, or Enhanced orchestration and inspect cache hits, Agent traces, model health, period-based Token usage, and opt-in long-context quality trends;
 - **Real desktop delivery**: Windows x64, macOS Intel, and Apple Silicon packages with isolated configuration, safe updates, and rollback;
 - **Clear open-source boundary**: community features are not presented as official DeepSeek capabilities, and third-party licensing and attribution are preserved.
 

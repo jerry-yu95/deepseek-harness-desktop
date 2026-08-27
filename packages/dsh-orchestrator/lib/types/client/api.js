@@ -14,6 +14,9 @@ export class HarnessClientApi {
     async probe(sessionId, bypassCache = false) {
         return this.call('probe', { sessionId, bypassCache });
     }
+    contextQuality(sessionId, scale, confirmed) {
+        return this.call('context-quality', { sessionId, scale, confirmed });
+    }
     async feedback(sessionId, verdict) {
         const value = await this.call('feedback', { sessionId, verdict });
         return value.status;

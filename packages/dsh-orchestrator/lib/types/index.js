@@ -4,9 +4,11 @@ import { appendProgress, harnessContextSync, initHarness, loadHarness, setOrches
 import { runOrchestrationRole } from "./orchestration.js";
 import { getModelHealth, recordHealthFeedback, recordHealthSignals, runModelHealthProbe } from "./model-health.js";
 import { aggregateObservability, recordTokenSnapshot } from "./observability.js";
+import { aggregateContextQuality } from "./context-quality.js";
+import { runContextQualityProbe } from "./context-quality-probe.js";
 import { HARNESS_RPC_CHANNEL } from "./wire.js";
 export const name = 'harness-orchestrator';
-export const inject = ['systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm'];
+export const inject = ['systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter'];
 export function apply(ctx) {
     ctx.effect(() => ctx.commands.register({
         name: 'harness',
@@ -38,6 +40,13 @@ export function apply(ctx) {
                 const cwd = requireWorkspace(agent.session.header.cwd);
                 const modelKey = currentModelKey(agent);
                 return { ok: true, value: await runModelHealthProbe({ cwd, modelKey, parent: agent, signal, workflowEngine: agent.ctx.get('workflowEngine'), llm: ctx.llm, ...(request.bypassCache === undefined ? {} : { bypassCache: request.bypassCache }) }) };
+            }
+            if (endpoint === 'context-quality') {
+                const request = parseContextQualityRequest(payload);
+                const agent = requireLiveAgent(ctx, request.sessionId);
+                const cwd = requireWorkspace(agent.session.header.cwd);
+                const route = requireCurrentModelRoute(agent);
+                return { ok: true, value: await runContextQualityProbe({ cwd, modelKey: `${route.provider}/${route.model}`, provider: route.provider, model: route.model, scale: request.scale, confirmed: request.confirmed, llm: ctx.llm, tokenMeter: ctx.tokenMeter, signal }) };
             }
             if (endpoint === 'route') {
                 const request = parseRouteRequest(payload);
@@ -260,6 +269,8 @@ export * from "./adaptive.js";
 export * from "./orchestration.js";
 export * from "./model-health.js";
 export * from "./observability.js";
+export * from "./context-quality.js";
+export * from "./context-quality-probe.js";
 export * from "./wire.js";
 function requireLiveAgent(ctx, sessionId) {
     const agent = ctx.agents.get(sessionId);
@@ -275,6 +286,13 @@ function requireWorkspace(cwd) {
 function currentModelKey(agent) {
     return `${agent.options.provider ?? 'default'}/${agent.options.model ?? 'default'}`;
 }
+function requireCurrentModelRoute(agent) {
+    const provider = agent.options.provider;
+    const model = agent.options.model;
+    if (provider === undefined || model === undefined)
+        throw new Error('context-quality-route-unavailable');
+    return { provider, model };
+}
 function requireAgentWorkflowEngine(agent) {
     const workflowEngine = agent.ctx.get('workflowEngine');
     if (workflowEngine === undefined)
@@ -286,8 +304,8 @@ async function dashboardStatus(ctx, sessionId, period = '7d') {
     const cwd = requireWorkspace(agent.session.header.cwd);
     const modelKey = currentModelKey(agent);
     await captureTokenSnapshot(ctx, agent, cwd, modelKey).catch(() => undefined);
-    const [harness, health, observability] = await Promise.all([loadHarness(cwd), getModelHealth(cwd, modelKey), aggregateObservability(cwd, { period })]);
-    return { initialized: harness !== undefined, modelKey, ...(harness === undefined ? {} : { harness }), health, observability };
+    const [harness, health, observability, quality32K, quality128K] = await Promise.all([loadHarness(cwd), getModelHealth(cwd, modelKey), aggregateObservability(cwd, { period }), aggregateContextQuality(cwd, { modelKey, scale: '32K' }), aggregateContextQuality(cwd, { modelKey, scale: '128K' })]);
+    return { initialized: harness !== undefined, modelKey, ...(harness === undefined ? {} : { harness }), health, observability, contextQuality: { '32K': quality32K, '128K': quality128K } };
 }
 async function captureTokenSnapshot(ctx, agent, cwd, modelKey) {
     const snapshot = ctx.sessionProjections.snapshot(agent.session);
@@ -318,6 +336,14 @@ function parseProbeRequest(payload) {
     const request = parseSessionRequest(payload);
     return { ...request, ...(isRecord(payload) && typeof payload.bypassCache === 'boolean' ? { bypassCache: payload.bypassCache } : {}) };
 }
+function parseContextQualityRequest(payload) {
+    const request = parseSessionRequest(payload);
+    if (!isRecord(payload) || (payload.scale !== '32K' && payload.scale !== '128K'))
+        throw new Error('context-quality-scale-required');
+    if (payload.confirmed !== true)
+        throw new Error('context-quality-confirmation-required');
+    return { ...request, scale: payload.scale, confirmed: true };
+}
 function parseFeedbackRequest(payload) {
     const request = parseSessionRequest(payload);
     if (!isRecord(payload) || (payload.verdict !== 'normal' && payload.verdict !== 'degraded'))
@@ -333,6 +359,18 @@ function safeError(error) {
         return '当前模型路由不支持独立健康检测，请先完成几轮对话以积累被动样本。';
     if (message === 'model-health-probe-format-unreadable' || message === 'invalid-model-health-probe-result')
         return '模型已响应，但检测格式不完整。本次结果不会计入健康评分，请稍后重试。';
+    if (message === 'context-quality-confirmation-required')
+        return '运行长上下文检测前需要明确确认，因为它会连续调用当前模型 3 次并消耗较多 Token。';
+    if (message === 'context-quality-route-unavailable')
+        return '当前会话尚未解析出明确的模型路由，无法运行长上下文检测。';
+    if (message === 'context-quality-capacity-unknown')
+        return '当前模型适配器未声明上下文窗口容量；为避免超额调用，本次检测已停止。';
+    if (message === 'context-quality-capacity-insufficient')
+        return '当前模型适配器声明的上下文窗口小于所选检测规模；本次检测未调用模型。';
+    if (message === 'context-quality-aborted')
+        return '长上下文检测已取消，本次结果不会写入历史。';
+    if (message === 'context-quality-result-unreadable')
+        return '模型已响应，但长上下文检测结果格式不完整；本次结果不会写入历史。';
     return redactError(message);
 }
 function redactError(message) { return message.replace(/(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]').slice(0, 500); }

@@ -51,6 +51,7 @@ export function useHarnessStatus(api, sessionId) {
         status, loading, busy, period, ...(error === undefined ? {} : { error }), refresh, setPeriod,
         setMode: (mode, objective) => action(() => api.mode(sessionId, mode, objective)),
         probe: bypassCache => action(async () => { await api.probe(sessionId, bypassCache); return api.status(sessionId); }),
+        runContextQuality: scale => action(async () => { await api.contextQuality(sessionId, scale, true); return api.status(sessionId); }),
         feedback: verdict => action(() => api.feedback(sessionId, verdict)),
     };
 }

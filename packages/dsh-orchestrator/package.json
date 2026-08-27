@@ -12,6 +12,8 @@
     "./orchestration": { "types": "./lib/types/orchestration.d.ts", "default": "./lib/orchestration.js" },
     "./model-health": { "types": "./lib/types/model-health.d.ts", "default": "./lib/model-health.js" },
     "./observability": { "types": "./lib/types/observability.d.ts", "default": "./lib/observability.js" },
+    "./context-quality": { "types": "./lib/types/context-quality.d.ts", "default": "./lib/context-quality.js" },
+    "./context-quality-probe": { "types": "./lib/types/context-quality-probe.d.ts", "default": "./lib/context-quality-probe.js" },
     "./client": { "types": "./lib/types/client/index.d.ts", "default": "./lib/client.js" },
     "./package.json": "./package.json"
   },
@@ -41,6 +43,7 @@
     "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-token-meter": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-workflow": "^0.1.0-rc.6",
     "react": "^18.2.0"
   },
@@ -58,6 +61,7 @@
     "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-token-meter": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-workflow": "^0.1.0-rc.6",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.20.0",

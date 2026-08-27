@@ -3,6 +3,7 @@ import type { OrchestrationMode } from '../core.ts'
 import { HARNESS_RPC_CHANNEL, type HarnessDashboardStatus } from '../wire.ts'
 import type { ModelHealthSummary } from '../model-health.ts'
 import type { ObservabilityPeriod } from '../observability.ts'
+import type { ContextQualityRun, ContextQualityScale, ContextQualitySummary } from '../context-quality.ts'
 
 interface RpcErrorValue { error: string }
 
@@ -20,6 +21,10 @@ export class HarnessClientApi {
 
   async probe(sessionId: string, bypassCache = false): Promise<{ cached: boolean; summary: ModelHealthSummary }> {
     return this.call('probe', { sessionId, bypassCache })
+  }
+
+  contextQuality(sessionId: string, scale: ContextQualityScale, confirmed: boolean): Promise<{ run: ContextQualityRun; summary: ContextQualitySummary }> {
+    return this.call('context-quality', { sessionId, scale, confirmed })
   }
 
   async feedback(sessionId: string, verdict: 'normal' | 'degraded'): Promise<HarnessDashboardStatus> {

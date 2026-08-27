@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.39 - 2026-08-27
+
+- Added explicit, opt-in 32K and 128K long-context quality probes to the Agent Harness health dashboard. Each run uses three seeded samples and the current session's official model route.
+- Added model-capacity checks that fail closed when the active adapter does not publish a sufficient context window; the product never silently substitutes another model or smaller scale.
+- Added critical-fact, exact-literal, latest-state, stale-state leakage, constraint, pending-work, tool-pairing, and section-completeness metrics with per-scale scores and history trends.
+- Added bounded, atomic, sanitized history under the desktop profile. Raw prompts, model output, credentials, home paths, and workspace content are never persisted.
+- Kept live probes manual and confirmed: opening the dashboard or refreshing it never consumes model API tokens.
+- Added storage, privacy, adapter-capacity, seeded-probe, and dashboard interaction tests while preserving the deterministic context benchmark as the CI authority.
+
 ## 0.1.38 - 2026-08-26
 
 - Added safe import for complete MCP configuration files, `mcpServers` objects, bare server maps, and copied single-server JSON fragments, including Cursor-compatible `transportType` normalization and native local `mcp.json` selection.

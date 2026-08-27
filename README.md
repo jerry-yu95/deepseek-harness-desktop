@@ -10,7 +10,7 @@ DeepSeek Harness Desktop 将原版 DSH Web 界面完整装进 Windows 和 macOS 
 
 [下载最新安装包](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [桌面版技术说明](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
-当前开发版本：`0.1.38`。本版本补齐服务方 MCP JSON 与本地 `mcp.json` 安全导入、官方 Skill 包校验安装，以及连接器过期、撤销、断开、重连和可信分级；没有真实账号脱敏证据的连接器仍明确标为实验性。
+当前开发版本：`0.1.39`。本版本新增可选的 32K/128K 长上下文质量检测与历史看板：使用当前会话的官方模型路由运行三组确定性样本，展示关键信息、精确字面量、约束、陈旧状态泄漏和工具配对等指标；不会自动消耗 API Token，也不会保存原始提示词、模型输出或凭证。
 
 ## 为什么做这个项目
 
@@ -19,7 +19,7 @@ DeepSeek Harness 的价值不只是一套聊天界面，而是一套可以组合
 - **官方底座不魔改**：保留官方 Agent Loop、Cordis、权限和插件语义，官方内核更新与社区桌面版本分轨管理；
 - **扩展中心**：把 Skills、MCP/HTTP 连接器和学习入口放进官方侧边栏，创建、导入、诊断与移除都在一个地方完成；
 - **连接器优先复用官方 JSON**：自动查找 WorkBuddy、CodeBuddy、TRAE、Qoder 本地 MCP 配置，也支持粘贴服务商提供的 `mcpServers` JSON，只补缺少的令牌；
-- **Agent Harness 增强层**：标准、自适应和增强编排可切换，缓存命中、Agent 轨迹、模型健康与 Token 周期统计可观察；
+- **Agent Harness 增强层**：标准、自适应和增强编排可切换，缓存命中、Agent 轨迹、模型健康、Token 周期统计和可选的长上下文质量趋势均可观察；
 - **真实桌面交付**：支持 Windows x64、macOS Intel 和 Apple Silicon，并提供配置隔离、更新备份与失败回退；
 - **开源边界清楚**：社区增强不会冒充 DeepSeek 官方能力，第三方代码和上游来源保留许可与署名。
 

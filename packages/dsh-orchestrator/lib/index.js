@@ -3,6 +3,8 @@ import { appendProgress, cacheKey, cached, createRunRecord, harnessContext, harn
 import { assessModelHealth, getModelHealth, loadHealthStore, recordHealthFeedback, recordHealthSignals, runModelHealthProbe } from "./model-health.js";
 import { aggregateObservability, recordRuntimeEvent, recordTokenSnapshot } from "./observability.js";
 import { runOrchestrationRole, workspaceFingerprint } from "./orchestration.js";
+import { aggregateContextQuality, contextQualityScore, loadContextQualityHistory, recordContextQualityRun } from "./context-quality.js";
+import { contextQualityExpectations, runContextQualityProbe } from "./context-quality-probe.js";
 import { HARNESS_RPC_CHANNEL } from "./wire.js";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 //#region src/index.ts
@@ -14,7 +16,8 @@ const inject = [
 	"agents",
 	"commands",
 	"sessionProjections",
-	"llm"
+	"llm",
+	"tokenMeter"
 ];
 function apply(ctx) {
 	ctx.effect(() => ctx.commands.register({
@@ -57,6 +60,26 @@ function apply(ctx) {
 						workflowEngine: agent.ctx.get("workflowEngine"),
 						llm: ctx.llm,
 						...request.bypassCache === void 0 ? {} : { bypassCache: request.bypassCache }
+					})
+				};
+			}
+			if (endpoint === "context-quality") {
+				const request = parseContextQualityRequest(payload);
+				const agent = requireLiveAgent(ctx, request.sessionId);
+				const cwd = requireWorkspace(agent.session.header.cwd);
+				const route = requireCurrentModelRoute(agent);
+				return {
+					ok: true,
+					value: await runContextQualityProbe({
+						cwd,
+						modelKey: `${route.provider}/${route.model}`,
+						provider: route.provider,
+						model: route.model,
+						scale: request.scale,
+						confirmed: request.confirmed,
+						llm: ctx.llm,
+						tokenMeter: ctx.tokenMeter,
+						signal
 					})
 				};
 			}
@@ -477,6 +500,15 @@ function requireWorkspace(cwd) {
 function currentModelKey(agent) {
 	return `${agent.options.provider ?? "default"}/${agent.options.model ?? "default"}`;
 }
+function requireCurrentModelRoute(agent) {
+	const provider = agent.options.provider;
+	const model = agent.options.model;
+	if (provider === void 0 || model === void 0) throw new Error("context-quality-route-unavailable");
+	return {
+		provider,
+		model
+	};
+}
 function requireAgentWorkflowEngine(agent) {
 	const workflowEngine = agent.ctx.get("workflowEngine");
 	if (workflowEngine === void 0) throw new Error("workflow-engine-unavailable-for-agent");
@@ -487,17 +519,29 @@ async function dashboardStatus(ctx, sessionId, period = "7d") {
 	const cwd = requireWorkspace(agent.session.header.cwd);
 	const modelKey = currentModelKey(agent);
 	await captureTokenSnapshot(ctx, agent, cwd, modelKey).catch(() => void 0);
-	const [harness, health, observability] = await Promise.all([
+	const [harness, health, observability, quality32K, quality128K] = await Promise.all([
 		loadHarness(cwd),
 		getModelHealth(cwd, modelKey),
-		aggregateObservability(cwd, { period })
+		aggregateObservability(cwd, { period }),
+		aggregateContextQuality(cwd, {
+			modelKey,
+			scale: "32K"
+		}),
+		aggregateContextQuality(cwd, {
+			modelKey,
+			scale: "128K"
+		})
 	]);
 	return {
 		initialized: harness !== void 0,
 		modelKey,
 		...harness === void 0 ? {} : { harness },
 		health,
-		observability
+		observability,
+		contextQuality: {
+			"32K": quality32K,
+			"128K": quality128K
+		}
 	};
 }
 async function captureTokenSnapshot(ctx, agent, cwd, modelKey) {
@@ -551,6 +595,16 @@ function parseProbeRequest(payload) {
 		...isRecord(payload) && typeof payload.bypassCache === "boolean" ? { bypassCache: payload.bypassCache } : {}
 	};
 }
+function parseContextQualityRequest(payload) {
+	const request = parseSessionRequest(payload);
+	if (!isRecord(payload) || payload.scale !== "32K" && payload.scale !== "128K") throw new Error("context-quality-scale-required");
+	if (payload.confirmed !== true) throw new Error("context-quality-confirmation-required");
+	return {
+		...request,
+		scale: payload.scale,
+		confirmed: true
+	};
+}
 function parseFeedbackRequest(payload) {
 	const request = parseSessionRequest(payload);
 	if (!isRecord(payload) || payload.verdict !== "normal" && payload.verdict !== "degraded") throw new Error("verdict-required");
@@ -568,10 +622,16 @@ function safeError(error) {
 	if (message === "workflow-engine-unavailable-for-agent") return "当前会话没有 Workflow Engine；复杂编排需要使用标准、PTC 或创造模式。";
 	if (message === "model-health-probe-unavailable") return "当前模型路由不支持独立健康检测，请先完成几轮对话以积累被动样本。";
 	if (message === "model-health-probe-format-unreadable" || message === "invalid-model-health-probe-result") return "模型已响应，但检测格式不完整。本次结果不会计入健康评分，请稍后重试。";
+	if (message === "context-quality-confirmation-required") return "运行长上下文检测前需要明确确认，因为它会连续调用当前模型 3 次并消耗较多 Token。";
+	if (message === "context-quality-route-unavailable") return "当前会话尚未解析出明确的模型路由，无法运行长上下文检测。";
+	if (message === "context-quality-capacity-unknown") return "当前模型适配器未声明上下文窗口容量；为避免超额调用，本次检测已停止。";
+	if (message === "context-quality-capacity-insufficient") return "当前模型适配器声明的上下文窗口小于所选检测规模；本次检测未调用模型。";
+	if (message === "context-quality-aborted") return "长上下文检测已取消，本次结果不会写入历史。";
+	if (message === "context-quality-result-unreadable") return "模型已响应，但长上下文检测结果格式不完整；本次结果不会写入历史。";
 	return redactError(message);
 }
 function redactError(message) {
 	return message.replace(/(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(0, 500);
 }
 //#endregion
-export { HARNESS_RPC_CHANNEL, aggregateObservability, appendProgress, apply, assessModelHealth, assessTask, cacheKey, cached, createRunRecord, executeHarnessCommand, getModelHealth, harnessContext, harnessContextSync, harnessDir, initHarness, inject, loadHarness, loadHealthStore, name, readCache, recordHealthFeedback, recordHealthSignals, recordRuntimeEvent, recordTokenSnapshot, redactSecrets, replaceFeatures, retrieveMemory, runModelHealthProbe, runOrchestrationRole, sanitizeTrajectory, setOrchestrationMode, stableDigest, transitionHarness, updateFeature, updateOrchestration, validateAdaptiveDag, workspaceFingerprint, writeCache, writeRunRecord };
+export { HARNESS_RPC_CHANNEL, aggregateContextQuality, aggregateObservability, appendProgress, apply, assessModelHealth, assessTask, cacheKey, cached, contextQualityExpectations, contextQualityScore, createRunRecord, executeHarnessCommand, getModelHealth, harnessContext, harnessContextSync, harnessDir, initHarness, inject, loadContextQualityHistory, loadHarness, loadHealthStore, name, readCache, recordContextQualityRun, recordHealthFeedback, recordHealthSignals, recordRuntimeEvent, recordTokenSnapshot, redactSecrets, replaceFeatures, retrieveMemory, runContextQualityProbe, runModelHealthProbe, runOrchestrationRole, sanitizeTrajectory, setOrchestrationMode, stableDigest, transitionHarness, updateFeature, updateOrchestration, validateAdaptiveDag, workspaceFingerprint, writeCache, writeRunRecord };

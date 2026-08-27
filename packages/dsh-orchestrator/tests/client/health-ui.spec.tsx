@@ -28,6 +28,10 @@ const status: HarnessDashboardStatus = {
     daily: [{ date: '2026-08-21', totalTokens: 2320 }], traces: [{ timestamp: '2026-08-21T00:00:00.000Z', runId: 'R1', stage: 'planner', status: 'complete', durationMs: 1200, summary: 'Plan ready' }],
     cache: { hits: 3, misses: 1, hitRate: 75, savedMs: 1600, savedTokens: 500 },
   },
+  contextQuality: {
+    '32K': { totalRuns: 1, passedRuns: 1, passRate: 100, latest: { id: 'CQ1', timestamp: '2026-08-21T00:00:00.000Z', modelKey: 'deepseek-official/deepseek-v4-flash', scale: '32K', requestedInputTokens: 32768, resolvedContextWindow: 131072, sampleCount: 3, status: 'pass', metrics: { criticalRecall: 100, exactLiteralRecall: 100, latestStateAccuracy: 100, staleLeakage: 0, constraintRecall: 100, pendingWorkRecall: 100, toolIntegrity: 100, sectionCompleteness: 100 }, usage: { inputTokens: 96000, outputTokens: 600, cacheReadTokens: 1000 }, durationMs: 12000, hardFailureCount: 0 }, trend: [{ timestamp: '2026-08-21T00:00:00.000Z', score: 100, status: 'pass' }] },
+    '128K': { totalRuns: 0, passedRuns: 0, trend: [] },
+  },
 }
 
 function api(): HarnessClientApi {
@@ -36,6 +40,7 @@ function api(): HarnessClientApi {
     mode: vi.fn(async () => status),
     probe: vi.fn(async () => ({ cached: false, summary: status.health })),
     feedback: vi.fn(async () => status),
+    contextQuality: vi.fn(async () => ({ run: status.contextQuality['32K'].latest!, summary: status.contextQuality['32K'] })),
   } as unknown as HarnessClientApi
 }
 
@@ -91,12 +96,19 @@ describe('health presentation', () => {
     await waitFor(() => { expect(client.mode).toHaveBeenCalledWith('S1', 'adaptive', 'Harness test') })
   })
 
-  it('renders four runtime-health tabs and period-filtered token details', async () => {
-    render(<HarnessSettingsCard {...standardProps('S1') as never} api={api()} />)
+  it('renders runtime-health tabs, explicit context probes, and period-filtered token details', async () => {
+    const client = api()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<HarnessSettingsCard {...standardProps('S1') as never} api={client} />)
     await waitFor(() => { expect(screen.getByRole('button', { name: 'Token 消耗' })).toBeTruthy() })
     expect(screen.getByRole('button', { name: '总览' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '模型健康' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Agent 轨迹' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '上下文质量' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '上下文质量' }))
+    expect(screen.getByText(/不会自动运行/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '运行 32K 检测' }))
+    await waitFor(() => { expect(client.contextQuality).toHaveBeenCalledWith('S1', '32K', true) })
     fireEvent.click(screen.getByRole('button', { name: 'Token 消耗' }))
     expect(screen.getByText('2,320')).toBeTruthy()
     expect(screen.getAllByText('deepseek-official/deepseek-v4-flash')).toHaveLength(2)

@@ -10,5 +10,7 @@ export * from './adaptive.ts';
 export * from './orchestration.ts';
 export * from './model-health.ts';
 export * from './observability.ts';
+export * from './context-quality.ts';
+export * from './context-quality-probe.ts';
 export * from './wire.ts';
 //# sourceMappingURL=index.d.ts.map

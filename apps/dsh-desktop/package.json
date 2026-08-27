@@ -1,6 +1,6 @@
 {
   "name": "@harness-design/desktop",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "private": true,
   "description": "Desktop learning and working environment for DeepSeek Harness with isolated official-core updates",
   "author": "jerry-yu95 and contributors",

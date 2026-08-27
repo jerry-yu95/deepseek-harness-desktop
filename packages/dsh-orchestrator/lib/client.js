@@ -34,6 +34,13 @@ window.__ModuleLoader__.load({
 					bypassCache
 				});
 			}
+			contextQuality(sessionId, scale, confirmed) {
+				return this.call("context-quality", {
+					sessionId,
+					scale,
+					confirmed
+				});
+			}
 			async feedback(sessionId, verdict) {
 				return (await this.call("feedback", {
 					sessionId,
@@ -48,6 +55,12 @@ window.__ModuleLoader__.load({
 				return value;
 			}
 		};
+		//#endregion
+		//#region src/context-quality.ts
+		function contextQualityScore(metrics) {
+			const positive = metrics.criticalRecall * .25 + metrics.exactLiteralRecall * .15 + metrics.latestStateAccuracy * .15 + metrics.constraintRecall * .1 + metrics.pendingWorkRecall * .15 + metrics.toolIntegrity * .1 + metrics.sectionCompleteness * .1;
+			return Math.round(Math.max(0, Math.min(100, positive - metrics.staleLeakage * .25)));
+		}
 		//#endregion
 		//#region src/client/health-ui.ts
 		function healthTone(status) {
@@ -154,6 +167,10 @@ window.__ModuleLoader__.load({
 					await api.probe(sessionId, bypassCache);
 					return api.status(sessionId);
 				}),
+				runContextQuality: (scale) => action(async () => {
+					await api.contextQuality(sessionId, scale, true);
+					return api.status(sessionId);
+				}),
 				feedback: (verdict) => action(() => api.feedback(sessionId, verdict))
 			};
 		}
@@ -162,7 +179,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-orchestrator/src/client/harness.module.css.mjs
-		const css = ".bcJosq_controls{align-items:center;gap:6px;display:flex;position:relative}.bcJosq_toolbarControl{color:inherit;font:inherit;cursor:pointer;white-space:nowrap;background:0 0;border:0;border-radius:6px;align-items:center;gap:5px;padding:5px 3px;font-size:12px;display:inline-flex}.bcJosq_toolbarControl:hover,.bcJosq_toolbarControl[aria-expanded=true]{color:#3374e8}.bcJosq_toolbarControl:focus-visible{outline-offset:2px;outline:2px solid #3374e8b3}.bcJosq_toolbarControl:disabled{opacity:.55;cursor:wait}.bcJosq_lineIcon{fill:none;stroke:currentColor;stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;flex:none;width:16px;height:16px}.bcJosq_chevronIcon{fill:none;stroke:currentColor;stroke-width:1.6px;stroke-linecap:round;stroke-linejoin:round;opacity:.58;width:13px;height:13px}.bcJosq_modeMenu{z-index:32;border:1px solid color-mix(in srgb, currentColor 16%, transparent);background:var(--color-bg,#fff);width:min(390px,82vw);color:var(--color-text,#18202a);border-radius:16px;gap:3px;padding:8px;display:grid;position:absolute;bottom:calc(100% + 10px);left:0;box-shadow:0 18px 50px #0003}.bcJosq_modeMenu>button{width:100%;color:inherit;cursor:pointer;text-align:left;font:inherit;background:0 0;border:0;border-radius:11px;grid-template-columns:1fr 24px;gap:10px;padding:11px 12px;display:grid}.bcJosq_modeMenu>button:hover,.bcJosq_modeMenu>button[aria-checked=true]{background:#3374e81a}.bcJosq_modeMenu>button span{gap:4px;display:grid}.bcJosq_modeMenu b{font-size:14px}.bcJosq_modeMenu small{opacity:.62;font-size:12px;line-height:1.45}.bcJosq_modeMenu i{color:#3374e8;text-align:center;align-self:center;font-size:18px;font-style:normal}.bcJosq_good{color:#16865b}.bcJosq_warn{color:#b06c00}.bcJosq_bad{color:#cf3439}.bcJosq_muted{color:inherit}.bcJosq_popover{z-index:30;border:1px solid color-mix(in srgb, currentColor 16%, transparent);background:var(--color-bg,#fff);width:min(430px,78vw);color:var(--color-text,#18202a);border-radius:16px;padding:14px;position:absolute;bottom:calc(100% + 10px);left:0;box-shadow:0 18px 50px #0003}.bcJosq_settingsCard{border:1px solid color-mix(in srgb, currentColor 14%, transparent);background:color-mix(in srgb, currentColor 2%, transparent);border-radius:16px;margin:8px 0;padding:22px}.bcJosq_settingsCard header{justify-content:space-between;align-items:center;margin-bottom:18px;display:flex}.bcJosq_settingsCard h3{margin:0 0 4px;font-size:18px}.bcJosq_settingsCard header p{opacity:.62;margin:0}.bcJosq_dashboard{gap:18px;display:grid}.bcJosq_compact{gap:12px}.bcJosq_summary{grid-template-columns:auto 1fr auto;align-items:center;gap:14px;display:grid}.bcJosq_score{text-align:center;background:color-mix(in srgb, currentColor 8%, transparent);border-radius:18px;place-content:center;width:66px;height:66px;display:grid}.bcJosq_score strong{font-size:24px;line-height:1}.bcJosq_score span{margin-top:5px;font-size:11px}.bcJosq_score.bcJosq_good{color:#16865b}.bcJosq_score.bcJosq_warn{color:#b06c00}.bcJosq_score.bcJosq_bad{color:#cf3439}.bcJosq_score.bcJosq_muted{color:#6f7782}.bcJosq_meta{gap:5px;min-width:0;display:grid}.bcJosq_meta b{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.bcJosq_meta span{opacity:.64;font-size:12px}.bcJosq_primary,.bcJosq_orchestration button,.bcJosq_feedback button,.bcJosq_error button{color:#fff;cursor:pointer;font:inherit;background:#3374e8;border:0;border-radius:9px;padding:8px 12px}.bcJosq_diagnosticAction{color:inherit;cursor:pointer;font:inherit;white-space:nowrap;background:0 0;border:0;align-items:center;gap:6px;padding:6px 3px;display:inline-flex}.bcJosq_diagnosticAction:hover{color:#3374e8}.bcJosq_diagnosticAction:focus-visible{outline-offset:2px;border-radius:6px;outline:2px solid #3374e8b3}.bcJosq_primary:disabled,.bcJosq_diagnosticAction:disabled,.bcJosq_orchestration button:disabled,.bcJosq_feedback button:disabled{opacity:.55;cursor:wait}.bcJosq_alert{color:#c52d33;background:#e5484d21;border-radius:10px;padding:10px 12px;font-size:13px}.bcJosq_orchestration{background:color-mix(in srgb, currentColor 5%, transparent);border-radius:10px;flex-wrap:wrap;align-items:center;gap:14px;padding:11px 12px;font-size:13px;display:flex}.bcJosq_orchestration button{background:color-mix(in srgb, currentColor 12%, transparent);color:inherit;margin-left:auto}.bcJosq_dimensions{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;display:grid}.bcJosq_dimension{grid-template-columns:88px 1fr 28px;align-items:center;gap:8px;font-size:12px;display:grid}.bcJosq_dimension>div{background:color-mix(in srgb, currentColor 9%, transparent);border-radius:999px;height:7px;overflow:hidden}.bcJosq_dimension i{border-radius:inherit;background:linear-gradient(90deg,#587cf6,#22a06b);height:100%;display:block}.bcJosq_trend h4,.bcJosq_anomalies h4{margin:0 0 8px}.bcJosq_trend p{opacity:.58;margin:0;font-size:13px}.bcJosq_trend svg{width:100%;height:64px;overflow:visible}.bcJosq_trend polyline{fill:none;stroke:#5c8dff;stroke-width:2.5px;vector-effect:non-scaling-stroke}.bcJosq_feedback{flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;display:flex}.bcJosq_feedback button{background:color-mix(in srgb, currentColor 10%, transparent);color:inherit;padding:6px 10px}.bcJosq_feedback small{opacity:.58;margin-left:auto}.bcJosq_anomalies{border-top:1px solid color-mix(in srgb, currentColor 10%, transparent);padding-top:12px}.bcJosq_anomalies p{color:#c52d33;margin:6px 0;font-size:12px}.bcJosq_empty,.bcJosq_error{background:color-mix(in srgb, currentColor 5%, transparent);opacity:.75;border-radius:12px;padding:20px}.bcJosq_inlineError{color:#c52d33;font-size:12px}@media (width<=720px){.bcJosq_dimensions{grid-template-columns:1fr}.bcJosq_summary{grid-template-columns:auto 1fr}.bcJosq_summary .bcJosq_diagnosticAction{grid-column:1/-1}.bcJosq_settingsCard{padding:14px}}.bcJosq_tabs{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:12px;gap:6px;padding:4px;display:flex;overflow-x:auto}.bcJosq_tabs button,.bcJosq_periods button{color:inherit;cursor:pointer;white-space:nowrap;background:0 0;border:0;border-radius:9px;padding:8px 12px}.bcJosq_tabs .bcJosq_activeTab,.bcJosq_periods .bcJosq_activePeriod{color:#3374e8;background:#3374e82e;font-weight:650}.bcJosq_panel{gap:14px;display:grid}.bcJosq_metricGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;display:grid}.bcJosq_metric{background:color-mix(in srgb, currentColor 5%, transparent);border-radius:12px;gap:7px;padding:14px;display:grid}.bcJosq_metric span{opacity:.62;font-size:12px}.bcJosq_metric strong{font-variant-numeric:tabular-nums;font-size:22px}.bcJosq_periods{flex-wrap:wrap;gap:5px;display:flex}.bcJosq_cacheBenefit,.bcJosq_estimateNote{background:#3374e817;border-radius:10px;padding:10px 12px;font-size:13px}.bcJosq_traceList,.bcJosq_modelList{gap:8px;display:grid}.bcJosq_traceRow,.bcJosq_modelRow{border:1px solid color-mix(in srgb, currentColor 10%, transparent);border-radius:10px;grid-template-columns:minmax(100px,1fr) auto auto;align-items:center;gap:10px;padding:12px;display:grid}.bcJosq_traceRow small,.bcJosq_modelRow small{opacity:.62;grid-column:1/-1}.bcJosq_modelRow{grid-template-columns:minmax(0,1fr) auto}@media (width<=720px){.bcJosq_metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bcJosq_traceRow{grid-template-columns:1fr auto}.bcJosq_traceRow>span:nth-of-type(2){display:none}}";
+		const css = ".bcJosq_controls{align-items:center;gap:6px;display:flex;position:relative}.bcJosq_toolbarControl{color:inherit;font:inherit;cursor:pointer;white-space:nowrap;background:0 0;border:0;border-radius:6px;align-items:center;gap:5px;padding:5px 3px;font-size:12px;display:inline-flex}.bcJosq_toolbarControl:hover,.bcJosq_toolbarControl[aria-expanded=true]{color:#3374e8}.bcJosq_toolbarControl:focus-visible{outline-offset:2px;outline:2px solid #3374e8b3}.bcJosq_toolbarControl:disabled{opacity:.55;cursor:wait}.bcJosq_lineIcon{fill:none;stroke:currentColor;stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;flex:none;width:16px;height:16px}.bcJosq_chevronIcon{fill:none;stroke:currentColor;stroke-width:1.6px;stroke-linecap:round;stroke-linejoin:round;opacity:.58;width:13px;height:13px}.bcJosq_modeMenu{z-index:32;border:1px solid color-mix(in srgb, currentColor 16%, transparent);background:var(--color-bg,#fff);width:min(390px,82vw);color:var(--color-text,#18202a);border-radius:16px;gap:3px;padding:8px;display:grid;position:absolute;bottom:calc(100% + 10px);left:0;box-shadow:0 18px 50px #0003}.bcJosq_modeMenu>button{width:100%;color:inherit;cursor:pointer;text-align:left;font:inherit;background:0 0;border:0;border-radius:11px;grid-template-columns:1fr 24px;gap:10px;padding:11px 12px;display:grid}.bcJosq_modeMenu>button:hover,.bcJosq_modeMenu>button[aria-checked=true]{background:#3374e81a}.bcJosq_modeMenu>button span{gap:4px;display:grid}.bcJosq_modeMenu b{font-size:14px}.bcJosq_modeMenu small{opacity:.62;font-size:12px;line-height:1.45}.bcJosq_modeMenu i{color:#3374e8;text-align:center;align-self:center;font-size:18px;font-style:normal}.bcJosq_good{color:#16865b}.bcJosq_warn{color:#b06c00}.bcJosq_bad{color:#cf3439}.bcJosq_muted{color:inherit}.bcJosq_popover{z-index:30;border:1px solid color-mix(in srgb, currentColor 16%, transparent);background:var(--color-bg,#fff);width:min(430px,78vw);color:var(--color-text,#18202a);border-radius:16px;padding:14px;position:absolute;bottom:calc(100% + 10px);left:0;box-shadow:0 18px 50px #0003}.bcJosq_settingsCard{border:1px solid color-mix(in srgb, currentColor 14%, transparent);background:color-mix(in srgb, currentColor 2%, transparent);border-radius:16px;margin:8px 0;padding:22px}.bcJosq_settingsCard header{justify-content:space-between;align-items:center;margin-bottom:18px;display:flex}.bcJosq_settingsCard h3{margin:0 0 4px;font-size:18px}.bcJosq_settingsCard header p{opacity:.62;margin:0}.bcJosq_dashboard{gap:18px;display:grid}.bcJosq_compact{gap:12px}.bcJosq_summary{grid-template-columns:auto 1fr auto;align-items:center;gap:14px;display:grid}.bcJosq_score{text-align:center;background:color-mix(in srgb, currentColor 8%, transparent);border-radius:18px;place-content:center;width:66px;height:66px;display:grid}.bcJosq_score strong{font-size:24px;line-height:1}.bcJosq_score span{margin-top:5px;font-size:11px}.bcJosq_score.bcJosq_good{color:#16865b}.bcJosq_score.bcJosq_warn{color:#b06c00}.bcJosq_score.bcJosq_bad{color:#cf3439}.bcJosq_score.bcJosq_muted{color:#6f7782}.bcJosq_meta{gap:5px;min-width:0;display:grid}.bcJosq_meta b{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.bcJosq_meta span{opacity:.64;font-size:12px}.bcJosq_primary,.bcJosq_orchestration button,.bcJosq_feedback button,.bcJosq_error button{color:#fff;cursor:pointer;font:inherit;background:#3374e8;border:0;border-radius:9px;padding:8px 12px}.bcJosq_diagnosticAction{color:inherit;cursor:pointer;font:inherit;white-space:nowrap;background:0 0;border:0;align-items:center;gap:6px;padding:6px 3px;display:inline-flex}.bcJosq_diagnosticAction:hover{color:#3374e8}.bcJosq_diagnosticAction:focus-visible{outline-offset:2px;border-radius:6px;outline:2px solid #3374e8b3}.bcJosq_primary:disabled,.bcJosq_diagnosticAction:disabled,.bcJosq_orchestration button:disabled,.bcJosq_feedback button:disabled{opacity:.55;cursor:wait}.bcJosq_alert{color:#c52d33;background:#e5484d21;border-radius:10px;padding:10px 12px;font-size:13px}.bcJosq_orchestration{background:color-mix(in srgb, currentColor 5%, transparent);border-radius:10px;flex-wrap:wrap;align-items:center;gap:14px;padding:11px 12px;font-size:13px;display:flex}.bcJosq_orchestration button{background:color-mix(in srgb, currentColor 12%, transparent);color:inherit;margin-left:auto}.bcJosq_dimensions{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;display:grid}.bcJosq_dimension{grid-template-columns:88px 1fr 28px;align-items:center;gap:8px;font-size:12px;display:grid}.bcJosq_dimension>div{background:color-mix(in srgb, currentColor 9%, transparent);border-radius:999px;height:7px;overflow:hidden}.bcJosq_dimension i{border-radius:inherit;background:linear-gradient(90deg,#587cf6,#22a06b);height:100%;display:block}.bcJosq_trend h4,.bcJosq_anomalies h4{margin:0 0 8px}.bcJosq_trend p{opacity:.58;margin:0;font-size:13px}.bcJosq_trend svg{width:100%;height:64px;overflow:visible}.bcJosq_trend polyline{fill:none;stroke:#5c8dff;stroke-width:2.5px;vector-effect:non-scaling-stroke}.bcJosq_feedback{flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;display:flex}.bcJosq_feedback button{background:color-mix(in srgb, currentColor 10%, transparent);color:inherit;padding:6px 10px}.bcJosq_feedback small{opacity:.58;margin-left:auto}.bcJosq_anomalies{border-top:1px solid color-mix(in srgb, currentColor 10%, transparent);padding-top:12px}.bcJosq_anomalies p{color:#c52d33;margin:6px 0;font-size:12px}.bcJosq_empty,.bcJosq_error{background:color-mix(in srgb, currentColor 5%, transparent);opacity:.75;border-radius:12px;padding:20px}.bcJosq_inlineError{color:#c52d33;font-size:12px}@media (width<=720px){.bcJosq_dimensions{grid-template-columns:1fr}.bcJosq_summary{grid-template-columns:auto 1fr}.bcJosq_summary .bcJosq_diagnosticAction{grid-column:1/-1}.bcJosq_settingsCard{padding:14px}}.bcJosq_tabs{background:color-mix(in srgb, currentColor 6%, transparent);border-radius:12px;gap:6px;padding:4px;display:flex;overflow-x:auto}.bcJosq_tabs button,.bcJosq_periods button{color:inherit;cursor:pointer;white-space:nowrap;background:0 0;border:0;border-radius:9px;padding:8px 12px}.bcJosq_tabs .bcJosq_activeTab,.bcJosq_periods .bcJosq_activePeriod{color:#3374e8;background:#3374e82e;font-weight:650}.bcJosq_panel{gap:14px;display:grid}.bcJosq_metricGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;display:grid}.bcJosq_contextNotice,.bcJosq_contextMeta{background:#3374e817;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.55}.bcJosq_contextActions{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.bcJosq_contextActions button{color:inherit;background:color-mix(in srgb, currentColor 7%, transparent);cursor:pointer;font:inherit;border:0;border-radius:9px;padding:8px 12px}.bcJosq_contextActions .bcJosq_activePeriod{color:#3374e8;background:#3374e82e;font-weight:650}.bcJosq_contextActions .bcJosq_contextRun{color:#fff;background:#3374e8;margin-left:auto}.bcJosq_contextActions button:disabled{opacity:.55;cursor:wait}.bcJosq_contextHeadline{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;display:grid}.bcJosq_inverseMetric{background:#cf3439!important}.bcJosq_contextTrend{border-bottom:1px solid color-mix(in srgb, currentColor 15%, transparent);align-items:end;gap:5px;height:86px;padding:8px 4px 0;display:flex}.bcJosq_contextTrend span{flex-direction:column;flex:1;justify-content:end;align-items:center;gap:3px;min-width:8px;height:100%;display:flex}.bcJosq_contextTrend i{background:linear-gradient(#5c8dff,#3374e8);border-radius:5px 5px 0 0;width:min(18px,80%);display:block}.bcJosq_contextTrend small{opacity:.62;font-size:9px}.bcJosq_metric{background:color-mix(in srgb, currentColor 5%, transparent);border-radius:12px;gap:7px;padding:14px;display:grid}.bcJosq_metric span{opacity:.62;font-size:12px}.bcJosq_metric strong{font-variant-numeric:tabular-nums;font-size:22px}.bcJosq_periods{flex-wrap:wrap;gap:5px;display:flex}.bcJosq_cacheBenefit,.bcJosq_estimateNote{background:#3374e817;border-radius:10px;padding:10px 12px;font-size:13px}.bcJosq_traceList,.bcJosq_modelList{gap:8px;display:grid}.bcJosq_traceRow,.bcJosq_modelRow{border:1px solid color-mix(in srgb, currentColor 10%, transparent);border-radius:10px;grid-template-columns:minmax(100px,1fr) auto auto;align-items:center;gap:10px;padding:12px;display:grid}.bcJosq_traceRow small,.bcJosq_modelRow small{opacity:.62;grid-column:1/-1}.bcJosq_modelRow{grid-template-columns:minmax(0,1fr) auto}@media (width<=720px){.bcJosq_metricGrid,.bcJosq_contextHeadline{grid-template-columns:repeat(2,minmax(0,1fr))}.bcJosq_traceRow{grid-template-columns:1fr auto}.bcJosq_traceRow>span:nth-of-type(2){display:none}.bcJosq_contextActions .bcJosq_contextRun{width:100%;margin-left:0}}";
 		const tagId = "@harness-design/dsh-orchestrator/harness.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -180,6 +197,12 @@ window.__ModuleLoader__.load({
 			"cacheBenefit": "bcJosq_cacheBenefit",
 			"chevronIcon": "bcJosq_chevronIcon",
 			"compact": "bcJosq_compact",
+			"contextActions": "bcJosq_contextActions",
+			"contextHeadline": "bcJosq_contextHeadline",
+			"contextMeta": "bcJosq_contextMeta",
+			"contextNotice": "bcJosq_contextNotice",
+			"contextRun": "bcJosq_contextRun",
+			"contextTrend": "bcJosq_contextTrend",
 			"controls": "bcJosq_controls",
 			"dashboard": "bcJosq_dashboard",
 			"diagnosticAction": "bcJosq_diagnosticAction",
@@ -191,6 +214,7 @@ window.__ModuleLoader__.load({
 			"feedback": "bcJosq_feedback",
 			"good": "bcJosq_good",
 			"inlineError": "bcJosq_inlineError",
+			"inverseMetric": "bcJosq_inverseMetric",
 			"lineIcon": "bcJosq_lineIcon",
 			"meta": "bcJosq_meta",
 			"metric": "bcJosq_metric",
@@ -272,7 +296,7 @@ window.__ModuleLoader__.load({
 								setModeOpen(false);
 								state.setMode(option.mode, title);
 							},
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: option.label }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: option.description })] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("i", { children: mode === option.mode ? "✓" : "" })]
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: option.label }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: option.description })] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("i", { children: mode === option.mode ? "当前" : "" })]
 						}, option.mode))
 					}) : null,
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
@@ -430,6 +454,13 @@ window.__ModuleLoader__.load({
 								children: "模型健康"
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								className: tab === "context" ? harness_module_css_default.activeTab : "",
+								onClick: () => {
+									setTab("context");
+								},
+								children: "上下文质量"
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								className: tab === "trace" ? harness_module_css_default.activeTab : "",
 								onClick: () => {
 									setTab("trace");
@@ -502,12 +533,126 @@ window.__ModuleLoader__.load({
 							] }, `${item.timestamp}-${index}`))]
 						}) : null
 					] }) : null,
+					!compact && tab === "context" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ContextQualityDashboard, { state }) : null,
 					!compact && tab === "trace" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TraceDashboard, { state }) : null,
 					!compact && tab === "tokens" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TokenDashboard, { state }) : null,
 					state.error !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: harness_module_css_default.inlineError,
 						children: state.error
 					}) : null
+				]
+			});
+		}
+		const contextMetricLabels = [
+			["criticalRecall", "关键事实"],
+			["exactLiteralRecall", "精确文本"],
+			["latestStateAccuracy", "最新状态"],
+			["constraintRecall", "约束保留"],
+			["pendingWorkRecall", "待办保留"],
+			["toolIntegrity", "工具配对"],
+			["sectionCompleteness", "结构完整"],
+			["staleLeakage", "过期信息泄漏"]
+		];
+		function ContextQualityDashboard({ state }) {
+			const [scale, setScale] = (0, react.useState)("32K");
+			const summary = state.status.contextQuality[scale];
+			const latest = summary.latest;
+			const start = () => {
+				if (window.confirm(`将使用当前模型运行 ${scale} 长上下文检测，共调用 3 次，可能消耗较多 Token。是否继续？`)) state.runContextQuality(scale);
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: harness_module_css_default.panel,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: harness_module_css_default.contextNotice,
+						children: "这是显式付费检测，不会自动运行。只保存脱敏评分、Token 用量和耗时，不保存测试提示词或模型原文。"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: harness_module_css_default.contextActions,
+						children: [["32K", "128K"].map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							className: scale === item ? harness_module_css_default.activePeriod : "",
+							onClick: () => {
+								setScale(item);
+							},
+							children: item
+						}, item)), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							className: harness_module_css_default.contextRun,
+							disabled: state.busy,
+							onClick: start,
+							children: state.busy ? "检测中…" : `运行 ${scale} 检测`
+						})]
+					}),
+					latest === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+						className: harness_module_css_default.empty,
+						children: [
+							"当前模型尚无 ",
+							scale,
+							" 实测记录。"
+						]
+					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: harness_module_css_default.contextHeadline,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Metric, {
+									label: "综合质量",
+									value: `${contextQualityScore(latest.metrics)}`
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Metric, {
+									label: "通过率",
+									value: `${summary.passRate ?? 0}%`
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Metric, {
+									label: "历史运行",
+									value: `${summary.totalRuns}`
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Metric, {
+									label: "适配器窗口",
+									value: formatNumber(latest.resolvedContextWindow)
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: harness_module_css_default.dimensions,
+							children: contextMetricLabels.map(([key, label]) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: harness_module_css_default.dimension,
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: label }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("i", {
+										className: key === "staleLeakage" ? harness_module_css_default.inverseMetric : "",
+										style: { width: `${key === "staleLeakage" ? 100 - latest.metrics[key] : latest.metrics[key]}%` }
+									}) }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: latest.metrics[key] })
+								]
+							}, key))
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: harness_module_css_default.contextMeta,
+							children: [
+								"最近检测 ",
+								new Date(latest.timestamp).toLocaleString("zh-CN"),
+								" · ",
+								latest.sampleCount,
+								" 个样本 · 输入 ",
+								formatNumber(latest.usage.inputTokens),
+								" · 输出 ",
+								formatNumber(latest.usage.outputTokens),
+								" · 缓存读取 ",
+								formatNumber(latest.usage.cacheReadTokens),
+								" · ",
+								formatDuration(latest.durationMs)
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: harness_module_css_default.trend,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", { children: "历史趋势" }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: harness_module_css_default.contextTrend,
+								children: summary.trend.slice(-12).map((point) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+									title: `${new Date(point.timestamp).toLocaleString("zh-CN")} · ${point.score}`,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("i", { style: { height: `${Math.max(4, point.score)}%` } }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: point.score })]
+								}, point.timestamp))
+							})]
+						})
+					] })
 				]
 			});
 		}

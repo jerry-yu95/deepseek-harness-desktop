@@ -205,7 +205,7 @@ export async function cached<T>(cwd: string, namespace: string, key: string, con
 }
 
 async function ensureHarnessIgnore(cwd: string): Promise<void> {
-  const content = '# Generated Harness runtime data\ncache/\nruns/\nmodel-health.json\nobservability.json\n'
+  const content = '# Generated Harness runtime data\ncache/\nruns/\nmodel-health.json\nobservability.json\ncontext-quality.json\n'
   const target = paths(cwd).ignore
   try {
     if (await readFile(target, 'utf8') === content) return
