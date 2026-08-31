@@ -12,7 +12,7 @@
 
 [下载最新版本](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [更新日志](CHANGELOG.md) · [安全策略](SECURITY.md)
 
-当前版本：`0.1.43` · 内置运行时：`@deepseek-ai/dsh 0.1.1-rc.2`
+当前版本：`0.1.44` · 内置运行时：`@deepseek-ai/dsh 0.1.1-rc.2`
 
 ## 为什么是积微
 

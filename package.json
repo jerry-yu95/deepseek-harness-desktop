@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop-workspace",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "private": true,
   "description": "JIWEI: a local-first Agent workspace where conversations become reusable knowledge.",
   "author": "jerry-yu95 and contributors",

@@ -12,7 +12,7 @@ This is an independent community project, not an official DeepSeek product. The 
 
 [Latest release](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation](docs/install.en.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
-Current version: `0.1.43` · Embedded runtime: `@deepseek-ai/dsh 0.1.1-rc.2`
+Current version: `0.1.44` · Embedded runtime: `@deepseek-ai/dsh 0.1.1-rc.2`
 
 ## Why JIWEI
 

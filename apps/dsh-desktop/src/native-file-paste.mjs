@@ -1,6 +1,5 @@
 import { lstat, readFile } from 'node:fs/promises'
-import { basename, isAbsolute } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename, posix } from 'node:path'
 
 const MAX_CLIPBOARD_FILES = 4
 const MAX_TEXT_BYTES = 1024 * 1024
@@ -54,7 +53,12 @@ function pathFromReference(value) {
     try {
       const url = new URL(candidate)
       if (url.protocol !== 'file:' || (url.hostname !== '' && url.hostname !== 'localhost')) return undefined
-      const path = fileURLToPath(url)
+      // Finder references always use POSIX paths. Parsing them through
+      // fileURLToPath() would apply the CI host's path rules and turn valid
+      // macOS references into invalid Windows paths during cross-platform
+      // verification.
+      const path = decodeURIComponent(url.pathname)
+      if (!posix.isAbsolute(path)) return undefined
       // Finder can publish both a real path and an opaque `/.file/id=...`
       // alias for the same selection. The alias has no useful basename and
       // would turn a valid mcp.json paste into a mixed unsupported batch.
@@ -64,7 +68,7 @@ function pathFromReference(value) {
       return undefined
     }
   }
-  if (!isAbsolute(candidate) || candidate.startsWith('/.file/id=')) return undefined
+  if (!posix.isAbsolute(candidate) || candidate.startsWith('/.file/id=')) return undefined
   return candidate
 }
 

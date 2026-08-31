@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.44 - 2026-09-01
+
+- Made native Finder file-reference parsing independent of the CI host path rules.
+- Restored Windows release verification for the native attachment pipeline.
+
 ## 0.1.43 - 2026-09-01
 
 - Introduced the independent “积微 JIWEI” product identity, original brand assets and current-build screenshots; renamed desktop windows and release artifacts while retaining the existing application ID for upgrade compatibility.

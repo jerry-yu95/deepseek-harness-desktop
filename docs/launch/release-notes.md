@@ -1,6 +1,6 @@
-# 积微 JIWEI 0.1.43
+# 积微 JIWEI 0.1.44
 
-This release introduces the independent JIWEI product identity while keeping the embedded official DeepSeek Harness runtime at `0.1.1-rc.2`. It adds a local-first knowledge loop, safer link ingestion, native file references, and a diagnosable Connector Center on top of the official Agent Loop, model adapter, and MCP client.
+This release introduces the independent JIWEI product identity while keeping the embedded official DeepSeek Harness runtime at `0.1.1-rc.2`. It adds a local-first knowledge loop, safer link ingestion, native file references, and a diagnosable Connector Center on top of the official Agent Loop, model adapter, and MCP client. Version 0.1.44 also makes Finder reference verification portable across Windows release runners.
 
 ## Highlights
 

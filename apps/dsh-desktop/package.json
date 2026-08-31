@@ -1,6 +1,6 @@
 {
   "name": "@harness-design/desktop",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "private": true,
   "description": "JIWEI local-first Agent workspace with connectors, native attachments, and a personal knowledge loop",
   "author": "jerry-yu95 and contributors",
