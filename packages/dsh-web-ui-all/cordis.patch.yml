@@ -2,6 +2,11 @@
 # This file is derived from the aggregate.yml manifest in this package;
 # edit aggregate.yml and rerun `node scripts/aggregate.mjs`.
 
+# from ../dsh-knowledge
+- insert:
+    - id: knowledge
+      name: '@harness-design/dsh-knowledge'
+
 # from ../dsh-orchestrator
 - insert:
     - id: harness-orchestrator
@@ -56,6 +61,11 @@
 - insert:
     - id: extension-center
       name: '@linxin666/dsh-client-ui-extension-center'
+
+# from ../dsh-text-context
+- insert:
+    - id: text-context
+      name: '@linxin666/dsh-text-context'
 
 # from ../skins/skin-center (via ../dsh-skins)
 - insert:

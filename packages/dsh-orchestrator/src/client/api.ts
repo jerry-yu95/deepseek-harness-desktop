@@ -4,6 +4,7 @@ import { HARNESS_RPC_CHANNEL, type HarnessDashboardStatus } from '../wire.ts'
 import type { ModelHealthSummary } from '../model-health.ts'
 import type { ObservabilityPeriod } from '../observability.ts'
 import type { ContextQualityRun, ContextQualityScale, ContextQualitySummary } from '../context-quality.ts'
+import type { ModelConnectionResult } from '../model-connection.ts'
 
 interface RpcErrorValue { error: string }
 
@@ -21,6 +22,10 @@ export class HarnessClientApi {
 
   async probe(sessionId: string, bypassCache = false): Promise<{ cached: boolean; summary: ModelHealthSummary }> {
     return this.call('probe', { sessionId, bypassCache })
+  }
+
+  testConnection(sessionId: string, signal?: AbortSignal): Promise<ModelConnectionResult> {
+    return this.call('connection-test', { sessionId }, signal)
   }
 
   contextQuality(sessionId: string, scale: ContextQualityScale, confirmed: boolean): Promise<{ run: ContextQualityRun; summary: ContextQualitySummary }> {

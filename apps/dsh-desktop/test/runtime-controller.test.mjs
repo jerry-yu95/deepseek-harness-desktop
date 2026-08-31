@@ -139,7 +139,7 @@ test('personal public mode pins Harness to loopback and enables the tunnel throu
   await ready
 
   assert.equal(spawnOptions.env.DSH_DESKTOP_REMOTE_MODE, 'personal-public')
-  assert.deepEqual(spawnArgs.slice(-4), ['--host', '127.0.0.1', '--port', '0'])
+  assert.deepEqual(spawnArgs.slice(-5), ['--host', '127.0.0.1', '--port', '0', '--no-open'])
   await controller.stop()
 })
 

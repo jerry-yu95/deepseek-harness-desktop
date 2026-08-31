@@ -4,6 +4,7 @@ export function useHarnessStatus(api, sessionId) {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState();
+    const [connectionResult, setConnectionResult] = useState();
     const [period, setPeriod] = useState('7d');
     const request = useRef(0);
     const refresh = useCallback(async () => {
@@ -48,9 +49,22 @@ export function useHarnessStatus(api, sessionId) {
         }
     }, []);
     return {
-        status, loading, busy, period, ...(error === undefined ? {} : { error }), refresh, setPeriod,
+        status, loading, busy, period, ...(error === undefined ? {} : { error }), ...(connectionResult === undefined ? {} : { connectionResult }), refresh, setPeriod,
         setMode: (mode, objective) => action(() => api.mode(sessionId, mode, objective)),
         probe: bypassCache => action(async () => { await api.probe(sessionId, bypassCache); return api.status(sessionId); }),
+        testConnection: async () => {
+            setBusy(true);
+            try {
+                setConnectionResult(await api.testConnection(sessionId));
+                setError(undefined);
+            }
+            catch (cause) {
+                setError(messageOf(cause));
+            }
+            finally {
+                setBusy(false);
+            }
+        },
         runContextQuality: scale => action(async () => { await api.contextQuality(sessionId, scale, true); return api.status(sessionId); }),
         feedback: verdict => action(() => api.feedback(sessionId, verdict)),
     };

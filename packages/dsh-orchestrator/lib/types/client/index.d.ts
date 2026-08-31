@@ -1,7 +1,7 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface SlotMap {
-        'settings.plugin.item': {
+        'web-ui.plugin.item': {
             kind: 'list';
             scope: 'root';
             owner: {

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { ConnectorStore } from './extensions/connectors.mjs'
 import { discoverMcpClientSources, readMcpClientSource, readMcpSourceFile } from './extensions/mcp-client-sources.mjs'
 import { parseMcpServersJson } from './extensions/mcp-config.mjs'
-import { buildMcpConnectorImport, createProviderJsonSource, previewMcpJson } from './extensions/mcp-import.mjs'
+import { buildMcpConnectorImport, createProviderJsonSource, inferProviderJsonSources, previewMcpJson } from './extensions/mcp-import.mjs'
 import { createSkill, defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
 import { installSkillPackage, previewSkillPackage } from './extensions/skill-packages.mjs'
 import { ConnectorAuthManager, AUTH_PROVIDERS } from './extensions/connector-auth.mjs'
@@ -19,6 +19,8 @@ import { createGitHubAuthAdapter } from './extensions/providers/github-auth.mjs'
 import { createGitLabAuthAdapter } from './extensions/providers/gitlab-auth.mjs'
 import { validateTencentMeetingSkillSource } from './extensions/providers/tencent-meeting-skill.mjs'
 import { validateWecomSkillSource } from './extensions/providers/wecom-skill.mjs'
+import { projectModelProviderTestResult, testModelProvider } from './model-provider-test.mjs'
+import { getModelImageInput, setModelImageInput } from './model-provider-capabilities.mjs'
 
 const CHANNELS = [
   'extensions:list',
@@ -44,12 +46,18 @@ const CHANNELS = [
   'extensions:connector-auth-cancel',
   'extensions:connector-auth-verify',
   'extensions:mcp-preview',
+  'extensions:mcp-test',
   'extensions:mcp-import',
   'extensions:mcp-file-pick',
   'extensions:mcp-source-list',
   'extensions:mcp-source-preview',
+  'extensions:mcp-source-test',
   'extensions:mcp-source-pick',
   'extensions:mcp-source-import',
+  'models:provider-test',
+  'models:image-input-status',
+  'models:image-input-set',
+  'knowledge:url-import',
 ]
 
 const SOURCE_SESSION_TTL_MS = 15 * 60 * 1_000
@@ -151,6 +159,7 @@ export function registerExtensionIpc({
   connectorAuthManager,
   connectorAuthContext,
   prepareRendererForConnectorRestart,
+  knowledgeUrlImporter,
 }) {
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
@@ -399,6 +408,7 @@ export function registerExtensionIpc({
     const connectorSource = source?.kind === 'provider-json'
       ? createProviderJsonSource({ providerId: source.providerId, parsed })
       : source
+    const sourcesByName = source?.kind === 'json' ? inferProviderJsonSources(parsed) : {}
     const built = buildMcpConnectorImport({
       parsed,
       existing,
@@ -406,6 +416,7 @@ export function registerExtensionIpc({
       conflict: input.conflict ?? 'reject',
       secrets: input.secrets,
       source: connectorSource,
+      sourcesByName,
     })
     const newReferences = [...built.credentials.keys()]
     const previouslyPresent = new Set(newReferences.filter((reference) => connectorSecretStore.has(reference)))
@@ -431,6 +442,31 @@ export function registerExtensionIpc({
         throw error
       }
     }, { checkIds: built.connectors.map(item => item.connector.id) })
+  }
+
+  const testMcpDocument = async (input, text, source) => {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('MCP test input is invalid')
+    const fileSession = input.fileToken === undefined ? undefined : jsonFileSession(input.fileToken)
+    if (fileSession !== undefined && text !== undefined) throw new TypeError('MCP test cannot include both text and fileToken')
+    const documentText = fileSession?.text ?? text
+    if (typeof documentText !== 'string') throw new TypeError('MCP test input is invalid')
+    const parsed = parseMcpServersJson(documentText)
+    const selectedNames = Array.isArray(input.selectedNames) ? new Set(input.selectedNames) : new Set(parsed.servers.map(server => server.sourceName))
+    if (parsed.servers.some(server => selectedNames.has(server.sourceName) && server.transport === 'stdio') && input.allowLocalCommand !== true) throw new Error('local-command-trust-required')
+    const connectorSource = source?.kind === 'provider-json' ? createProviderJsonSource({ providerId: source.providerId, parsed }) : source
+    const built = buildMcpConnectorImport({
+      parsed,
+      existing: [],
+      selectedNames: input.selectedNames,
+      conflict: 'reject',
+      secrets: input.secrets,
+      source: connectorSource,
+      sourcesByName: source?.kind === 'json' ? inferProviderJsonSources(parsed) : {},
+    })
+    await connectorSecretStore.load()
+    const results = []
+    for (const item of built.connectors) results.push({ connector: item.connector, result: await connectorStore.checkCandidate(item.connector, built.credentials) })
+    return { results }
   }
   ipcMain.handle('extensions:connector-list', async () => {
     const connectors = await connectorStore.list()
@@ -578,6 +614,7 @@ export function registerExtensionIpc({
     return plainAuthStatus(providerId, 'error', 'authorization-cancelled')
   })
   ipcMain.handle('extensions:mcp-preview', (_event, text) => previewMcpJson(text))
+  ipcMain.handle('extensions:mcp-test', (_event, input) => testMcpDocument(input, input?.text, input?.source ?? { kind: 'json' }))
   ipcMain.handle('extensions:mcp-import', async (_event, input) => {
     const result = await importMcpDocument(input, input?.text, input?.source ?? { kind: 'json' })
     if (typeof input?.fileToken === 'string') jsonFileSessions.delete(input.fileToken)
@@ -596,6 +633,10 @@ export function registerExtensionIpc({
   ipcMain.handle('extensions:mcp-source-preview', async (_event, clientId) => {
     const source = await readMcpClientSource(clientId, sourceOptions)
     return stageSource(source)
+  })
+  ipcMain.handle('extensions:mcp-source-test', async (_event, input) => {
+    const session = sourceSession(input?.token)
+    return testMcpDocument(input, session.text, { kind: 'external-client', clientId: session.clientId, scope: session.scope })
   })
   ipcMain.handle('extensions:mcp-source-pick', async (_event, clientId) => {
     const result = await dialog.showOpenDialog(getWindow(), {
@@ -616,6 +657,13 @@ export function registerExtensionIpc({
     })
     sourceSessions.delete(input.token)
     return result
+  })
+  ipcMain.handle('models:provider-test', async (_event, input) => projectModelProviderTestResult(await testModelProvider(input)))
+  ipcMain.handle('models:image-input-status', (_event, input) => getModelImageInput(dshHome, input))
+  ipcMain.handle('models:image-input-set', (_event, input) => setModelImageInput(dshHome, input))
+  ipcMain.handle('knowledge:url-import', (_event, input) => {
+    if (typeof knowledgeUrlImporter !== 'function') throw new Error('knowledge browser import is unavailable')
+    return knowledgeUrlImporter(input)
   })
 
   return () => {

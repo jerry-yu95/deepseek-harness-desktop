@@ -38,7 +38,7 @@ export function HarnessComposerControls(props: ControlProps) {
     </div>
   )
 }
-type SettingsProps = PropsRuntime<'settings.plugin.item'> & HarnessFace
+type SettingsProps = PropsRuntime<'web-ui.plugin.item'> & HarnessFace
 
 export function HarnessSettingsCard(props: SettingsProps) {
   const sessionId = props.useSessions(snapshot => snapshot.current)
@@ -70,8 +70,12 @@ function HealthDashboard({ state, compact = false }: { state: StatusState; compa
       <div className={styles.summary}>
         <div className={`${styles.score} ${styles[tone]}`}><strong>{health.sampleCount === 0 ? '—' : health.score}</strong><span>{healthLabel(health.status)}</span></div>
         <div className={styles.meta}><b>{modelKey}</b><span>样本 {health.sampleCount} · 基线 {health.baselineScore ?? '待建立'} · 变化 {health.delta === undefined ? '—' : `${health.delta > 0 ? '+' : ''}${health.delta}`}</span></div>
-        <button className={styles.diagnosticAction} disabled={state.busy} onClick={() => { void state.probe(true) }}><HealthIcon />{state.busy ? '检测中…' : '立即检测'}</button>
+        <div className={styles.summaryActions}>
+          <button className={styles.diagnosticAction} disabled={state.busy} onClick={() => { void state.testConnection() }}><ConnectionIcon />{state.busy ? '测试中…' : '测试连接'}</button>
+          <button className={styles.diagnosticAction} disabled={state.busy} onClick={() => { void state.probe(true) }}><HealthIcon />{state.busy ? '检测中…' : '健康检测'}</button>
+        </div>
       </div>
+      {state.connectionResult !== undefined ? <div className={state.connectionResult.ok ? styles.connectionReady : styles.alert} role="status"><b>{state.connectionResult.ok ? '已连接' : '连接失败'}</b> · {state.connectionResult.model} · {state.connectionResult.detail} · {formatDuration(state.connectionResult.latencyMs)}</div> : null}
       {health.status === 'degraded' ? <div className={styles.alert}>检测到持续质量下降；仅提醒，不会自动切换模型。建议重试任务或运行一次健康检测。</div> : null}
       <div className={styles.orchestration}>
         <span>编排：<b>{modeLabel(mode)}</b></span>
@@ -177,4 +181,5 @@ function modeLabel(mode: OrchestrationMode): string { return mode === 'enhanced'
 
 function OrchestrationIcon() { return <svg className={styles.lineIcon} viewBox="0 0 20 20" aria-hidden="true"><circle cx="5" cy="5" r="2" /><circle cx="15" cy="5" r="2" /><circle cx="10" cy="15" r="2" /><path d="M6.7 6.1 8.9 13M13.3 6.1 11.1 13M7 5h6" /></svg> }
 function HealthIcon() { return <svg className={styles.lineIcon} viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10h3l1.5-4 3 8 2-5 1.3 3h4.2" /><circle cx="10" cy="10" r="8" /></svg> }
+function ConnectionIcon() { return <svg className={styles.lineIcon} viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 12.5 12.5 7.5M6.2 14.8l-1 1a3 3 0 0 1-4.2-4.2l3-3a3 3 0 0 1 4.2 0M13.8 5.2l1-1A3 3 0 0 1 19 8.4l-3 3a3 3 0 0 1-4.2 0" /></svg> }
 function ChevronIcon() { return <svg className={styles.chevronIcon} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg> }

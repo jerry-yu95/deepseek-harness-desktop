@@ -187,6 +187,7 @@ export class DshRuntimeController extends EventEmitter {
         [
           '--expose-internals', this.cliPath, '--profile', 'desktop',
           '--host', '127.0.0.1', '--port', '0',
+          '--no-open',
         ],
         {
           cwd: this.cwd,

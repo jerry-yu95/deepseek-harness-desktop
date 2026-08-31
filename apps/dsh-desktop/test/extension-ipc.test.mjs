@@ -45,9 +45,29 @@ function fixture(dshHome, options = {}) {
     connectorAuthManager: options.connectorAuthManager,
     connectorAuthContext: options.connectorAuthContext,
     prepareRendererForConnectorRestart: hint => rendererRecoveryHints.push(hint),
+    knowledgeUrlImporter: options.knowledgeUrlImporter,
   })
   return { handlers, calls, rendererRecoveryHints, connectorSecretStore, registration }
 }
+
+test('extension IPC delegates supported knowledge URL imports without exposing a browser object', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-knowledge-url-'))
+  const calls = []
+  const { handlers, registration } = fixture(dshHome, {
+    knowledgeUrlImporter: async url => {
+      calls.push(url)
+      return { title: 'Article', content: 'Readable article content', snapshot: 'Readable article content', source: { kind: 'url', label: 'Article', uri: url, mimeType: 'text/html' } }
+    },
+  })
+  try {
+    const result = await handlers.get('knowledge:url-import')(null, 'https://mp.weixin.qq.com/s/example')
+    assert.equal(result.title, 'Article')
+    assert.deepEqual(calls, ['https://mp.weixin.qq.com/s/example'])
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})
 
 test('extension IPC exposes redacted connector authorization lifecycle and cancellation', async () => {
   const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-auth-'))
@@ -80,6 +100,25 @@ test('extension IPC exposes redacted connector authorization lifecycle and cance
     assert.deepEqual(authCalls, [{ mode: 'pat', token: 'secret-token', connectorId: 'github' }])
     assert.equal((await handlers.get('extensions:connector-auth-verify')(null, 'github')).state, 'ready')
     assert.equal((await handlers.get('extensions:connector-disconnect')(null, 'github')).state, 'not-configured')
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})
+
+test('extension IPC exposes the custom model provider connection probe', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-model-provider-test-'))
+  const { handlers, registration } = fixture(dshHome)
+  try {
+    assert.equal(typeof handlers.get('models:provider-test'), 'function')
+    assert.equal(typeof handlers.get('models:image-input-status'), 'function')
+    assert.equal(typeof handlers.get('models:image-input-set'), 'function')
+    await assert.rejects(
+      () => handlers.get('models:provider-test')(null, {
+        baseURL: 'https://example.com/v1', api: 'openai-completions', apiKey: 'secret-key', model: '',
+      }),
+      (error) => !String(error?.message ?? error).includes('secret-key'),
+    )
   } finally {
     registration()
     await rm(dshHome, { recursive: true, force: true })
@@ -155,11 +194,11 @@ test('extension IPC imports a manually selected TRAE project source through the 
   }
 })
 
-test('extension IPC stages a generic MCP JSON file without exposing its contents to the renderer', async () => {
+test('extension IPC stages a mixed MCP JSON file, associates TAPD, and keeps secrets out of the renderer', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-extension-json-file-'))
   const dshHome = join(root, 'dsh')
   const selectedPath = join(root, 'cursor-mcp.json')
-  await writeFile(selectedPath, JSON.stringify({
+  const document = JSON.stringify({
     mcpServers: {
       tapd_mcp_http: {
         url: 'https://mcp.example.com/mcp/',
@@ -168,7 +207,8 @@ test('extension IPC stages a generic MCP JSON file without exposing its contents
         headers: { 'X-Tapd-Access-Token': 'file-literal-secret' },
       },
     },
-  }), 'utf8')
+  })
+  await writeFile(selectedPath, document, 'utf8')
   const dialog = { showOpenDialog: async () => ({ canceled: false, filePaths: [selectedPath] }) }
   const { handlers, connectorSecretStore, registration } = fixture(dshHome, { dialog })
   try {
@@ -184,8 +224,16 @@ test('extension IPC stages a generic MCP JSON file without exposing its contents
       selectedNames: ['tapd_mcp_http'],
       conflict: 'reject',
     })
-    assert.equal(imported.imported[0].source.kind, 'json')
+    assert.equal(imported.imported[0].source.kind, 'provider-json')
+    assert.equal(imported.imported[0].source.providerId, 'tapd')
     assert.match(Object.values(connectorSecretStore.environment())[0], /file-literal-secret/u)
+    const refreshed = await handlers.get('extensions:mcp-import')(null, {
+      text: document,
+      selectedNames: ['tapd_mcp_http'],
+      conflict: 'reject',
+    })
+    assert.equal(refreshed.imported[0].id, imported.imported[0].id)
+    assert.equal((await handlers.get('extensions:connector-list')()).length, 1)
     await assert.rejects(handlers.get('extensions:mcp-import')(null, {
       fileToken: picked.token,
       selectedNames: ['tapd_mcp_http'],
@@ -194,6 +242,50 @@ test('extension IPC stages a generic MCP JSON file without exposing its contents
   } finally {
     registration()
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('extension IPC refreshes a legacy TAPD connector in place when the imported server name changes', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-tapd-refresh-'))
+  const { handlers, rendererRecoveryHints, connectorSecretStore, registration } = fixture(dshHome)
+  try {
+    await handlers.get('extensions:connector-save')(null, {
+      id: 'adapted-mcp-http',
+      name: 'adapted_mcp_http',
+      description: 'Legacy TAPD import',
+      kind: 'mcp',
+      transport: 'streamable-http',
+      url: 'https://mcp-oa.tapd.woa.com/mcp/',
+      source: { kind: 'json' },
+    })
+
+    const imported = await handlers.get('extensions:mcp-import')(null, {
+      text: JSON.stringify({
+        mcpServers: {
+          tapd_mcp_http: {
+            url: 'https://mcp-oa.tapd.woa.com/mcp/',
+            transportType: 'streamable-http',
+            headers: { 'X-Tapd-Access-Token': 'rotated-tapd-test-secret' },
+          },
+        },
+      }),
+      selectedNames: ['tapd_mcp_http'],
+      conflict: 'reject',
+    })
+
+    assert.equal(imported.imported.length, 1)
+    assert.equal(imported.imported[0].id, 'adapted-mcp-http')
+    assert.equal(imported.imported[0].name, 'tapd_mcp_http')
+    assert.equal(imported.imported[0].source.kind, 'provider-json')
+    assert.equal(imported.imported[0].source.providerId, 'tapd')
+    const listed = await handlers.get('extensions:connector-list')()
+    assert.equal(listed.length, 1)
+    assert.equal(listed[0].id, 'adapted-mcp-http')
+    assert.match(Object.values(connectorSecretStore.environment())[0], /rotated-tapd-test-secret/u)
+    assert.deepEqual(rendererRecoveryHints.at(-1), { tab: 'connectors', checkIds: ['adapted-mcp-http'] })
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
   }
 })
 
@@ -276,6 +368,33 @@ test('extension IPC requires explicit local-command trust and can toggle a conne
     assert.equal((await handlers.get('extensions:connector-list')())[0].enabled, false)
     assert.ok(calls.stops >= 2)
     assert.ok(calls.starts >= 2)
+  } finally {
+    registration()
+    await rm(dshHome, { recursive: true, force: true })
+  }
+})
+
+test('extension IPC tests a draft MCP configuration without saving secrets or restarting Harness', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-extension-draft-test-'))
+  const { handlers, calls, connectorSecretStore, registration } = fixture(dshHome)
+  try {
+    const result = await handlers.get('extensions:mcp-test')(null, {
+      text: JSON.stringify({
+        mcpServers: { localFixture: { command: process.execPath, args: ['--version'] } },
+      }),
+      selectedNames: ['localFixture'],
+      conflict: 'reject',
+      secrets: {},
+      allowLocalCommand: true,
+      source: { kind: 'json' },
+    })
+
+    assert.equal(result.results.length, 1)
+    assert.equal(result.results[0].result.ok, true)
+    assert.equal(result.results[0].result.checks.find((item) => item.id === 'registration').status, 'skipped')
+    assert.deepEqual(await handlers.get('extensions:connector-list')(), [])
+    assert.deepEqual(connectorSecretStore.environment(), {})
+    assert.deepEqual(calls, { stops: 0, starts: 0, profiles: 0 })
   } finally {
     registration()
     await rm(dshHome, { recursive: true, force: true })

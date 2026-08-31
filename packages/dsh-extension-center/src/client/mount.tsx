@@ -10,6 +10,7 @@
  * subtree underneath stays mounted and stateful. (dsh-ssh takeover pattern.)
  */
 import { createRoot, type Root } from 'react-dom/client'
+import type { KnowledgeClientApi } from '@harness-design/dsh-knowledge/src/client/api.ts'
 import type { DesktopBridge } from './bridge.ts'
 import type { PanelController } from './panel/controller.ts'
 import { ExtensionPanel } from './panel/ExtensionPanel.tsx'
@@ -36,7 +37,7 @@ function conversationColumn(): HTMLElement | undefined {
  * @param bridge - the desktop IPC bridge (undefined in plain browser sessions).
  * @returns disposer unmounting the tree and restoring the column.
  */
-export function mountPanel(controller: PanelController, bridge: DesktopBridge | undefined): () => void {
+export function mountPanel(controller: PanelController, bridge: DesktopBridge | undefined, knowledgeApi: KnowledgeClientApi, getSessionId: () => string | undefined = () => undefined): () => void {
   let root: Root | undefined
   let container: HTMLDivElement | undefined
 
@@ -56,7 +57,7 @@ export function mountPanel(controller: PanelController, bridge: DesktopBridge | 
     container.className = css.view
     column.appendChild(container)
     root = createRoot(container)
-    root.render(<ExtensionPanel controller={controller} bridge={bridge} />)
+    root.render(<ExtensionPanel controller={controller} bridge={bridge} knowledgeApi={knowledgeApi} getSessionId={getSessionId} />)
   }
 
   // The frame mounts after boot settlement; watch for the column's arrival.

@@ -1,192 +1,118 @@
-# DeepSeek Harness Desktop
+# JIWEI · 积微
 
-[中文](README.md) | English
+[中文](README.md) · [English](README.en.md)
 
-![dsh-web-ui](docs/dsh-web-ui-banner.png)
+![JIWEI — let every thought grow into your own world of knowledge](docs/brand/jiwei-banner.png)
 
-## Cross-platform Desktop
+> A personal Agent workspace that acts and remembers.
 
-DeepSeek Harness Desktop brings the complete DSH Web surface to native Windows and macOS applications. It does not rewrite the interface: a hardened Electron window launches the official `@deepseek-ai/dsh` host locally and loads this repository's desktop extensions. Releases are built separately for Windows x64, macOS Intel, and macOS Apple Silicon.
+JIWEI brings AI conversations, tool execution, project context, and personal knowledge into one local-first workspace. It uses DeepSeek Harness as its Agent runtime and adds desktop delivery, native file attachments, connector workflows, observable orchestration, and the “My Brain” knowledge loop.
 
-[Download the latest installer](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation guide](docs/install.en.md) · [Desktop technical guide](docs/desktop.md) · [Changelog](CHANGELOG.md)
+This is an independent community project, not an official DeepSeek product. The JIWEI brand, product design, desktop integration, and new features are maintained here. DeepSeek, Harness, and related marks belong to their respective owners.
 
-Current development version: `0.1.39`. This release adds opt-in 32K/128K long-context quality probes and history: three deterministic samples run through the current session's official model route and report critical-fact, exact-literal, constraint, stale-state, and tool-pairing quality. It never spends API tokens automatically or stores raw prompts, model output, or credentials.
+[Latest release](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [Installation](docs/install.en.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
-## Why this project exists
+Current version: `0.1.43` · Embedded runtime: `@deepseek-ai/dsh 0.1.1-rc.2`
 
-DeepSeek Harness is more than a chat interface: it is an Agent runtime for composing models, tools, permissions, Skills, workflows, and plugins. This project does not replace that runtime. It adds the product layer everyday users need: installation, understandable controls, extensibility, remote access, observability, and recovery.
+## Why JIWEI
 
-- **Official foundation stays intact**: the official Agent Loop, Cordis, permissions, and plugin semantics remain the source of truth, while official-core and community-desktop updates stay separate;
-- **Extension Center**: Skills, MCP/HTTP connectors, and learning live in the official sidebar with creation, import, diagnostics, and removal in one place;
-- **Official JSON first**: discover local WorkBuddy, CodeBuddy, TRAE, and Qoder MCP configs or paste a provider's `mcpServers` JSON and fill only missing credentials;
-- **Agent Harness layer**: select Standard, Adaptive, or Enhanced orchestration and inspect cache hits, Agent traces, model health, period-based Token usage, and opt-in long-context quality trends;
-- **Real desktop delivery**: Windows x64, macOS Intel, and Apple Silicon packages with isolated configuration, safe updates, and rollback;
-- **Clear open-source boundary**: community features are not presented as official DeepSeek capabilities, and third-party licensing and attribution are preserved.
+Most AI products end when a conversation ends. Sources stay in transcripts, tool configuration stays fragmented across clients, and useful project experience is hard to call back later.
 
-The project's core position is an open-source Agent workbench above the official Harness runtime: it preserves DeepSeek Harness execution semantics while making connectors, Skills, orchestration, caching, remote control, observability, and cross-platform delivery understandable, installable, and testable for everyday users.
+JIWEI is built around a continuous cognition loop:
 
-| Lossless original surface | Desktop Extension Dock |
-| --- | --- |
-| ![Desktop startup](docs/screenshots/desktop-startup.png) | ![Plugin and skill Extension Dock](docs/screenshots/desktop-extension-dock.png) |
-
-- Keeps the task board, Git graph, right panel, SSH, mobile remote, live stats, pet, and custom image themes;
-- Uses an isolated `desktop` profile without overwriting an existing DSH setup, and binds only to loopback;
-- Adds crash recovery, sanitized rotating logs, window-state restore, strict navigation, and denied-by-default permissions;
-- Adds an Extension Center for Skill creation/import, official MCP JSON, external-client config discovery, connector diagnostics, and transactional community DSH bundle management;
-- Bundles official DSH, pnpm, and native dependencies, so users do not need a separate Node.js installation.
-
-## Extension Center
-
-The Skills, Connectors, and Learn sidebar entries are provided by the community desktop plugin:
-
-- **Skills** lists discovered Harness Skills, creates valid `SKILL.md` bundles, and imports existing skill directories. A Skill is an Agent playbook, not an MCP server or Cordis runtime plugin;
-- **Connectors** offers verified GitHub, Feishu/Lark, and GitLab MCP templates, arbitrary official `mcpServers` JSON import, and one-click discovery for WorkBuddy, CodeBuddy, TRAE, and Qoder;
-- **Learn** explains the five Harness layers, permissions, modes, plugin boundaries, and the product reasoning behind every community enhancement in plain language.
-
-The connector catalog distinguishes official MCP templates, provider-supplied JSON configuration, official Skills, and API/OAuth guidance. Source verification is not a claim that a real account has been authorized end to end; the app reports configuration, credentials, runtime reachability, and Harness registration as separate diagnostics.
-
-Credentials are encrypted in the desktop main process and never written into connector records, generated profiles, logs, or exported JSON. Diagnostics report configuration, credentials, runtime reachability, and Harness registration as separate stages.
-
-The public build does not use paid code-signing certificates, so Windows SmartScreen or macOS Gatekeeper may report an unknown publisher. Download only from this project's Releases and verify SHA-256. Windows supports in-app updates; macOS detects new versions and opens this project's Release page for manual installation. See the [installation guide](docs/install.en.md).
-
-This repository also maintains a collection of DeepSeek Harness (DSH) Web UI extensions: a task board, Git graph, right panel, mobile remote control, remote connection, whale-girl pet, live token statistics, and custom image themes. Desktop installers already include these capabilities; the standalone plugin instructions below are for developers with an existing DSH environment.
-
-![DSH Web UI main screen](docs/screenshots/13-hero-main.png)
-
-## Feature Plugins
-
-### Task Board
-
-Open it from the sidebar. Tasks are organized into five columns: Planned, To-do, In Progress, Done, and Failed. Clicking "Run" on a card hands the task to a real DSH agent session; when it finishes, the card status updates automatically. To review what happened, jump directly into the execution session for the full transcript.
-
-Tasks also support scheduled execution: configure a cron expression in the detail view (e.g. auto-upgrade DSH at 23:00 daily, generate a weekly report at 09:00 every Monday), and the task runs on its own at the scheduled time.
-
-| Multi-column board | Scheduled execution |
-| --- | --- |
-| ![Task board](docs/screenshots/09-task-board.png) | ![Scheduled task detail](docs/screenshots/10-task-board-detail-cron.png) |
-
-### Git Graph
-
-The branch picker above the input box handles branch switching and commit history browsing; the Git graph visualizes branch lanes and commit history, making it easy to trace changes along the timeline even in large repositories.
-
-![Git graph](docs/screenshots/04-git-graph.png)
-
-### Right Panel
-
-When a project session is open, two panels appear to the right of the chat area — "Preview" and "Files/Changes":
-
-- **File tree**: browse the working directory; click a file to open it in the preview panel, click a folder row to expand it, and search for files by name;
-- **Preview**: multi-tab preview for markdown, HTML, code, diff, CSV, PDF, Office, images and plain text, with source/preview switching, split-screen editing and saving;
-- **Changes (SCM)**: a real git changes panel with stage / unstage / discard;
-- Panel widths are draggable (double-click a handle to reset), and the collapsed state plus widths persist per project;
-- Custom image themes adapt the right panel while automatically preserving readable contrast.
-
-![Right panel](docs/screenshots/19-right-panel.png)
-
-### Whale-Girl Pet
-
-A whale girl who lives at the edge of the interface and switches animations with the agent's state: thinking, waiting, working, celebrating. Click her to interact (pet her head), feed her dried fish to raise affinity, and grow her from a baby whale to "deep-sea bond". She can be renamed, dragged to any position, or hidden whenever you want.
-
-| Working companion | Interaction panel |
-| --- | --- |
-| ![Whale pet](docs/screenshots/11-pet-new-chat.png) | ![Pet interaction panel](docs/screenshots/12-pet-panel.png) |
-
-### Live Token Stats
-
-Real-time usage shown directly below the input box: generation speed (TPS), LLM time, context usage, cache hit rate, and input / output token counts — the cost of every generation stays visible at a glance.
-
-![Live token stats](docs/screenshots/18-live-stats.png)
-
-### Mobile Remote Control
-
-The phone icon at the bottom of the sidebar opens the pairing panel: scan the QR code (or copy the link) to pair, and the phone lands on a standalone mobile surface that remote-controls the current dsh web workspace — browse and create sessions, send and receive messages, switch models and reasoning effort, and adjust the permission preset, all in sync with the desktop. Pairing tokens are one-time and time-limited; "Stop" revokes every paired device at any time. The QR defaults to the LAN, or turn on the cloudflared public tunnel so the phone can pair from any network.
-
-| Workspaces | Sessions & new session |
-| --- | --- |
-| ![Mobile workspaces](docs/screenshots/20-mobile-workspaces.png) | ![Mobile sessions](docs/screenshots/21-mobile-sessions.png) |
-| Chat (folded reasoning & tool calls) | Model & reasoning-effort picker |
-| ![Mobile chat](docs/screenshots/22-mobile-chat.png) | ![Model picker](docs/screenshots/23-mobile-model-sheet.png) |
-
-### Remote Connection
-
-The "SSH" sidebar entry opens the remote-ops panel. Hosts support key / password auth and one-click import from `~/.ssh/config`; config lives in `~/.dsh/dsh-ssh.json`. Real operations on configured hosts:
-
-- **Web terminal**: xterm.js PTY with live output and auto-fit;
-- **File transfer**: SFTP upload / download with progress and a remote directory browser;
-- **Port forwarding**: local tunnels to remote internal services (databases, APIs, admin consoles), bound to 127.0.0.1 only;
-- **Cluster runs**: one command across many hosts concurrently, filtered by alias / environment / tags;
-- **Agent direct control**: agents share the same host config — just say "check xxx" in chat and the agent runs remote commands for you.
-
-### Settings Hub
-
-All family plugins' toggles and parameters live under "Settings > Plugin config", and changes apply immediately.
-
-![Plugin config hub](docs/screenshots/02-settings-web-ui-plugins.png)
-
-## Custom image theme
-
-The desktop profile no longer enables the fragile preset skins by default. Upload an image under **Settings → Plugin config → Web UI plugins → Custom theme** and the app derives readable light/dark colors, contrast, and an adjustable background overlay. The image and generated theme remain local, and one click restores the official appearance.
-
-## Installation
-
-DSH plugins are installed per **profile** with the `dsh plugin` command (`dsh web` runs the `web` profile). The recommended way is the aggregate package `dsh-web-ui-all` — one package with all plugins and skins; install `dsh-skins` instead if you only want the skins.
-
-### Option 1: Install from npm (recommended)
-
-The plugins are published to npm (the `@linxin666` scope) — one command installs everything:
-
-```sh
-dsh plugin --profile web add @linxin666/dsh-web-ui-all
+```text
+conversation and sources → Agent action → human confirmation → knowledge → reuse
 ```
 
-Restart `dsh web` and all plugin entries appear in the sidebar. Skins only? Install `@linxin666/dsh-skins` instead.
+The goal is not another button-heavy chat box. It is a workspace where newcomers can use Agents at low cost while understanding, correcting, and accumulating their results.
 
-> First install may stop on `ERR_PNPM_IGNORED_BUILDS` (pnpm blocks dependency build scripts): copy the printed keys (`cloudflared` / `cpu-features` / `ssh2`) into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+## Product today
 
-### Option 2: Install from the GitHub repository (development)
+| Isolated local runtime | “My Brain” knowledge loop |
+| --- | --- |
+| ![JIWEI startup](docs/screenshots/jiwei-startup.png) | ![JIWEI My Brain](docs/screenshots/jiwei-my-brain.png) |
+| **Files, conversations, and projects** | **Skills and connector dock** |
+| ![JIWEI Agent workspace](docs/screenshots/jiwei-agent-workspace.png) | ![JIWEI connector center](docs/screenshots/jiwei-connectors.png) |
 
-The packages are already on npm; installing from this repository is only for development (requires Node.js >= 22 and pnpm):
+These screenshots were generated from this repository with isolated local data and contain no live accounts or secrets. The DeepSeek Harness surface shown inside the workspace belongs to the integrated upstream runtime and does not make JIWEI an official distribution.
+
+## Core capabilities
+
+### Native attachments
+
+- Drag, paste, or choose a file and the composer shows a native file reference—not an opaque ID, tool protocol, or the whole document.
+- The Agent reads bounded pages only when needed, preserving context quality.
+- JSON, JSONC, YAML, Markdown, TXT, CSV, XML, DOCX, XLSX, and PPTX are supported. PNG, JPEG, WebP, and GIF stay on the runtime image path.
+- Sensitive configuration is redacted before Host RPC. `.env`, key files, archives, PDF, legacy Office, and unreliable content fail closed.
+
+### Diagnosable connectors
+
+- Paste provider `mcpServers` JSON, select a local `mcp.json`, or discover selected Agent-client configurations.
+- Known providers map to their catalog entry; unknown servers remain named custom connectors.
+- Remote MCP is usable only after both `initialize` and `tools/list` succeed and expose a tool. An HTTP 302 login redirect is not a successful handshake.
+- Configuration, credentials, runtime, and Harness registration are diagnosed separately. Secrets are encrypted in the desktop main process and excluded from records, logs, and exports.
+- An Agent can stage a connector import directly from an attachment instead of searching user directories or unpacking applications.
+
+Live authorization still depends on provider protocol, network, account, and permissions. A catalog entry or structurally valid configuration is not a claim of end-to-end account verification.
+
+### “My Brain” knowledge loop
+
+- Decisions, methods, and retrospectives first enter an inbox; the user edits and confirms them before deposit.
+- Pending and deposited knowledge share one searchable view with editing, ignore actions, categories, and tags.
+- Supports pasted content, public URLs, and a WeChat Official Account adapter with bounded DNS, redirect, type, and size policies.
+- If static WeChat access is blocked, an isolated browser restricted to exact WeChat content hosts can complete verification without weakening the generic importer.
+- AI refinement is explicitly initiated and uses a model already configured in the client. Source and provenance remain local, and output still requires confirmation.
+
+### Observable desktop Agent runtime
+
+- DeepSeek Harness remains responsible for the Agent Loop, model adapters, permissions, and Cordis plugin semantics.
+- Standard, adaptive, and enhanced orchestration expose model health, token use, context pressure, cache hits, and execution traces.
+- An isolated `desktop` profile avoids overwriting existing DSH settings, and the runtime binds to loopback by default.
+- Windows x64, macOS Intel, and Apple Silicon builds include sanitized logs, crash recovery, configuration backup, and update rollback.
+
+## Architecture boundary
+
+| Layer | Maintainer | Responsibility |
+| --- | --- | --- |
+| JIWEI product layer | This project | Desktop shell, attachments, connector workflows, knowledge loop, brand, and UX |
+| Harness runtime layer | Official DeepSeek dependencies | Agent Loop, models, permissions, MCP client, workflows, and plugin host |
+| Compatibility layer | This project and attributed third parties | Optional task, Git, SSH, mobile, and UI extensions |
+
+This boundary lets JIWEI follow upstream runtime releases without presenting community capabilities as official features. The desktop application ID remains compatible for seamless preview-build upgrades; the product name, icon, packages, and public presentation use JIWEI.
+
+## Install
+
+Download the matching artifact from [Releases](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest):
+
+| Platform | Artifact |
+| --- | --- |
+| Windows 10/11 x64 | `JIWEI-Setup-<version>-x64.exe` |
+| Intel Mac | `JIWEI-<version>-x64.dmg` |
+| Apple Silicon Mac | `JIWEI-<version>-arm64.dmg` |
+
+Public builds are currently unsigned and may be reported as an unknown publisher. Download only from this repository and verify against `SHA256SUMS.txt` in the same release. See the [installation guide](docs/install.en.md).
+
+## Develop locally
+
+Requires Node.js 22+ and pnpm 11:
 
 ```sh
-# 1. Clone the repository
 git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
 cd deepseek-harness-desktop
-
-# 2. Install dependencies and build
 pnpm install
-pnpm -r build
-
-# 3. Install the aggregate package into the web profile
-dsh plugin --profile web add link:$(pwd)/packages/dsh-web-ui-all
-
-# 4. Restart dsh web — all plugin entries appear in the sidebar
-dsh web
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm --filter @harness-design/desktop dev
 ```
 
-> Skins only? Point step 3 at `packages/dsh-skins` instead.
+## Privacy, license, and contribution
 
-### Install a single plugin
+- Local-first and loopback-only by default; remote capability requires explicit opt-in.
+- Source paths do not enter conversation prose; file reads are bounded and connector credentials are encrypted.
+- URL ingestion rejects private networks, mixed DNS, unsafe redirects, and oversized responses.
+- Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-Prefer individual plugins? Install them one by one (published on npm, so use the package name directly):
+The repository is BSD-3-Clause licensed; see [LICENSE](LICENSE). It includes components from the earlier `dsh-web-ui` collection and other open-source packages. Required copyrights, licenses, and provenance remain in [NOTICE.md](NOTICE.md) and package-level license files. Attribution does not imply endorsement or reuse of third-party branding, promotional copy, or screenshots.
 
-```sh
-dsh plugin --profile web add @linxin666/dsh-client-ui-task-board   # Task board
-dsh plugin --profile web add @linxin666/dsh-ssh                    # Remote connection (SSH)
-dsh plugin --profile web add @linxin666/dsh-pet                    # Whale-girl pet
-```
-
-### Verify and uninstall
-
-After installing, restart `dsh web` — a working plugin shows up in the sidebar. You can also confirm the mounted config layers with `dsh --profile web --dump-config`. If nothing appears in the sidebar, you most likely forgot to restart `dsh web`.
-
-Uninstall: `dsh plugin --profile web remove @linxin666/dsh-web-ui-all`, then restart `dsh web`.
-
-Technical details live in [docs/plugins.md](docs/plugins.md).
-
-## Sources & Licensing
-
-| Package | Origin | License |
-| --- | --- | --- |
-| dsh-task-board / dsh-git-graph / dsh-aionui-panel / dsh-pet / dsh-remote-web-ui / dsh-live-stats / dsh-web-ui-settings / dsh-skins / dsh-web-ui-all / skins | Authored by zhu1090093659 | BSD-3-Clause (zhu1090093659) |
-
-Third-party code merged in must keep its LICENSE and attribution; active third parties with an upstream are forked or referenced as dependencies instead of vendored.
+Issues and pull requests are welcome. Please provide reproducible, sanitized evidence and read [CONTRIBUTING.md](CONTRIBUTING.md).

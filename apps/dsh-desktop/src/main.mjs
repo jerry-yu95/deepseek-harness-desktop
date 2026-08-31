@@ -1,6 +1,12 @@
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { version } = require('../package.json')
+
 export const DESKTOP_METADATA = Object.freeze({
   appId: 'studio.harness.design.desktop',
-  productName: 'Harness Design Desktop',
+  productName: 'JIWEI',
+  version,
   profile: 'desktop',
   protocol: 'dsh',
 })

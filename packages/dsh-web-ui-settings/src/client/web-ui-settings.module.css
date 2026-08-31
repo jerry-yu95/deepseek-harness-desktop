@@ -1,3 +1,11 @@
+.tabList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
 .groupCard {
   list-style: none;
   border: 1px solid var(--dsw-alias-border-l2);

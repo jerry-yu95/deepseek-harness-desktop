@@ -14,6 +14,9 @@ export class HarnessClientApi {
     async probe(sessionId, bypassCache = false) {
         return this.call('probe', { sessionId, bypassCache });
     }
+    testConnection(sessionId, signal) {
+        return this.call('connection-test', { sessionId }, signal);
+    }
     contextQuality(sessionId, scale, confirmed) {
         return this.call('context-quality', { sessionId, scale, confirmed });
     }

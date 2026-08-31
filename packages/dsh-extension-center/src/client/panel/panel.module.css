@@ -19,7 +19,7 @@
   position: absolute;
   inset: 0;
   display: none;
-  z-index: 5;
+  z-index: 100;
 }
 
 html[data-dsh-extension-active] [data-dsh-extension-view] {
@@ -30,6 +30,13 @@ html[data-dsh-extension-active] [data-dsh-extension-view] {
    (it stays mounted and stateful). */
 html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-extension-view]) {
   display: none;
+}
+
+/* The official composer can be rendered as a sticky seat below the element
+   stamped as the conversation pane. Hide that stable semantic seat as well;
+   otherwise it floats above the extension panel after switching from chat. */
+html[data-dsh-extension-active] [data-composer-seat] {
+  display: none !important;
 }
 
 /* --- sidebar entry rows ------------------------------------------------------- */
@@ -962,6 +969,312 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   flex: none;
 }
 
+/* --- local-first knowledge loop --------------------------------------------- */
+
+.knowledgeBody {
+  gap: 14px;
+}
+
+.knowledgeHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent), var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base)) 62%);
+}
+
+.knowledgeHero h3 {
+  margin: 4px 0 7px;
+  font-size: 21px;
+}
+
+.knowledgeHero p {
+  max-width: 720px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.knowledgeHero > span {
+  flex: none;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, transparent);
+  border-radius: 999px;
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.knowledgeEyebrow {
+  color: var(--dsw-alias-state-business-primary) !important;
+  font-size: 10px !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.knowledgeWorkspace {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+}
+
+.knowledgeWorkspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.knowledgeTabs,
+.knowledgeFilters,
+.knowledgeCaptureModes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.knowledgeTabs button,
+.knowledgeCaptureModes button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.knowledgeTabs button[data-active],
+.knowledgeCaptureModes button[data-active] {
+  border-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.knowledgeTabs button span {
+  min-width: 17px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  text-align: center;
+  font-size: 10px;
+}
+
+.knowledgeFilters input,
+.knowledgeFilters select {
+  min-width: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+}
+
+.knowledgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+}
+
+.knowledgeCategory {
+  margin-left: 5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-label-secondary) 10%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 10px;
+}
+
+.knowledgeCard {
+  padding: 11px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-base);
+}
+
+.knowledgeCardHeader,
+.knowledgeActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.knowledgeKind,
+.knowledgeConfidence,
+.knowledgeTags span {
+  font-size: 10px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.knowledgeKind,
+.knowledgeTags span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+}
+
+.knowledgeCard h4 {
+  margin: 8px 0 5px;
+  font-size: 14px;
+}
+
+.knowledgeCard > p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-secondary);
+  white-space: pre-wrap;
+}
+
+.knowledgeMeta {
+  display: grid;
+  gap: 4px;
+  margin: 9px 0 0;
+}
+
+.knowledgeMeta div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 6px;
+  font-size: 10px;
+}
+
+.knowledgeMeta dt {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.knowledgeMeta dd {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  overflow-wrap: anywhere;
+}
+
+.knowledgeTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 9px;
+}
+
+.knowledgeActions {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.knowledgeDialog {
+  width: min(720px, calc(100vw - 36px));
+  max-height: min(760px, calc(100vh - 36px));
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+}
+
+.knowledgeDialog > header,
+.knowledgeDialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.knowledgeDialog > footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  border-bottom: 0;
+}
+
+.knowledgeDialog h3 {
+  margin: 3px 0 0;
+}
+
+.knowledgeCaptureModes {
+  padding: 10px 16px 0;
+}
+
+.knowledgeDialogBody {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.knowledgeDialogBody label {
+  display: grid;
+  gap: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.knowledgeDialogBody label:has(textarea),
+.knowledgePrivacy {
+  grid-column: 1 / -1;
+}
+
+.knowledgeDialogBody input,
+.knowledgeDialogBody textarea,
+.knowledgeDialogBody select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 9px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
+
+.knowledgeDialogBody textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.knowledgePrivacy {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.knowledgeEmpty,
+.knowledgeSectionEmpty {
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.knowledgeEmpty strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.knowledgeEmpty p,
+.knowledgeSectionEmpty {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 /* --- notice / empty / toast ---------------------------------------------------- */
 
 .notice {
@@ -1062,7 +1375,19 @@ html[data-dsh-extension-active] [data-pane='conversation'] > :not([data-dsh-exte
   }
 
   .learningSteps,
-  .learningGrid {
+  .learningGrid,
+  .knowledgeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledgeHero,
+  .knowledgeWorkspaceHeader,
+  .knowledgeFilters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .knowledgeDialogBody {
     grid-template-columns: 1fr;
   }
 }

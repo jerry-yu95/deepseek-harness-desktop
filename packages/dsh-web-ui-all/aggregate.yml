@@ -2,6 +2,7 @@
 # deps 的包进 package.json dependencies（workspace:*）
 # dsh-skins 的 patch 行只有 ui-skin-center，汇总后自然展开
 patchFrom:
+  - ../dsh-knowledge
   - ../dsh-orchestrator
   - ../dsh-web-ui-compat
   - ../dsh-aionui-panel
@@ -13,12 +14,14 @@ patchFrom:
   - ../dsh-ssh
   - ../dsh-web-ui-settings
   - ../dsh-extension-center
+  - ../dsh-text-context
   - ../dsh-skins
 rows:
   # dsh-im-bundle deliberately has an empty patch: dependency auto-loading its
   # patch as well as this aggregate row would register the same plugin twice.
   - xmanrui-dsh-im=@xmanrui/dsh-im
 deps:
+  - ../dsh-knowledge
   - ../dsh-orchestrator
   - ../dsh-web-ui-compat
   - ../dsh-aionui-panel
@@ -31,4 +34,5 @@ deps:
   - ../dsh-ssh
   - ../dsh-web-ui-settings
   - ../dsh-extension-center
+  - ../dsh-text-context
   - ../dsh-skins

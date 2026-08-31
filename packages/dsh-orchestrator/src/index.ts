@@ -12,10 +12,11 @@ import { assessTask, type AdaptiveDecision } from './adaptive.ts'
 import { appendProgress, harnessContextSync, initHarness, loadHarness, setOrchestrationMode, transitionHarness, updateFeature, updateOrchestration, type FeatureStatus, type HarnessPhase } from './core.ts'
 import { runOrchestrationRole, type OrchestrationRole } from './orchestration.ts'
 import { getModelHealth, recordHealthFeedback, recordHealthSignals, runModelHealthProbe, type HealthDimension } from './model-health.ts'
+import { testModelConnection } from './model-connection.ts'
 import { aggregateObservability, recordTokenSnapshot, type ObservabilityPeriod, type TokenBuckets } from './observability.ts'
 import { aggregateContextQuality, type ContextQualityScale } from './context-quality.ts'
 import { runContextQualityProbe } from './context-quality-probe.ts'
-import { HARNESS_RPC_CHANNEL, type HarnessContextQualityRequest, type HarnessDashboardStatus, type HarnessFeedbackRequest, type HarnessModeRequest, type HarnessProbeRequest, type HarnessRouteRequest, type HarnessStatusRequest } from './wire.ts'
+import { HARNESS_RPC_CHANNEL, type HarnessConnectionTestRequest, type HarnessContextQualityRequest, type HarnessDashboardStatus, type HarnessFeedbackRequest, type HarnessModeRequest, type HarnessProbeRequest, type HarnessRouteRequest, type HarnessStatusRequest } from './wire.ts'
 
 export const name = 'harness-orchestrator'
 export const inject = ['systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter']
@@ -52,6 +53,12 @@ export function apply(ctx: Context): void {
         const cwd = requireWorkspace(agent.session.header.cwd)
         const modelKey = currentModelKey(agent)
         return { ok: true, value: await runModelHealthProbe({ cwd, modelKey, parent: agent, signal, workflowEngine: agent.ctx.get('workflowEngine'), llm: ctx.llm, ...(request.bypassCache === undefined ? {} : { bypassCache: request.bypassCache }) }) }
+      }
+      if (endpoint === 'connection-test') {
+        const request = parseConnectionTestRequest(payload)
+        const agent = requireLiveAgent(ctx, request.sessionId)
+        const route = requireCurrentModelRoute(agent)
+        return { ok: true, value: await testModelConnection({ llm: ctx.llm, provider: route.provider, model: route.model, signal }) }
       }
       if (endpoint === 'context-quality') {
         const request = parseContextQualityRequest(payload)
@@ -255,6 +262,7 @@ export * from './core.ts'
 export * from './adaptive.ts'
 export * from './orchestration.ts'
 export * from './model-health.ts'
+export * from './model-connection.ts'
 export * from './observability.ts'
 export * from './context-quality.ts'
 export * from './context-quality-probe.ts'
@@ -327,6 +335,10 @@ function parseRouteRequest(payload: unknown): HarnessRouteRequest {
 function parseProbeRequest(payload: unknown): HarnessProbeRequest {
   const request = parseSessionRequest(payload)
   return { ...request, ...(isRecord(payload) && typeof payload.bypassCache === 'boolean' ? { bypassCache: payload.bypassCache } : {}) }
+}
+
+function parseConnectionTestRequest(payload: unknown): HarnessConnectionTestRequest {
+  return parseSessionRequest(payload)
 }
 
 function parseContextQualityRequest(payload: unknown): HarnessContextQualityRequest {

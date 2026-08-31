@@ -1,0 +1,12 @@
+# dsh-text-context bundle patch: inserts the client-only plugin row into
+# the web profile roster. Applied as a profile bundle layer (the
+# `dsh.bundle.patch` manifest field) over dsh-base; activate with the
+# aggregate package or `dsh plugin --profile <name> add link:.../packages/dsh-text-context`.
+#
+# The node half (exports ".") is a no-op host loader; the `dsh.client`
+# declaration in package.json makes the browser half (exports "./client")
+# load in the web GUI, where it intercepts supported text files at document
+# capture and inserts native file references into the composer input machine.
+- insert:
+    - id: text-context
+      name: '@linxin666/dsh-text-context'

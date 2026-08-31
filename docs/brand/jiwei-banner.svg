@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" role="img" aria-labelledby="title desc">
+  <title id="title">积微 JIWEI</title>
+  <desc id="desc">会行动，也会沉淀的个人 Agent 工作台。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050d1b"/>
+      <stop offset="0.58" stop-color="#081a30"/>
+      <stop offset="1" stop-color="#103858"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#31bdf6"/>
+      <stop offset="0.56" stop-color="#76e7d0"/>
+      <stop offset="1" stop-color="#f5d476"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14"/></filter>
+  </defs>
+  <rect width="1600" height="600" rx="42" fill="url(#bg)"/>
+  <g opacity="0.16" stroke="#7adcf4" stroke-width="1">
+    <path d="M0 128H1600M0 256H1600M0 384H1600M0 512H1600"/>
+    <path d="M128 0V600M256 0V600M384 0V600M512 0V600M640 0V600M768 0V600M896 0V600M1024 0V600M1152 0V600M1280 0V600M1408 0V600M1536 0V600"/>
+  </g>
+  <circle cx="1325" cy="92" r="240" fill="#56d9ff" opacity="0.045"/>
+  <circle cx="1050" cy="560" r="310" fill="#45d9c5" opacity="0.04"/>
+  <g transform="translate(105 92)">
+    <text x="0" y="64" fill="#87e9df" font-family="Inter,Segoe UI,sans-serif" font-size="22" font-weight="700" letter-spacing="7">LOCAL-FIRST · AGENT · KNOWLEDGE LOOP</text>
+    <text x="0" y="196" fill="#f4fbff" font-family="STHeiti,Microsoft YaHei,Segoe UI,sans-serif" font-size="112" font-weight="700" letter-spacing="3">积微</text>
+    <text x="312" y="192" fill="#b7d8e8" font-family="Inter,Segoe UI,sans-serif" font-size="54" font-weight="600" letter-spacing="12">JIWEI</text>
+    <text x="0" y="282" fill="#f2f9fc" font-family="STHeiti,Microsoft YaHei,Segoe UI,sans-serif" font-size="36">让每一次思考，长成自己的认知世界。</text>
+    <text x="0" y="340" fill="#88aabc" font-family="STHeiti,Microsoft YaHei,Segoe UI,sans-serif" font-size="24">会行动，也会沉淀的个人 Agent 工作台</text>
+    <g transform="translate(0 388)" font-family="Inter,Segoe UI,sans-serif" font-size="17" font-weight="600" letter-spacing="2">
+      <rect width="154" height="50" rx="25" fill="#103c58" stroke="#2c86a7"/><text x="77" y="32" text-anchor="middle" fill="#bfeefd">对话</text>
+      <path d="M166 25H208" stroke="#45c8f3" stroke-width="2"/><path d="m201 18 8 7-8 7" fill="none" stroke="#45c8f3" stroke-width="2"/>
+      <rect x="220" width="154" height="50" rx="25" fill="#103c58" stroke="#2c86a7"/><text x="297" y="32" text-anchor="middle" fill="#bfeefd">行动</text>
+      <path d="M386 25H428" stroke="#62decf" stroke-width="2"/><path d="m421 18 8 7-8 7" fill="none" stroke="#62decf" stroke-width="2"/>
+      <rect x="440" width="154" height="50" rx="25" fill="#123f50" stroke="#4f9e91"/><text x="517" y="32" text-anchor="middle" fill="#d5fff4">沉淀</text>
+      <path d="M606 25H648" stroke="#f1d378" stroke-width="2"/><path d="m641 18 8 7-8 7" fill="none" stroke="#f1d378" stroke-width="2"/>
+      <rect x="660" width="154" height="50" rx="25" fill="#4c4326" stroke="#9e8750"/><text x="737" y="32" text-anchor="middle" fill="#fff0b8">复用</text>
+    </g>
+  </g>
+  <g transform="translate(1050 110)">
+    <path d="M78 338C164 308 203 220 258 202C319 182 346 254 418 202C463 169 488 111 506 44" fill="none" stroke="url(#flow)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M126 105C182 122 208 171 258 202" fill="none" stroke="#42c7f4" stroke-width="18" stroke-linecap="round"/>
+    <path d="M258 202C304 143 349 82 418 57" fill="none" stroke="#75e6d0" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="78" cy="338" r="28" fill="#35bdf5"/>
+    <circle cx="126" cy="105" r="21" fill="#43c8f4"/>
+    <circle cx="258" cy="202" r="70" fill="#5de1cd" opacity="0.22" filter="url(#glow)"/>
+    <circle cx="258" cy="202" r="45" fill="#c7fff4"/>
+    <circle cx="418" cy="57" r="24" fill="#8ce9c9"/>
+    <circle cx="418" cy="202" r="31" fill="#77e3ce"/>
+    <circle cx="506" cy="44" r="20" fill="#f5d476"/>
+    <circle cx="530" cy="5" r="9" fill="#fff2b6"/>
+  </g>
+</svg>

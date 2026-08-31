@@ -1,5 +1,5 @@
 appId: studio.harness.design.desktop
-productName: Harness Design Desktop
+productName: JIWEI
 copyright: Copyright (c) 2026 jerry-yu95 and contributors
 
 asar: true
@@ -32,24 +32,24 @@ mac:
   category: public.app-category.developer-tools
   hardenedRuntime: false
   gatekeeperAssess: false
-  artifactName: Harness-Design-Desktop-${version}-${arch}.${ext}
+  artifactName: JIWEI-${version}-${arch}.${ext}
   target:
     - dmg
     - zip
 
 dmg:
-  artifactName: Harness-Design-Desktop-${version}-${arch}.${ext}
-  title: Harness Design Desktop ${version}
+  artifactName: JIWEI-${version}-${arch}.${ext}
+  title: JIWEI ${version}
 
 nsis:
-  artifactName: Harness-Design-Desktop-Setup-${version}-${arch}.${ext}
+  artifactName: JIWEI-Setup-${version}-${arch}.${ext}
   oneClick: false
   perMachine: false
   allowElevation: true
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  shortcutName: Harness Design Desktop
+  shortcutName: JIWEI
 
 publish:
   provider: github

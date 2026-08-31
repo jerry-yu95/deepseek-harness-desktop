@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.43 - 2026-09-01
+
+- Introduced the independent “积微 JIWEI” product identity, original brand assets and current-build screenshots; renamed desktop windows and release artifacts while retaining the existing application ID for upgrade compatibility.
+- Added a local-first knowledge inbox and review loop to “My Brain”, including editable pending and deposited knowledge, custom categories and tags, source provenance, conversation-derived candidates, pasted-content import, and public-link import without silently invoking a model.
+- Added layered article extraction with Mozilla Readability and a dedicated WeChat Official Account adapter. Exact `mp.weixin.qq.com/s` links first use bounded static extraction and fall back to an isolated, persistent WeChat browser session when platform verification or login is required; error and challenge pages are never saved as knowledge.
+- Kept generic URL imports fail-closed against SSRF, redirects to private networks, oversized responses, unsupported content, and mixed DNS results. The macOS proxy fake-IP exception applies only to the exact WeChat article host and still requires the isolated host allowlist.
+- Added desktop IPC and deterministic coverage for WeChat URL validation, resource-policy isolation, bounded article projection, Readability extraction, platform error detection, and knowledge-import delegation.
+- Improved Connector Center configuration and import behavior, including editable provider-associated connector configuration, targeted official-provider refresh, safer conflict handling, and clearer authorization and health states.
+
+## 0.1.42 - 2026-08-31
+
+- Made repeated imports of the same official provider idempotent: a recognized TAPD configuration refreshes the existing TAPD connector even when the general collision policy remains “reject”. Unrelated same-name connectors are still protected from overwrite.
+- Added targeted MCP import handoff. When a user requests a named server such as TAPD, `connector_import_prepare` carries that target into Connector Center and selects `tapd_mcp_http` without also selecting unrelated iWiki or stdio entries.
+- Added validation and regression coverage for bounded target-name handoff, keyword selection, same-provider refresh, and retained conflict protection.
+
+## 0.1.41 - 2026-08-30
+
+- Removed the visible attachment transport protocol from submitted messages. Conversation history now shows only the human-readable file label, while `attachment_read` and `connector_import_prepare` resolve the newest matching attachment privately by name.
+- Associated recognized TAPD servers inside mixed `mcp.json` documents with the official TAPD catalog entry. Unknown servers remain separately named custom connectors, and existing generic TAPD imports are migrated to the catalog view without exposing credentials.
+- Tightened MCP health checks so redirects, HTML pages, initialize-only responses, and unverified SSE endpoints cannot appear as connected. A connector passes only after a valid `initialize` followed by `tools/list` returns at least one registerable tool.
+- Added Agent guidance that connector credentials must stay in encrypted desktop storage: the Agent must use registered MCP tools and must not request tokens or cookies in chat or probe provider APIs with Bash, Search, or browser requests.
+- Moved provider-associated connectors into their official catalog cards with live health, enable/disable, retest, and remove actions; they no longer appear as duplicate generic rows.
+
+## 0.1.40 - 2026-08-29
+
+- Updated the embedded official DeepSeek Harness runtime from `0.1.0-rc.6` to `0.1.1-rc.2`, including the new official authorization peer required by the model adapter. The unpublished `0.1.2-alpha.1` line remains excluded from this release candidate.
+- Replaced inline text expansion with durable native file references. JSON, JSONC, YAML, Markdown, TXT, CSV, XML, DOCX, XLSX, and PPTX now appear as a file-labelled `@name` reference in the official composer; the opaque `file_*` identifier and `attachment_read` protocol are serialized only when the draft is submitted. The Agent reads bounded pages on demand, text configuration files are redacted before storage, and the original local path never enters the conversation.
+- Replaced the submitted transcript's raw attachment protocol with a file-card Markdown reference, so conversation history no longer exposes the opaque identifier or tool instruction as visible prose.
+- Added the controlled `connector_import_prepare` Agent tool. Requests to configure MCP from an attached JSON now hand the original renderer-held document directly to Connector Center preview and conclude the turn instead of searching `settings.yaml`, `app.asar`, `node_modules`, or unrelated client files.
+- Added bounded local Office Open XML extraction for DOCX, XLSX, and PPTX. Legacy Office formats, PDF, archives, sensitive files, malformed UTF-8, and unredactable configuration content fail closed. Images remain on the official multimodal attachment path.
+- Added a real official-Host integration assertion for the upload RPC, preventing renderer-only tests from shipping an unloaded attachment plugin. This caught and fixed the rc.2 single-segment RPC-channel requirement.
+- Corrected Finder file paste on macOS: native file references now take precedence over Finder's icon preview image. Supported text files retain their basename and bytes, then enter the existing size, UTF-8, sensitive-file, and credential-redaction pipeline; local directories never cross into the renderer.
+- Deduplicated Finder's opaque `/.file/id=...` alias from the real file path and made the text capture listener page-singleton, preventing a valid `mcp.json` paste from being rejected or producing repeated status messages.
+- Fixed the install-acceptance regressions found in the first RC: a safe text filename now overrides an incorrect official-image MIME report, the Extension Center hides the official sticky composer seat, and saved custom models expose an explicit reversible image-input capability switch.
+- Added a capture-phase text-context plugin so supported files avoid the official image attachment path. PNG, JPEG, WebP, and GIF still use the official image path.
+- Added a custom-model connection test that sends one minimal inference request without creating a session, switching the current model, or saving an unfinished provider draft.
+- Added a connector preview, test, save, and restore flow: draft tests do not persist configuration or restart the Host; after save-and-connect the Extension Center reopens on the Connectors tab and locates the new connector.
+- Kept secret handling fail-closed: blocked text files are not inserted, model-test IPC returns no API keys, and connector tests never send plaintext credentials to the renderer.
+- Local deterministic tests cover classification, redaction, file-reference storage and paging, Office Open XML extraction, persisted model modality declarations, model-probe categories, MCP initialize/SSE handshakes, and desktop IPC. Enabling image input declares adapter capability but does not claim that a provider model passed a live multimodal request. This RC does not claim live-account connector verification, legacy Office support, PDF support, or live GLM multimodal verification.
+
 ## 0.1.39 - 2026-08-27
 
 - Added explicit, opt-in 32K and 128K long-context quality probes to the Agent Harness health dashboard. Each run uses three seeded samples and the current session's official model route.

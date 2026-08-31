@@ -1,5 +1,5 @@
 /**
- * Sidebar entry injection (two rows: Skills, Connectors).
+ * Sidebar entry injection (Skills, Connectors, Learning, and My Brain).
  *
  * dsh's sidebar shell exposes no slot an external plugin can register into,
  * so — following the dsh-ssh precedent of DOM-level extension — the rows are
@@ -44,13 +44,17 @@ const ICONS: Record<ExtensionTab, string> = {
   // Open book: the learning platform.
   learning:
     '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h3.2A2.3 2.3 0 0 1 8 5.8v7a2.3 2.3 0 0 0-2.3-2.3H2.5z"/><path d="M13.5 3.5h-3.2A2.3 2.3 0 0 0 8 5.8v7a2.3 2.3 0 0 1 2.3-2.3h3.2z"/></svg>',
+  // Connected nodes: confirmed knowledge linked by provenance.
+  knowledge:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="3" r="1.5"/><circle cx="3" cy="11.5" r="1.5"/><circle cx="13" cy="11.5" r="1.5"/><path d="M7.2 4.3 3.8 10M8.8 4.3l3.4 5.7M4.5 11.5h7"/></svg>',
 }
 
 /** One entry row per tab, with its locale keys. */
-const ENTRIES: ReadonlyArray<{ tab: ExtensionTab; labelKey: 'entry.skills.label' | 'entry.connectors.label' | 'entry.learning.label'; tooltipKey: 'entry.skills.tooltip' | 'entry.connectors.tooltip' | 'entry.learning.tooltip' }> = [
+const ENTRIES: ReadonlyArray<{ tab: ExtensionTab; labelKey: 'entry.skills.label' | 'entry.connectors.label' | 'entry.learning.label' | 'entry.knowledge.label'; tooltipKey: 'entry.skills.tooltip' | 'entry.connectors.tooltip' | 'entry.learning.tooltip' | 'entry.knowledge.tooltip' }> = [
   { tab: 'skills', labelKey: 'entry.skills.label', tooltipKey: 'entry.skills.tooltip' },
   { tab: 'connectors', labelKey: 'entry.connectors.label', tooltipKey: 'entry.connectors.tooltip' },
   { tab: 'learning', labelKey: 'entry.learning.label', tooltipKey: 'entry.learning.tooltip' },
+  { tab: 'knowledge', labelKey: 'entry.knowledge.label', tooltipKey: 'entry.knowledge.tooltip' },
 ]
 
 /** Find the sidebar shell root element, or undefined while not yet mounted. */
@@ -111,7 +115,7 @@ function placeEntries(root: HTMLElement, entries: HTMLButtonElement[]): boolean 
 }
 
 /**
- * Mount both sidebar entries, waiting for the shell to render and
+ * Mount the sidebar entries, waiting for the shell to render and
  * self-healing on later React re-renders.
  * @param controller - the panel controller the entries toggle.
  * @returns disposer removing the entries and their observers.

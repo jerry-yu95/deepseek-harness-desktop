@@ -87,10 +87,19 @@ interface State {
   settledEstimates: number
   last: SettledSample | null
   /** Surface message seq -> estimated tokens, kept in increasing seq order. */
-  surface: Map<number, number>
+  surface: Array<{ seq: number; tokens: number }>
   surfaceTokens: number
   header: EpochHeader | undefined
   active: ActiveStep | null
+}
+
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionMap {
+    liveTokenUsage: LiveTokenUsageProjection
+  }
+  interface SessionProjectionStateMap {
+    liveTokenUsage: State
+  }
 }
 
 function surfaceMessage(event: SurfaceEvent): Message {
@@ -110,31 +119,25 @@ function applySurface(
 ): Pick<State, 'surface' | 'surfaceTokens'> {
   const tokens = estimateMessageTokens(surfaceMessage(event), spec)
   if (event.surfaceOp === 'append') {
-    state.surface.set(event.seq, tokens)
     return {
-      surface: state.surface,
+      surface: [...state.surface, { seq: event.seq, tokens }],
       surfaceTokens: state.surfaceTokens + tokens,
     }
   }
   const operation = event.surfaceOp
-  if (!state.surface.has(operation.start) || !state.surface.has(operation.end) || operation.start > operation.end) {
+  if (!state.surface.some(node => node.seq === operation.start)
+    || !state.surface.some(node => node.seq === operation.end)
+    || operation.start > operation.end) {
     throw new Error(
       'live-stats: replace at seq ' + event.seq + ' has invalid current range ' + operation.start + '-' + operation.end,
     )
   }
-  // Keys enter in increasing seq order (appends grow, and a replace's own
-  // seq is always the newest), so one pass with an early exit removes the
-  // exact range. Deleting entries while iterating a Map is safe.
-  let removed = 0
-  for (const [seq, nodeTokens] of state.surface) {
-    if (seq < operation.start) continue
-    if (seq > operation.end) break
-    removed += nodeTokens
-    state.surface.delete(seq)
-  }
-  state.surface.set(event.seq, tokens)
+  const removed = state.surface
+    .filter(node => node.seq >= operation.start && node.seq <= operation.end)
+    .reduce((total, node) => total + node.tokens, 0)
+  const retained = state.surface.filter(node => node.seq < operation.start || node.seq > operation.end)
   return {
-    surface: state.surface,
+    surface: [...retained, { seq: event.seq, tokens }],
     surfaceTokens: state.surfaceTokens - removed + tokens,
   }
 }
@@ -268,15 +271,17 @@ function view(state: State): LiveTokenUsageProjection {
  */
 export function createLiveTokenUsageProjectionDefinition(
   spec: EstimatorSpec,
-): ProjectionDefinition<'liveTokenUsage', State> {
+): Omit<ProjectionDefinition<'liveTokenUsage', State>, 'wire'> & {
+  wire: NonNullable<ProjectionDefinition<'liveTokenUsage', State>['wire']>
+} {
   return {
     key: 'liveTokenUsage',
-    schema: projectionSchema,
+    stateSchema: z.custom<State>(),
     init: () => ({
       settled: zeroBuckets(),
       settledEstimates: 0,
       last: null,
-      surface: new Map(),
+      surface: [],
       surfaceTokens: 0,
       header: undefined,
       active: null,
@@ -385,7 +390,10 @@ export function createLiveTokenUsageProjectionDefinition(
       if (isSurfaceEvent(event)) next = { ...next, ...applySurface(next, event, spec) }
       return next
     },
-    view,
-    stateVersion: 2,
+    wire: {
+      viewSchema: projectionSchema,
+      view,
+    },
+    stateVersion: 3,
   }
 }

@@ -633,9 +633,9 @@ describe('liveTokenUsage projection', () => {
     state = definition.apply(state, surfaceEvent(1, 'one', 'append'))
     state = definition.apply(state, surfaceEvent(2, 'two', 'append'))
     state = definition.apply(state, surfaceEvent(3, 'three', { op: 'replace', start: 1, end: 2 }))
-    expect(state.surface.has(1)).toBe(false)
-    expect(state.surface.has(2)).toBe(false)
-    expect(state.surface.has(3)).toBe(true)
+    expect(state.surface.some(node => node.seq === 1)).toBe(false)
+    expect(state.surface.some(node => node.seq === 2)).toBe(false)
+    expect(state.surface.some(node => node.seq === 3)).toBe(true)
     expect(state.surfaceTokens).toBe(estimateMessageTokens(
       createUserMessage({ content: [{ type: 'text', text: 'three' }], source: { kind: 'user' } }),
       spec,

@@ -42,6 +42,8 @@ try {
   await page.waitForLoadState('domcontentloaded')
   if (extensionMode) {
     await page.waitForFunction(() => document.body.dataset.busy !== 'true' && document.querySelector('#plugin-count')?.textContent !== '0')
+    await page.locator('[data-tab="connectors"]').click()
+    await page.getByText('连接器中心', { exact: true }).waitFor()
   }
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.screenshot({ path: output })

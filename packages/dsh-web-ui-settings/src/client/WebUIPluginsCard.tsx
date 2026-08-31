@@ -25,6 +25,11 @@ export interface WebUIPluginsCardProps {
   renderSlot: PropsRenderSlots<'web-ui.plugin.item'>['renderSlot']
 }
 
+/** Render the Web UI family as its own rc.2 Plugins tab. */
+export function WebUIPluginsTab(props: WebUIPluginsCardProps): ReactNode {
+  return <ul className={css.tabList}><WebUIPluginsCard {...props} /></ul>
+}
+
 /**
  * Render the group card with the child plugin cards inside its body.
  * @param props - locale copy and the child slot renderer.

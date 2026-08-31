@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">积微 JIWEI 标志</title>
+  <desc id="desc">微小光点沿着生长轨迹汇聚为一个开放的认知网络。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#061224"/>
+      <stop offset="0.55" stop-color="#0a2442"/>
+      <stop offset="1" stop-color="#123d65"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#35bdf5"/>
+      <stop offset="0.55" stop-color="#75e7d1"/>
+      <stop offset="1" stop-color="#f6d57a"/>
+    </linearGradient>
+    <radialGradient id="core">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.38" stop-color="#b8fff0"/>
+      <stop offset="1" stop-color="#44d9c5"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <circle cx="792" cy="232" r="188" fill="#58d8ff" opacity="0.045"/>
+  <circle cx="216" cy="812" r="244" fill="#44d9c5" opacity="0.045"/>
+  <path d="M236 704C350 664 400 542 472 516C551 487 579 585 676 516C735 474 765 397 790 305" fill="none" stroke="url(#flow)" stroke-width="34" stroke-linecap="round"/>
+  <path d="M300 385C376 409 406 478 472 516" fill="none" stroke="#45c8f6" stroke-width="25" stroke-linecap="round" opacity="0.9"/>
+  <path d="M472 516C535 434 593 350 676 317" fill="none" stroke="#72e5d0" stroke-width="25" stroke-linecap="round" opacity="0.92"/>
+  <circle cx="236" cy="704" r="38" fill="#39bdf3"/>
+  <circle cx="300" cy="385" r="29" fill="#43c7f4"/>
+  <circle cx="472" cy="516" r="64" fill="url(#core)" filter="url(#glow)"/>
+  <circle cx="676" cy="317" r="34" fill="#8be8c8"/>
+  <circle cx="676" cy="516" r="42" fill="#79e4cd"/>
+  <circle cx="790" cy="305" r="26" fill="#f6d57a"/>
+  <circle cx="820" cy="230" r="13" fill="#fff4c0"/>
+</svg>

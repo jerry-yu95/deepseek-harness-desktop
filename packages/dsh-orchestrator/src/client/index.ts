@@ -7,7 +7,7 @@ import { HarnessComposerControls, HarnessSettingsCard, type HarnessFace } from '
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: { children?: never } }
+    'web-ui.plugin.item': { kind: 'list'; scope: 'root'; owner: { children?: never } }
   }
 }
 
@@ -17,7 +17,7 @@ export function apply(ctx: ClientContext): void {
   const api = new HarnessClientApi(ctx.get('connection') as unknown as ConnectionHandle)
   const inject = (): HarnessFace => ({ api })
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'harness-health', order: 80, inject }, HarnessComposerControls))
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({ name: 'settings.plugin.item', id: 'agent-harness', order: 70, inject }, HarnessSettingsCard))
+  ctx.slots.inject('web-ui.plugin.item', () => ctx.slots.register({ name: 'web-ui.plugin.item', id: 'agent-harness', order: 70, inject }, HarnessSettingsCard))
 }
 
 export { HarnessClientApi } from './api.ts'

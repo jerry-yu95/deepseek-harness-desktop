@@ -4,12 +4,14 @@
  * the sidebar entries) so both surfaces always agree.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import type { KnowledgeClientApi } from '@harness-design/dsh-knowledge/src/client/api.ts'
 import type { DesktopBridge } from '../bridge.ts'
 import { tt } from '../helpers.ts'
 import type { ExtensionTab, PanelController } from './controller.ts'
 import { SkillsTab } from './SkillsTab.tsx'
 import { ConnectorsTab } from './ConnectorsTab.tsx'
 import { LearningTab } from './LearningTab.tsx'
+import { KnowledgeTab } from './KnowledgeTab.tsx'
 import css from './panel.module.css'
 
 /** Toast message shown at the panel bottom; auto-clears after 4s. */
@@ -22,10 +24,12 @@ export interface PanelToast {
 export interface ExtensionPanelProps {
   controller: PanelController
   bridge: DesktopBridge | undefined
+  knowledgeApi: KnowledgeClientApi
+  getSessionId: () => string | undefined
 }
 
 /** The panel shell component. */
-export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
+export function ExtensionPanel({ controller, bridge, knowledgeApi, getSessionId }: ExtensionPanelProps) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const [toast, setToast] = useState<PanelToast | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -39,7 +43,7 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
-  const tabs: ReadonlyArray<{ id: ExtensionTab; label: () => string }> = [
+  const tabs: ReadonlyArray<{ id: Exclude<ExtensionTab, 'knowledge'>; label: () => string }> = [
     { id: 'skills', label: () => tt('tab.skills') },
     { id: 'connectors', label: () => tt('tab.connectors') },
     { id: 'learning', label: () => tt('tab.learning') },
@@ -48,9 +52,9 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
   return (
     <div className={css.panel}>
       <header className={css.panelHeader}>
-        <h2 className={css.panelTitle}>{tt('panel.title')}</h2>
+        <h2 className={css.panelTitle}>{tt(snapshot.tab === 'knowledge' ? 'knowledge.title' : 'panel.title')}</h2>
         <div className={css.headerActions}>
-          {bridge !== undefined && (
+          {(bridge !== undefined || snapshot.tab === 'knowledge') && (
             <button type="button" className={css.secondaryButton} onClick={() => { setRefreshKey((key) => key + 1) }}>
               {tt('common.refresh')}
             </button>
@@ -61,7 +65,7 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
         </div>
       </header>
 
-      <nav className={css.tabBar}>
+      {snapshot.tab !== 'knowledge' && <nav className={css.tabBar}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -73,10 +77,12 @@ export function ExtensionPanel({ controller, bridge }: ExtensionPanelProps) {
             {tab.label()}
           </button>
         ))}
-      </nav>
+      </nav>}
 
       <div className={css.panelContent}>
-        {snapshot.tab === 'learning' ? (
+        {snapshot.tab === 'knowledge' ? (
+          <KnowledgeTab api={knowledgeApi} refreshKey={refreshKey} notify={notify} getSessionId={getSessionId} />
+        ) : snapshot.tab === 'learning' ? (
           <LearningTab />
         ) : bridge === undefined ? (
           <section className={css.notice}>

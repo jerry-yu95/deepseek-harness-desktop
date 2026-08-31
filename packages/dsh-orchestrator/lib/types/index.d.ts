@@ -9,6 +9,7 @@ export * from './core.ts';
 export * from './adaptive.ts';
 export * from './orchestration.ts';
 export * from './model-health.ts';
+export * from './model-connection.ts';
 export * from './observability.ts';
 export * from './context-quality.ts';
 export * from './context-quality-probe.ts';

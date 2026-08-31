@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -25,6 +26,28 @@ test('official DSH host serves the complete desktop profile', { timeout: 60_000 
     const response = await fetch(url, { signal: AbortSignal.timeout(5_000) })
     assert.equal(response.ok, true)
     assert.match(await response.text(), /__DSH_BOOT__/)
+
+    const fileUpload = await fetch(new URL('/dsh-text-context-files-v1/upload', url), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'client-request',
+        rpcId: randomUUID(),
+        method: 'upload',
+        payload: {
+          name: 'runtime-check.json',
+          mediaType: 'application/json',
+          bytes: 17,
+          kind: 'text',
+          redacted: false,
+          base64: Buffer.from('{"runtime":true}\n').toString('base64'),
+        },
+      }),
+    })
+    assert.equal(fileUpload.status, 200)
+    const fileUploadResult = await fileUpload.json()
+    assert.equal(fileUploadResult.result?.ok, true)
+    assert.match(fileUploadResult.result?.value?.attachment?.id ?? '', /^file_[0-9a-f]{32}$/)
 
     const themeState = await fetch(new URL('/api/adaptive-theme/state', url))
     assert.equal(themeState.status, 200)

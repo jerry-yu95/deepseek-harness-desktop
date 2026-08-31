@@ -8,7 +8,7 @@ Accepted for the first MVP.
 
 ## Context
 
-Harness Design Desktop already ships DeepSeek Harness compaction, goals, workflows, subagents, session projection, and tool execution. Adding a second agent runtime would duplicate lifecycle, cancellation, permissions, persistence, and model selection. The useful ideas from Pi Shadow Mind are persistent responsibility definitions, short-lived independent reviewers, a sanitized trajectory, bounded concurrency, and concise reports. The useful long-running Harness pattern is a planner-generator-evaluator loop backed by a single source of truth.
+JIWEI already ships DeepSeek Harness compaction, goals, workflows, subagents, session projection, and tool execution. Adding a second agent runtime would duplicate lifecycle, cancellation, permissions, persistence, and model selection. The useful ideas from Pi Shadow Mind are persistent responsibility definitions, short-lived independent reviewers, a sanitized trajectory, bounded concurrency, and concise reports. The useful long-running Harness pattern is a planner-generator-evaluator loop backed by a single source of truth.
 
 ## Decision
 

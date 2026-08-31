@@ -34,8 +34,8 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           path: |
-            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe
-            apps/dsh-desktop/dist/Harness-Design-Desktop-Setup-*.exe.blockmap
+            apps/dsh-desktop/dist/JIWEI-Setup-*.exe
+            apps/dsh-desktop/dist/JIWEI-Setup-*.exe.blockmap
             apps/dsh-desktop/dist/latest.yml
 
   macos:
@@ -87,10 +87,10 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           path: |
-            apps/dsh-desktop/dist/Harness-Design-Desktop-*.dmg
-            apps/dsh-desktop/dist/Harness-Design-Desktop-*.dmg.blockmap
-            apps/dsh-desktop/dist/Harness-Design-Desktop-*.zip
-            apps/dsh-desktop/dist/Harness-Design-Desktop-*.zip.blockmap
+            apps/dsh-desktop/dist/JIWEI-*.dmg
+            apps/dsh-desktop/dist/JIWEI-*.dmg.blockmap
+            apps/dsh-desktop/dist/JIWEI-*.zip
+            apps/dsh-desktop/dist/JIWEI-*.zip.blockmap
             apps/dsh-desktop/dist/latest-mac-${{ matrix.arch }}.yml
 
   publish:
@@ -119,12 +119,12 @@ jobs:
           fail_on_unmatched_files: true
           overwrite_files: false
           files: |
-            release-assets/Harness-Design-Desktop-Setup-*.exe
-            release-assets/Harness-Design-Desktop-Setup-*.exe.blockmap
-            release-assets/Harness-Design-Desktop-*.dmg
-            release-assets/Harness-Design-Desktop-*.dmg.blockmap
-            release-assets/Harness-Design-Desktop-*.zip
-            release-assets/Harness-Design-Desktop-*.zip.blockmap
+            release-assets/JIWEI-Setup-*.exe
+            release-assets/JIWEI-Setup-*.exe.blockmap
+            release-assets/JIWEI-*.dmg
+            release-assets/JIWEI-*.dmg.blockmap
+            release-assets/JIWEI-*.zip
+            release-assets/JIWEI-*.zip.blockmap
             release-assets/latest.yml
             release-assets/latest-mac.yml
             release-assets/SHA256SUMS.txt

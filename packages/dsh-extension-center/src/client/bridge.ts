@@ -256,14 +256,23 @@ export interface DesktopBridge {
   setConnectorEnabled?: (id: string, enabled: boolean) => Promise<ConnectorRecord>
   /** Optional on older desktop builds; advanced connector form remains usable. */
   previewMcpJson?: (text: string) => Promise<McpJsonPreview>
+  testMcpJson?: (input: McpJsonImportInput) => Promise<{ results: Array<{ connector: ConnectorRecord; result: ConnectorCheckResult }> }>
   importMcpJson?: (input: McpJsonImportInput) => Promise<{ imported: ConnectorRecord[] }>
   /** Optional on newer desktop builds; reads one user-selected MCP file in the main process. */
   pickMcpJsonFile?: () => Promise<PickedMcpJsonFile>
   /** Optional on older builds; source text and file paths remain in the main process. */
   listMcpClientSources?: () => Promise<McpClientSourceSummary[]>
   previewMcpClientSource?: (clientId: string) => Promise<McpClientSourceStage>
+  testMcpClientSource?: (input: McpClientSourceImportInput) => Promise<{ results: Array<{ connector: ConnectorRecord; result: ConnectorCheckResult }> }>
   pickMcpClientSource?: (clientId: string) => Promise<PickedMcpClientSource>
   importMcpClientSource?: (input: McpClientSourceImportInput) => Promise<{ imported: ConnectorRecord[] }>
+  /** Desktop-only isolated browser fallback for exact supported content platforms. */
+  importKnowledgeUrl?: (url: string) => Promise<{
+    title: string
+    content: string
+    snapshot: string
+    source: { kind: 'url'; label: string; uri: string; mimeType: string }
+  }>
 }
 
 /** Every bridge method the plugin calls; presence-checked as a set. */

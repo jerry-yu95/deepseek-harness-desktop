@@ -8,7 +8,7 @@
  */
 
 /** Center tabs; each also owns one sidebar entry. */
-export type ExtensionTab = 'skills' | 'connectors' | 'learning'
+export type ExtensionTab = 'skills' | 'connectors' | 'learning' | 'knowledge'
 
 /** Immutable controller snapshot for UI subscriptions. */
 export interface PanelControllerSnapshot {

@@ -3,6 +3,7 @@ import { assessTask } from "./adaptive.js";
 import { appendProgress, harnessContextSync, initHarness, loadHarness, setOrchestrationMode, transitionHarness, updateFeature, updateOrchestration } from "./core.js";
 import { runOrchestrationRole } from "./orchestration.js";
 import { getModelHealth, recordHealthFeedback, recordHealthSignals, runModelHealthProbe } from "./model-health.js";
+import { testModelConnection } from "./model-connection.js";
 import { aggregateObservability, recordTokenSnapshot } from "./observability.js";
 import { aggregateContextQuality } from "./context-quality.js";
 import { runContextQualityProbe } from "./context-quality-probe.js";
@@ -40,6 +41,12 @@ export function apply(ctx) {
                 const cwd = requireWorkspace(agent.session.header.cwd);
                 const modelKey = currentModelKey(agent);
                 return { ok: true, value: await runModelHealthProbe({ cwd, modelKey, parent: agent, signal, workflowEngine: agent.ctx.get('workflowEngine'), llm: ctx.llm, ...(request.bypassCache === undefined ? {} : { bypassCache: request.bypassCache }) }) };
+            }
+            if (endpoint === 'connection-test') {
+                const request = parseConnectionTestRequest(payload);
+                const agent = requireLiveAgent(ctx, request.sessionId);
+                const route = requireCurrentModelRoute(agent);
+                return { ok: true, value: await testModelConnection({ llm: ctx.llm, provider: route.provider, model: route.model, signal }) };
             }
             if (endpoint === 'context-quality') {
                 const request = parseContextQualityRequest(payload);
@@ -268,6 +275,7 @@ export * from "./core.js";
 export * from "./adaptive.js";
 export * from "./orchestration.js";
 export * from "./model-health.js";
+export * from "./model-connection.js";
 export * from "./observability.js";
 export * from "./context-quality.js";
 export * from "./context-quality-probe.js";
@@ -335,6 +343,9 @@ function parseRouteRequest(payload) {
 function parseProbeRequest(payload) {
     const request = parseSessionRequest(payload);
     return { ...request, ...(isRecord(payload) && typeof payload.bypassCache === 'boolean' ? { bypassCache: payload.bypassCache } : {}) };
+}
+function parseConnectionTestRequest(payload) {
+    return parseSessionRequest(payload);
 }
 function parseContextQualityRequest(payload) {
     const request = parseSessionRequest(payload);

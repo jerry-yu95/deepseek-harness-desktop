@@ -27,6 +27,7 @@ import {
   splitComma,
 } from '../bridge.ts'
 import { CONNECTOR_STORE_ENTRIES, filterConnectorStore, type ConnectorStoreEntry } from '../connector-store.ts'
+import { consumeConnectorImport, selectedServerMap, subscribeConnectorImport } from '../connector-import-event.ts'
 import { errorMessage, tt } from '../helpers.ts'
 import css from './panel.module.css'
 
@@ -79,6 +80,25 @@ function diagnosticLabel(id: NonNullable<ConnectorCheckResult['checks']>[number]
   return tt('connectors.diagnostics.registration')
 }
 
+function connectorTestKind(checked?: ConnectorCheckResult): 'passed' | 'needsAuth' | 'failed' | 'pending' {
+  if (checked === undefined) return 'pending'
+  if (checked.state === 'needs-authorization') return 'needsAuth'
+  if (checked.ok) return 'passed'
+  return 'failed'
+}
+
+function connectorTestLabel(kind: ReturnType<typeof connectorTestKind>): string {
+  if (kind === 'passed') return tt('connectors.test.passed')
+  if (kind === 'needsAuth') return tt('connectors.test.needsAuth')
+  if (kind === 'failed') return tt('connectors.test.failed')
+  return tt('connectors.test.pending')
+}
+
+function importTestBadge(result: ConnectorCheckResult): string {
+  if (result.state === 'needs-authorization') return tt('connectors.test.needsAuth')
+  return result.ok ? tt('connectors.import.testReady') : tt('connectors.import.testBlocked')
+}
+
 function providerJsonLabel(providerId: ProviderJsonProviderId): string {
   return providerId === 'tapd' ? 'TAPD' : '腾讯工蜂'
 }
@@ -92,6 +112,9 @@ export interface ConnectorsTabProps {
 function friendlyImportError(error: unknown): string {
   const message = errorMessage(error)
   if (message.includes('local-command-trust-required')) return tt('connectors.import.localTrustRequired')
+  if (message.startsWith('connector-provider-conflict:')) {
+    return tt('connectors.import.providerConflictError', { name: providerJsonLabel(message.slice('connector-provider-conflict:'.length) as ProviderJsonProviderId) })
+  }
   if (message.startsWith('connector-conflict:')) {
     return tt('connectors.import.conflictError', { name: message.slice('connector-conflict:'.length) })
   }
@@ -119,6 +142,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   const [conflict, setConflict] = useState<'reject' | 'replace' | 'rename'>('reject')
   const [importSource, setImportSource] = useState<ImportSource>({ kind: 'json' })
   const [importError, setImportError] = useState<string | null>(null)
+  const [draftChecks, setDraftChecks] = useState<Array<{ connector: ConnectorRecord; result: ConnectorCheckResult }>>([])
   const [localCommandTrusted, setLocalCommandTrusted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [kind, setKind] = useState<'mcp' | 'http'>('mcp')
@@ -144,6 +168,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     keyword: storeFilter.keyword,
     installed: storeFilter.installed === 'all' ? undefined : storeFilter.installed === 'installed',
   }, installedStoreIds)
+  const customConnectors = (connectors ?? []).filter((connector) => connector.source?.kind !== 'provider-json')
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -272,6 +297,10 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
       setBusy(true)
       try {
         await checkConnectorIds(checkIds)
+        const targetId = checkIds[0]
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-connector-id="${targetId}"]`)?.scrollIntoView({ block: 'center' })
+        })
       } finally {
         initialCheckIds.current = []
         clearPendingConnectorChecks()
@@ -291,6 +320,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     setStagedSource(null)
     setStagedJsonFile(null)
     setImportError(null)
+    setDraftChecks([])
     setLocalCommandTrusted(false)
     secretInputs.current = {}
   }, [])
@@ -364,7 +394,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     setImportOpen(true)
   }, [])
 
-  const previewJson = useCallback(async (text: string, source: ImportSource = { kind: 'json' }, replaceExisting = false): Promise<void> => {
+  const previewJson = useCallback(async (text: string, source: ImportSource = { kind: 'json' }, replaceExisting = false, requestedServerNames?: string[]): Promise<void> => {
     if (!canImportJson || bridge.previewMcpJson === undefined) {
       notify(tt('connectors.import.desktopRequired'), true)
       return
@@ -383,13 +413,18 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     try {
       const result = await bridge.previewMcpJson(text)
       setPreview(result)
-      setSelected(Object.fromEntries(result.servers.map((server) => [server.sourceName, true])))
+      setSelected(selectedServerMap(result.servers.map((server) => server.sourceName), requestedServerNames))
     } catch (error) {
       setImportError(friendlyImportError(error))
     } finally {
       setBusy(false)
     }
   }, [bridge, canImportJson, notify])
+
+  useEffect(() => subscribeConnectorImport((detail) => {
+    consumeConnectorImport(detail.requestId)
+    void previewJson(detail.text, { kind: 'json' }, false, detail.requestedServerNames)
+  }), [previewJson])
 
   const pickJsonFile = useCallback(async (): Promise<void> => {
     if (!canPickJsonFile || bridge.pickMcpJsonFile === undefined) {
@@ -475,6 +510,52 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     }
   }
 
+  const onTestImport = async (): Promise<void> => {
+    if (preview === null) return
+    if (selectedNames.length === 0) {
+      setImportError(tt('connectors.import.selectOne'))
+      return
+    }
+    if (missingSecrets.length > 0) {
+      const first = missingSecrets[0]
+      setImportError(tt('connectors.import.missingSecret', { name: mcpCredentialLabel(first) }))
+      requestAnimationFrame(() => { secretInputs.current[first.credentialRef]?.focus() })
+      return
+    }
+    if (requiresLocalExecution && !localCommandTrusted) {
+      setImportError(tt('connectors.import.localTrustRequired'))
+      return
+    }
+    if ((stagedSource === null ? bridge.testMcpJson : bridge.testMcpClientSource) === undefined) {
+      setImportError(tt('connectors.import.testUnavailable'))
+      return
+    }
+    setImportError(null)
+    setDraftChecks([])
+    setBusy(true)
+    try {
+      const options = {
+        selectedNames,
+        conflict,
+        secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
+        allowLocalCommand: localCommandTrusted,
+      }
+      const tested = stagedSource === null
+        ? await bridge.testMcpJson!({ ...(stagedJsonFile === null ? { text: jsonText } : { fileToken: stagedJsonFile.token }), ...options, source: importSource })
+        : await bridge.testMcpClientSource!({ token: stagedSource.source.token, ...options })
+      setDraftChecks(tested.results)
+      const needsAuth = tested.results.filter((item) => item.result.state === 'needs-authorization')
+      const failed = tested.results.filter((item) => !item.result.ok && item.result.state !== 'needs-authorization')
+      if (failed.length > 0) setImportError(tt('connectors.import.testFailed', { count: failed.length }))
+      else if (needsAuth.length > 0) notify(tt('connectors.import.needsAuth', { count: needsAuth.length }))
+      else notify(tt('connectors.import.testPassed', { count: tested.results.length }))
+    } catch (error) {
+      setImportError(friendlyImportError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     const values = Object.fromEntries(new FormData(event.currentTarget))
@@ -515,6 +596,25 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
     } finally {
       setBusy(false)
     }
+  }
+
+  const onReconfigure = (connector: ConnectorRecord): void => {
+    const preset = CONNECTOR_STORE_ENTRIES.find((entry) => {
+      if (entry.integration === 'provider-json' && entry.providerId !== undefined) {
+        return connector.source?.kind === 'provider-json' && connector.source.providerId === entry.providerId
+      }
+      return connector.source?.kind === 'preset' && connector.source.presetId === entry.id
+    })
+    setCatalogOpen(true)
+    if (preset?.json !== undefined) {
+      void previewJson(preset.json, { kind: 'preset', presetId: preset.id }, true)
+      return
+    }
+    if (preset?.providerId !== undefined) {
+      openJsonImport({ kind: 'provider-json', providerId: preset.providerId }, true)
+      return
+    }
+    openJsonImport()
   }
 
   const onInstallOfficialSkill = async (preset: ConnectorStoreEntry): Promise<void> => {
@@ -580,12 +680,14 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   }
 
   const renderPreset = (preset: ConnectorStoreEntry) => {
-    const installed = connectors?.some((connector) => {
+    const installedConnector = connectors?.find((connector) => {
       if (preset.integration === 'provider-json' && preset.providerId !== undefined) {
         return connector.source?.kind === 'provider-json' && connector.source.providerId === preset.providerId
       }
       return connector.source?.kind === 'preset' && connector.source.presetId === preset.id
-    }) ?? false
+    })
+    const installed = installedConnector !== undefined
+    const installedCheck = installedConnector === undefined ? undefined : health[installedConnector.id]
     const typeLabel = preset.integration === 'mcp-template'
       ? tt('connectors.catalog.official')
       : preset.integration === 'provider-json'
@@ -613,8 +715,16 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
           <p className={css.providerLine}>{tt('connectors.catalog.provider', { provider: preset.provider })} · <a className={css.catalogLink} href={preset.docsUrl} target="_blank" rel="noreferrer">{docsLabel}</a></p>
           <p className={css.verificationLine}>{preset.liveVerified ? tt('connectors.catalog.liveVerified', { date: preset.lastVerifiedAt ?? '', version: preset.verifiedVersion ?? '' }) : preset.knownLimitations[0]}</p>
           <p className={css.verificationLine}>{tt('connectors.catalog.permissions', { permissions: preset.permissionSummary.join(', '), auth: preset.authModes.join(', ') || tt('connectors.catalog.noAuth') })}</p>
+          {installedConnector !== undefined && <p className={css.health} data-error={installedCheck !== undefined && !installedCheck.ok ? 'true' : undefined}>{installedCheck?.detail ?? tt('connectors.unchecked', { endpoint: connectorEndpoint(installedConnector) })}</p>}
         </div>
-        {preset.integration === 'official-skill' ? (
+        {installedConnector !== undefined && preset.integration === 'provider-json' ? (
+          <div className={css.actionRow}>
+            {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(installedConnector) }}>{installedConnector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}
+            <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(installedConnector.id) }}>{tt('connectors.retest')}</button>
+            <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson || preset.providerId === undefined} onClick={() => { if (preset.providerId !== undefined) openJsonImport({ kind: 'provider-json', providerId: preset.providerId }, true) }}>{tt('connectors.catalog.reconfigure')}</button>
+            <button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(installedConnector.id) }}>{tt('connectors.remove')}</button>
+          </div>
+        ) : preset.integration === 'official-skill' ? (
           <div className={css.actionRow}>
             {bridge.previewOfficialSkill !== undefined && bridge.installOfficialSkill !== undefined ? (
               <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onInstallOfficialSkill(preset) }}>{tt('connectors.catalog.installSkill')}</button>
@@ -720,12 +830,12 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                 <div className={css.importPreview}>
                   <div className={css.formHeader}>
                     <strong>{tt('connectors.import.servers', { count: preview.servers.length })}</strong>
-                    <label className={css.inlineLabel}><input type="checkbox" checked={preview.servers.every((server) => selected[server.sourceName])} onChange={(event) => { setImportError(null); setLocalCommandTrusted(false); setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked]))) }} /> {tt('connectors.import.selectAll')}</label>
+                    <label className={css.inlineLabel}><input type="checkbox" checked={preview.servers.every((server) => selected[server.sourceName])} onChange={(event) => { setImportError(null); setDraftChecks([]); setLocalCommandTrusted(false); setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked]))) }} /> {tt('connectors.import.selectAll')}</label>
                   </div>
                   {preview.servers.map((server) => (
                     <div key={server.sourceName} className={css.importServer}>
                       <label className={css.importServerHeader}>
-                        <input type="checkbox" checked={Boolean(selected[server.sourceName])} onChange={(event) => { setImportError(null); setLocalCommandTrusted(false); setSelected((items) => ({ ...items, [server.sourceName]: event.target.checked })) }} />
+                        <input type="checkbox" checked={Boolean(selected[server.sourceName])} onChange={(event) => { setImportError(null); setDraftChecks([]); setLocalCommandTrusted(false); setSelected((items) => ({ ...items, [server.sourceName]: event.target.checked })) }} />
                         <strong>{server.sourceName}</strong>
                         <span className={css.badge}>{server.transport}</span>
                         <span className={css.description}>{server.command ? connectorEndpoint({ kind: 'mcp', transport: 'stdio', command: server.command, args: server.args }) : server.url}</span>
@@ -745,7 +855,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                                 aria-invalid={missingSecrets.some((missing) => missing.credentialRef === slot.credentialRef) && importError !== null}
                                 placeholder={tt('connectors.import.credentialPlaceholder')}
                                 value={secretValues[slot.credentialRef] ?? ''}
-                                onChange={(event) => { setImportError(null); setSecretValues((values) => ({ ...values, [slot.credentialRef]: event.target.value })) }}
+                                onChange={(event) => { setImportError(null); setDraftChecks([]); setSecretValues((values) => ({ ...values, [slot.credentialRef]: event.target.value })) }}
                               />
                             </>
                           )}
@@ -754,9 +864,17 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                     </div>
                   ))}
                   {requiresLocalExecution && <label className={css.trustBox}>
-                    <input type="checkbox" checked={localCommandTrusted} onChange={(event) => { setLocalCommandTrusted(event.target.checked); setImportError(null) }} />
+                    <input type="checkbox" checked={localCommandTrusted} onChange={(event) => { setLocalCommandTrusted(event.target.checked); setImportError(null); setDraftChecks([]) }} />
                     <span><strong>{tt('connectors.import.localTrustTitle')}</strong>{tt('connectors.import.localTrustBody')}</span>
                   </label>}
+                  {preview !== null && <p className={css.formHint}>{tt('connectors.import.testHint')}</p>}
+                  {draftChecks.length > 0 && <div className={css.diagnostics} aria-label={tt('connectors.import.testResults')}>
+                    {draftChecks.map(({ connector, result }) => <article key={connector.id} className={css.importServer}>
+                      <div className={css.formHeader}><strong>{connector.name}</strong><span className={css.badge}>{importTestBadge(result)}</span></div>
+                      <p className={css.formHint}>{result.detail}</p>
+                      {(result.checks ?? []).map((check) => <div key={check.id} className={css.diagnosticRow} data-status={check.status}><span className={css.diagnosticDot} /><strong>{diagnosticLabel(check.id)}</strong><span>{check.detail}</span></div>)}
+                    </article>)}
+                  </div>}
                 </div>
               )}
             </div>
@@ -794,6 +912,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                     <label className={css.conflictField}>{tt('connectors.import.conflict')} <select value={conflict} onChange={(event) => { setConflict(event.target.value as typeof conflict); setImportError(null) }}><option value="reject">{tt('connectors.import.conflict.reject')}</option><option value="replace">{tt('connectors.import.conflict.replace')}</option><option value="rename">{tt('connectors.import.conflict.rename')}</option></select></label>
                   </>
                 )}
+                {preview !== null && <button type="button" className={css.secondaryButton} disabled={busy || selectedNames.length === 0} onClick={() => { void onTestImport() }}>{busy ? tt('connectors.import.testing') : tt('connectors.import.test')}</button>}
                 <button
                   type={preview === null ? 'submit' : 'button'}
                   form={preview === null ? 'mcp-json-import-form' : undefined}
@@ -861,16 +980,17 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         </div>
       )}
 
-      {connectors === null ? <p className={css.empty}>{tt('common.loading')}</p> : connectors.length === 0 ? <p className={css.empty}>{tt('connectors.empty')}</p> : <div className={css.list} aria-live="polite">
-        {connectors.map((connector) => {
+      {connectors === null ? <p className={css.empty}>{tt('common.loading')}</p> : customConnectors.length === 0 ? null : <div className={css.list} aria-live="polite">
+        {customConnectors.map((connector) => {
           const endpoint = connectorEndpoint(connector)
           const checked = health[connector.id]
           const authStatus = authStatuses[connector.id]
-          return <article key={connector.id} className={css.item}>
+          const testKind = connectorTestKind(checked)
+          return <article key={connector.id} className={css.item} data-connector-id={connector.id}>
             <div className={css.itemBody}>
-              <div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span><span className={css.badge} data-success={connector.enabled === false ? undefined : 'true'}>{connector.enabled === false ? tt('connectors.state.disabled') : tt('connectors.state.enabled')}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div>
+              <div className={css.nameRow}><span className={css.name}>{connector.name}</span><span className={css.badge}>{connector.kind === 'mcp' ? tt('connectors.type.mcp', { transport: connector.transport }) : tt('connectors.type.http')}</span><span className={css.badge} data-success={connector.enabled === false ? undefined : 'true'}>{connector.enabled === false ? tt('connectors.state.disabled') : tt('connectors.state.enabled')}</span><span className={css.badge} data-success={testKind === 'passed' ? 'true' : undefined}>{connectorTestLabel(testKind)}</span>{connector.source?.kind === 'external-client' && <span className={css.badge}>{tt('connectors.source.external', { client: CLIENT_NAMES[connector.source.clientId ?? ''] ?? connector.source.clientId ?? tt('connectors.source.unknown') })}</span>}</div>
               <p className={css.description}>{connector.description || endpoint}</p>
-              <p className={css.health} data-error={checked !== undefined && !checked.ok ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p>
+              <p className={css.health} data-error={testKind === 'failed' ? 'true' : undefined}>{checked !== undefined ? checked.detail : tt('connectors.unchecked', { endpoint })}</p>
               {authStatus !== undefined && <p className={css.authStatus} data-state={authStatus.state}>
                 {tt(`connectors.auth.state.${authStatus.state}`)}
                 {authStatus.grantedScopes?.length ? ` · ${authStatus.grantedScopes.join(', ')}` : ''}
@@ -884,7 +1004,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                 </div>)}
               </section>}
             </div>
-            <div className={css.itemActions}>{connectorAuthProvider(connector) !== undefined && bridge.authorizeConnector !== undefined && <><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onAuthAction(connector) }}>{connectorAuthAction(authStatuses[connector.id]?.state) === 'cancel' ? tt('connectors.auth.cancel') : connectorAuthAction(authStatuses[connector.id]?.state) === 'disconnect' ? tt('connectors.auth.disconnect') : authStatuses[connector.id]?.state === 'reauthorization-required' || authStatuses[connector.id]?.state === 'error' ? tt('connectors.auth.reauthorize') : tt('connectors.auth.authorize')}</button>{(authStatuses[connector.id]?.state === 'ready' || authStatuses[connector.id]?.state === 'missing-permission') && bridge.verifyConnectorAuthorization !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onVerifyAuth(connector) }}>{tt('connectors.auth.verify')}</button>}</>} {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.check')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
+            <div className={css.itemActions}>{connectorAuthProvider(connector) !== undefined && bridge.authorizeConnector !== undefined && <><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onAuthAction(connector) }}>{connectorAuthAction(authStatuses[connector.id]?.state) === 'cancel' ? tt('connectors.auth.cancel') : connectorAuthAction(authStatuses[connector.id]?.state) === 'disconnect' ? tt('connectors.auth.disconnect') : authStatuses[connector.id]?.state === 'reauthorization-required' || authStatuses[connector.id]?.state === 'error' ? tt('connectors.auth.reauthorize') : tt('connectors.auth.authorize')}</button>{(authStatuses[connector.id]?.state === 'ready' || authStatuses[connector.id]?.state === 'missing-permission') && bridge.verifyConnectorAuthorization !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onVerifyAuth(connector) }}>{tt('connectors.auth.verify')}</button>}</>} {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.retest')}</button><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { onReconfigure(connector) }}>{tt('connectors.reconfigure')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
           </article>
         })}
       </div>}

@@ -36,6 +36,9 @@ test('macOS release keeps unsigned and certificate-backed builds mutually exclus
   const unsignedStep = workflow.match(/- name: Build unsigned macOS package[\s\S]*?(?=\n\s+- name: Build signed macOS package)/)?.[0]
   assert.ok(unsignedStep)
   assert.doesNotMatch(unsignedStep, /(?:^|\n)\s+(?:CSC_LINK|CSC_KEY_PASSWORD|APPLE_ID):/)
+  assert.match(workflow, /release-assets\/JIWEI-\*\.dmg/)
+  assert.match(workflow, /release-assets\/JIWEI-Setup-\*\.exe/)
+  assert.doesNotMatch(workflow, /Harness-Design-Desktop/)
 })
 
 test('package verification paths are portable across PowerShell and POSIX shells', async () => {

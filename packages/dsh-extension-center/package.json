@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-client-ui-extension-center",
-  "description": "Web UI plugin that brings the Skills catalog (Skill Studio) and the Connector Center into the dsh web GUI sidebar, backed by the desktop dshDesktop IPC bridge when running inside Harness Design Desktop.",
+  "description": "JIWEI extension center for Skills, connectors, learning, and the local-first knowledge loop.",
   "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
@@ -16,7 +16,9 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime"
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ],
       "platform": "web"
     }
@@ -30,15 +32,22 @@
     "test:watch": "vitest"
   },
   "license": "BSD-3-Clause",
+  "dependencies": {
+    "@harness-design/dsh-knowledge": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^18.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-connection": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.5",
+    "@testing-library/react": "^16.1.0",
+    "jsdom": "^26.0.0",
     "lightningcss": "1.32.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

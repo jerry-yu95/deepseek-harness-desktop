@@ -2,6 +2,7 @@ import type { HarnessSnapshot, OrchestrationMode } from './core.ts'
 import type { ModelHealthSummary } from './model-health.ts'
 import type { ObservabilityPeriod, ObservabilitySummary } from './observability.ts'
 import type { ContextQualityRun, ContextQualityScale, ContextQualitySummary } from './context-quality.ts'
+import type { ModelConnectionResult } from './model-connection.ts'
 
 export const HARNESS_RPC_CHANNEL = '/harness-orchestrator'
 
@@ -21,6 +22,7 @@ export interface HarnessModeRequest {
   objective?: string
 }
 export interface HarnessProbeRequest { sessionId: string; bypassCache?: boolean }
+export interface HarnessConnectionTestRequest { sessionId: string }
 export interface HarnessContextQualityRequest { sessionId: string; scale: ContextQualityScale; confirmed: boolean }
 export interface HarnessRouteRequest { sessionId: string; objective: string; bypassCache?: boolean }
 export interface HarnessFeedbackRequest {
@@ -33,4 +35,5 @@ export type HarnessRpcValue =
   | HarnessDashboardStatus
   | { status: HarnessDashboardStatus }
   | { cached: boolean; summary: ModelHealthSummary }
+  | ModelConnectionResult
   | { run: ContextQualityRun; summary: ContextQualitySummary }

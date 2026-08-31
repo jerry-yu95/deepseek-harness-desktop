@@ -48,27 +48,41 @@ export function apply(ctx: Context, config: Config = {}): void {
   // (installSettingsSection swaps it on attach and detach).
   let current: () => Config = () => config ?? {}
   let disposeProjection: (() => void) | undefined
+  let projectionCtx: Context | undefined
 
   const rebuild = (): void => {
     if (disposeProjection !== undefined) {
       disposeProjection()
       disposeProjection = undefined
     }
-    if ((current().enabled ?? true) === false) return
+    if ((current().enabled ?? true) === false || projectionCtx === undefined) return
     const source = current()
     const spec = resolveEstimatorConfig({
       ...(source.charsPerToken === undefined ? {} : { charsPerToken: source.charsPerToken }),
       ...(source.blockOverhead === undefined ? {} : { blockOverhead: source.blockOverhead }),
       ...(source.roleOverhead === undefined ? {} : { roleOverhead: source.roleOverhead }),
     })
-    disposeProjection = ctx.sessionProjections.register(createLiveTokenUsageProjectionDefinition(spec))
+    disposeProjection = projectionCtx.sessionProjections.register(createLiveTokenUsageProjectionDefinition(spec))
   }
+
+  // rc.2 projection registrations are scoped effects. Bind through inject so
+  // the definition follows service reloads and is owned by this plugin's
+  // active dependency fiber instead of assuming an eager service instance.
+  ctx.inject(['sessionProjections'], (scope) => {
+    projectionCtx = scope
+    rebuild()
+    scope.effect(() => () => {
+      if (projectionCtx !== scope) return
+      disposeProjection?.()
+      disposeProjection = undefined
+      projectionCtx = undefined
+    }, 'dsh-live-stats: projection dependency')
+  })
 
   installSettingsSection(ctx, LIVE_STATS_SETTINGS_NAMESPACE, Config, config ?? {}, {
     setSource: (source) => { current = source },
     onChange: rebuild,
   })
-  rebuild()
 }
 
 export { createLiveTokenUsageProjectionDefinition } from './projection.ts'

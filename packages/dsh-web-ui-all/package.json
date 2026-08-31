@@ -10,6 +10,7 @@
   },
   "license": "BSD-3-Clause",
   "dependencies": {
+    "@harness-design/dsh-knowledge": "workspace:*",
     "@harness-design/dsh-orchestrator": "workspace:*",
     "@linxin666/dsh-web-ui-compat": "workspace:*",
     "@linxin666/dsh-client-ui-aionui-panel": "workspace:*",
@@ -22,6 +23,7 @@
     "@linxin666/dsh-ssh": "workspace:*",
     "@linxin666/dsh-client-ui-web-ui-settings": "workspace:*",
     "@linxin666/dsh-client-ui-extension-center": "workspace:*",
+    "@linxin666/dsh-text-context": "workspace:*",
     "@linxin666/dsh-skins": "workspace:*"
   },
   "repository": {

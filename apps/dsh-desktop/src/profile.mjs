@@ -24,6 +24,7 @@ export const BUILTIN_BUNDLES = Object.freeze([
 ])
 
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
+  '@harness-design/dsh-knowledge',
   '@harness-design/dsh-orchestrator',
   '@linxin666/dsh-client-ui-aionui-panel',
   '@linxin666/dsh-client-ui-extension-center',
@@ -37,6 +38,7 @@ export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
   '@linxin666/dsh-remote-web-ui',
   '@linxin666/dsh-skins',
   '@linxin666/dsh-ssh',
+  '@linxin666/dsh-text-context',
   '@linxin666/dsh-web-ui-all',
   '@linxin666/dsh-web-ui-compat',
   '@xmanrui/dsh-im',

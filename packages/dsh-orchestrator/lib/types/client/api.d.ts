@@ -4,6 +4,7 @@ import { type HarnessDashboardStatus } from '../wire.ts';
 import type { ModelHealthSummary } from '../model-health.ts';
 import type { ObservabilityPeriod } from '../observability.ts';
 import type { ContextQualityRun, ContextQualityScale, ContextQualitySummary } from '../context-quality.ts';
+import type { ModelConnectionResult } from '../model-connection.ts';
 export declare class HarnessClientApi {
     private readonly connection;
     constructor(connection: ConnectionHandle);
@@ -13,6 +14,7 @@ export declare class HarnessClientApi {
         cached: boolean;
         summary: ModelHealthSummary;
     }>;
+    testConnection(sessionId: string, signal?: AbortSignal): Promise<ModelConnectionResult>;
     contextQuality(sessionId: string, scale: ContextQualityScale, confirmed: boolean): Promise<{
         run: ContextQualityRun;
         summary: ContextQualitySummary;

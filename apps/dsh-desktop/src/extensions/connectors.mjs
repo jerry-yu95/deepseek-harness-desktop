@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, isAbsolute, join } from 'node:path'
 
@@ -12,6 +12,7 @@ const SOURCE_KINDS = new Set(['custom', 'json', 'preset', 'provider-json', 'exte
 const PROVIDER_JSON_IDS = new Set(['tapd', 'tencent-gongfeng'])
 const SOURCE_SCOPES = new Set(['user', 'project', 'selected-file'])
 const SHA256_PATTERN = /^[a-f0-9]{64}$/
+export const CONNECTOR_PROBE_TIMEOUT_MS = 15_000
 
 function text(value, field, { required = true, max = 2_000 } = {}) {
   if (!required && (value === undefined || value === null || value === '')) return ''
@@ -217,6 +218,14 @@ async function atomicJsonWrite(path, data) {
 const EXECUTABLE_EXTENSIONS = process.platform === 'win32' ? ['', '.exe', '.cmd', '.bat'] : ['']
 
 export async function commandExists(command, env = process.env) {
+  if (isAbsolute(command)) {
+    try {
+      await access(command)
+      return true
+    } catch {
+      return false
+    }
+  }
   const directories = isAbsolute(command)
     ? [dirname(command)]
     : String(env.PATH ?? '').split(delimiter).filter(Boolean)
@@ -243,7 +252,7 @@ export class ConnectorStore {
     try {
       const parsed = JSON.parse(await readFile(this.path, 'utf8'))
       if (!Array.isArray(parsed)) throw new Error('connector registry must be an array')
-      return parsed.map(validateConnectorInput)
+      return parsed.map((item) => migrateLegacyProviderSource(validateConnectorInput(item)))
     } catch (error) {
       if (error?.code === 'ENOENT') return []
       throw error
@@ -285,7 +294,16 @@ export class ConnectorStore {
   async check(id) {
     const connector = (await this.list()).find((item) => item.id === id)
     if (!connector) throw new Error(`connector ${id} was not found`)
-    const env = this.environmentProvider()
+    return this.checkCandidate(connector, undefined, { registered: true })
+  }
+
+  /** Test one validated draft without persisting it or mutating the Harness profile. */
+  async checkCandidate(input, credentials, { registered = false } = {}) {
+    const connector = validateConnectorInput(input)
+    const candidateCredentials = credentials instanceof Map
+      ? Object.fromEntries(credentials)
+      : (credentials && typeof credentials === 'object' ? credentials : {})
+    const env = { ...this.environmentProvider(), ...candidateCredentials }
     const requiredReferences = [
       ...connector.secretEnvKeys,
       ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
@@ -296,12 +314,18 @@ export class ConnectorStore {
       { id: 'configuration', status: 'pass', detail: '配置结构有效' },
       missingSecrets.length
         ? { id: 'credentials', status: 'fail', detail: `缺少凭证：${missingSecrets.join(', ')}` }
-        : { id: 'credentials', status: 'pass', detail: uniqueReferences.length ? '所需凭证已安全保存' : '无需额外凭证' },
+        : {
+            id: 'credentials',
+            status: 'pass',
+            detail: uniqueReferences.length
+              ? (registered ? '所需凭证已安全保存' : '已提供测试所需凭证；本次测试不会保存')
+              : '无需额外凭证',
+          },
     ]
     if (missingSecrets.length) {
       checks.push(
         { id: 'runtime', status: 'skipped', detail: '补齐凭证后再检查运行环境' },
-        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表' : '连接器当前已停用' },
+        registrationCheck(connector, registered),
       )
       return { ok: false, state: 'missing-credentials', detail: `缺少凭证：${missingSecrets.join(', ')}`, checks }
     }
@@ -309,42 +333,267 @@ export class ConnectorStore {
       const ok = await commandExists(connector.command, env)
       checks.push(
         { id: 'runtime', status: ok ? 'pass' : 'fail', detail: ok ? `本地命令可用：${connector.command}` : `找不到本地命令：${connector.command}` },
-        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表；保存时已触发 Harness 重载' : '连接器当前已停用' },
+        registrationCheck(connector, registered),
       )
       return { ok, state: ok ? 'ready' : 'command-not-found', detail: ok ? '配置、凭证和本地运行环境已就绪' : `找不到命令：${connector.command}`, checks }
     }
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 5_000)
+    const timer = setTimeout(() => controller.abort(), CONNECTOR_PROBE_TIMEOUT_MS)
     try {
-      const response = await this.fetchImpl(connector.url, { method: 'HEAD', redirect: 'manual', signal: controller.signal })
-      const serverFailure = response.status >= 500
-      const authRequired = response.status === 401 || response.status === 403
-      const methodUnsupported = response.status === 405
-      const status = serverFailure ? 'fail' : (authRequired || methodUnsupported ? 'warn' : 'pass')
-      const runtimeDetail = authRequired
-        ? `端点可达（HTTP ${response.status}），服务要求授权；请在实际会话中验证权限`
-        : methodUnsupported
-          ? '端点可达（HTTP 405），服务不支持轻量 HEAD 探测'
-          : `端点响应 HTTP ${response.status}`
+      const probe = await probeRemoteConnector(connector, env, this.fetchImpl, controller.signal, uniqueReferences)
       checks.push(
-        { id: 'runtime', status, detail: runtimeDetail },
-        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表；保存时已触发 Harness 重载' : '连接器当前已停用' },
+        { id: 'runtime', status: probe.runtimeStatus, detail: probe.detail },
+        registrationCheck(connector, registered),
       )
-      return {
-        ok: !serverFailure,
-        state: serverFailure ? 'server-error' : authRequired ? 'auth-required' : methodUnsupported ? 'method-unsupported' : 'reachable',
-        detail: serverFailure ? `服务端错误：HTTP ${response.status}` : runtimeDetail,
-        checks,
-      }
+      return { ok: probe.ok, state: probe.state, detail: probe.detail, checks }
     } catch (error) {
       const detail = error.name === 'AbortError' ? '连接超时' : error.message
       checks.push(
         { id: 'runtime', status: 'fail', detail },
-        { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表' : '连接器当前已停用' },
+        registrationCheck(connector, registered),
       )
       return { ok: false, state: 'unreachable', detail, checks }
     } finally {
       clearTimeout(timer)
     }
   }
+}
+
+function migrateLegacyProviderSource(connector) {
+  if (connector.source?.kind !== 'json' || connector.kind !== 'mcp') return connector
+  const nameMatches = /(?:^|[^a-z0-9])tapd(?:[^a-z0-9]|$)/iu.test(connector.name)
+  let hostMatches = false
+  if (connector.transport === 'streamable-http') {
+    try { hostMatches = new URL(connector.url).hostname.toLowerCase() === 'mcp-oa.tapd.woa.com' } catch { hostMatches = false }
+  }
+  if (!nameMatches && !hostMatches) return connector
+  const configurationHash = createHash('sha256').update(JSON.stringify({
+    name: connector.name,
+    transport: connector.transport,
+    url: connector.url,
+    plainHeaders: connector.plainHeaders ?? {},
+    secretBindings: (connector.secretBindings ?? []).map(({ location, targetKey, template }) => ({ location, targetKey, template })),
+  })).digest('hex')
+  return validateConnectorInput({
+    ...connector,
+    source: { kind: 'provider-json', providerId: 'tapd', configurationHash, capturedAt: '1970-01-01T00:00:00.000Z' },
+  })
+}
+
+function registrationCheck(connector, registered) {
+  if (!registered) return { id: 'registration', status: 'skipped', detail: '当前仅测试草稿；测试通过后保存才会注册并重载 Harness' }
+  return { id: 'registration', status: connector.enabled ? 'pass' : 'warn', detail: connector.enabled ? '已写入桌面连接器注册表' : '连接器当前已停用' }
+}
+
+function resolveConnectorHeaders(connector, env) {
+  const headers = { ...(connector.plainHeaders ?? {}) }
+  for (const binding of (connector.secretBindings ?? []).filter(item => item.location === 'header')) {
+    const secret = env[binding.credentialRef]
+    if (!secret) continue
+    headers[binding.targetKey] = binding.template === 'Bearer ${secret}' ? `Bearer ${secret}` : secret
+  }
+  return headers
+}
+
+async function probeRemoteConnector(connector, env, fetchImpl, signal, uniqueReferences) {
+  const headers = resolveConnectorHeaders(connector, env)
+  const isMcp = connector.kind === 'mcp' && connector.transport === 'streamable-http'
+  if (!isMcp) {
+    const response = await fetchImpl(connector.url, { method: 'HEAD', redirect: 'manual', signal, headers })
+    return classifyRemoteResponse(response, { isMcp: false, uniqueReferences })
+  }
+  const response = await fetchImpl(connector.url, {
+    method: 'POST',
+    redirect: 'manual',
+    signal,
+    headers: {
+      accept: 'application/json, text/event-stream',
+      'content-type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'dsh-desktop-connector-test', version: '1' } },
+    }),
+  })
+  if (response.status === 405 || response.status === 406) {
+    const sse = await probeMcpSse(fetchImpl, connector.url, headers, signal, uniqueReferences)
+    if (sse !== undefined) return sse
+  }
+  if (response.status >= 200 && response.status < 300) {
+    const initialized = await readMcpRpcResponse(response)
+    if (initialized?.error !== undefined || initialized?.result === undefined) {
+      return {
+        ok: false,
+        state: 'protocol-rejected',
+        runtimeStatus: 'fail',
+        detail: initialized?.error !== undefined
+          ? 'MCP initialize 返回 JSON-RPC 错误'
+          : '端点没有返回有效的 MCP initialize 结果',
+      }
+    }
+    return probeMcpTools(fetchImpl, connector.url, headers, response, signal, uniqueReferences)
+  }
+  return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
+}
+
+async function probeMcpTools(fetchImpl, url, headers, initializeResponse, signal, uniqueReferences) {
+  const sessionId = headerOf(initializeResponse, 'mcp-session-id')
+  const requestHeaders = {
+    accept: 'application/json, text/event-stream',
+    'content-type': 'application/json',
+    ...headers,
+    ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+  }
+  await fetchImpl(url, {
+    method: 'POST',
+    redirect: 'manual',
+    signal,
+    headers: requestHeaders,
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+  })
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    redirect: 'manual',
+    signal,
+    headers: requestHeaders,
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+  })
+  if (response.status < 200 || response.status >= 300) return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
+  const payload = await readMcpRpcResponse(response)
+  const tools = payload?.result?.tools
+  if (!Array.isArray(tools)) {
+    return { ok: false, state: 'tools-unavailable', runtimeStatus: 'fail', detail: 'MCP 已初始化，但 tools/list 未返回可注册的工具列表' }
+  }
+  if (tools.length === 0) {
+    return { ok: false, state: 'tools-empty', runtimeStatus: 'fail', detail: 'MCP 已初始化，但服务没有提供任何工具' }
+  }
+  return { ok: true, state: 'mcp-ready', runtimeStatus: 'pass', detail: `MCP 握手成功，可注册 ${tools.length} 个工具` }
+}
+
+async function probeMcpSse(fetchImpl, url, headers, signal, uniqueReferences) {
+  const response = await fetchImpl(url, {
+    method: 'GET',
+    redirect: 'manual',
+    signal,
+    headers: { accept: 'text/event-stream', ...headers },
+  })
+  if (response.status === 401 || response.status === 403 || response.status === 404 || response.status >= 500) {
+    return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
+  }
+  const type = contentTypeOf(response)
+  if (response.status >= 200 && response.status < 300 && /text\/event-stream/i.test(type)) {
+    return { ok: false, state: 'mcp-sse-unverified', runtimeStatus: 'warn', detail: '端点提供 SSE 响应，但尚未验证 tools/list；不会标记为可用' }
+  }
+  return undefined
+}
+
+async function classifyRemoteResponse(response, { isMcp, uniqueReferences }) {
+  const status = response.status
+  const redirect = status >= 300 && status < 400
+  const authRequired = status === 401 || status === 403
+  const endpointMissing = status === 404
+  const serverFailure = status >= 500
+  const methodUnsupported = status === 405 || status === 406
+  const { json, text } = await readFetchBody(response)
+  const rpcError = isMcp && json !== undefined && typeof json === 'object' && json !== null && json.error !== undefined
+  const nonJsonSuccess = isMcp && status >= 200 && status < 300 && text.length > 0 && json === undefined
+    && !/text\/event-stream/i.test(contentTypeOf(response))
+  const protocolRejected = isMcp && (rpcError || nonJsonSuccess
+    || (status >= 400 && !authRequired && !endpointMissing && !methodUnsupported && !serverFailure))
+  if (authRequired) {
+    const needsAuth = uniqueReferences.length === 0
+    return {
+      ok: false,
+      state: needsAuth ? 'needs-authorization' : 'authorization-failed',
+      runtimeStatus: 'warn',
+      detail: needsAuth
+        ? '需要完成授权后才能完成握手；可以先保存再授权。'
+        : `凭证无效或已过期（HTTP ${status}）`,
+    }
+  }
+  if (redirect) {
+    const location = headerOf(response, 'location')
+    const loginRedirect = /(?:login|passport|oauth|sso)/iu.test(location)
+    return {
+      ok: false,
+      state: loginRedirect ? 'needs-authorization' : 'redirected',
+      runtimeStatus: 'warn',
+      detail: loginRedirect
+        ? `MCP 端点重定向到登录/授权页面（HTTP ${status}），当前凭证未建立可用的 MCP 会话`
+        : `MCP 端点返回重定向（HTTP ${status}），未完成 initialize 与 tools/list`,
+    }
+  }
+  if (endpointMissing) {
+    return { ok: false, state: 'endpoint-not-found', runtimeStatus: 'fail', detail: '服务返回 HTTP 404；请检查 MCP URL 路径是否完整' }
+  }
+  if (serverFailure) {
+    return { ok: false, state: 'server-error', runtimeStatus: 'fail', detail: `服务端错误：HTTP ${status}` }
+  }
+  if (methodUnsupported) {
+    return {
+      ok: false,
+      state: 'method-unsupported',
+      runtimeStatus: 'warn',
+      detail: `端点可达（HTTP ${status}），但不接受 MCP initialize 或 SSE 握手`,
+    }
+  }
+  if (protocolRejected) {
+    return {
+      ok: false,
+      state: 'protocol-rejected',
+      runtimeStatus: 'fail',
+      detail: rpcError
+        ? 'MCP 初始化或能力发现失败：服务返回了 JSON-RPC 错误'
+        : `MCP 握手被拒绝（HTTP ${status}）；请检查传输协议与服务配置`,
+    }
+  }
+  return {
+    ok: true,
+    state: isMcp ? 'mcp-ready' : 'reachable',
+    runtimeStatus: 'pass',
+    detail: isMcp ? `MCP initialize 已响应（HTTP ${status}）` : `端点响应 HTTP ${status}`,
+  }
+}
+
+function headerOf(response, name) {
+  if (typeof response?.headers?.get === 'function') return String(response.headers.get(name) ?? '')
+  if (response?.headers && typeof response.headers === 'object') {
+    const entry = Object.entries(response.headers).find(([key]) => key.toLowerCase() === name.toLowerCase())
+    return String(entry?.[1] ?? '')
+  }
+  return ''
+}
+
+async function readMcpRpcResponse(response) {
+  const { json, text } = await readFetchBody(response)
+  if (json !== undefined) return json
+  if (/text\/event-stream/i.test(contentTypeOf(response))) {
+    for (const line of text.split(/\r?\n/gu)) {
+      if (!line.startsWith('data:')) continue
+      try { return JSON.parse(line.slice(5).trim()) } catch { /* keep scanning */ }
+    }
+  }
+  return undefined
+}
+
+function contentTypeOf(response) {
+  if (typeof response?.headers?.get === 'function') return String(response.headers.get('content-type') ?? '')
+  if (response?.headers && typeof response.headers === 'object') return String(response.headers['content-type'] ?? '')
+  return ''
+}
+
+async function readFetchBody(response) {
+  let text = ''
+  try {
+    if (typeof response?.clone === 'function') text = await response.clone().text()
+    else if (typeof response?.text === 'function') text = await response.text()
+    else if (typeof response?.json === 'function') return { json: await response.json(), text: '' }
+  } catch {
+    return { json: undefined, text: '' }
+  }
+  if (!text) return { json: undefined, text: '' }
+  try { return { json: JSON.parse(text), text } } catch { return { json: undefined, text } }
 }

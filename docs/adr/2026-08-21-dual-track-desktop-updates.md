@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Harness Design Desktop ships two independently versioned products: the Electron desktop application and the embedded DeepSeek Harness runtime. Updating either one can fail for different reasons and requires different recovery behavior. Users should not need to understand this distinction to keep the application current, but advanced users still need controlled official-runtime upgrades.
+JIWEI ships two independently versioned products: the Electron desktop application and the embedded DeepSeek Harness runtime. Updating either one can fail for different reasons and requires different recovery behavior. Users should not need to understand this distinction to keep the application current, but advanced users still need controlled official-runtime upgrades.
 
 The public release must support Windows x64, macOS x64, and macOS arm64. GitHub Releases is the distribution origin. macOS background installation additionally requires a Developer ID signature and notarization; unsigned development builds can still detect releases and direct users to the release page.
 

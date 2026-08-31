@@ -16,6 +16,7 @@
 .settingsCard h3 { margin: 0 0 4px; font-size: 18px; }.settingsCard header p { margin: 0; opacity: .62; }
 .dashboard { display: grid; gap: 18px; }.compact { gap: 12px; }
 .summary { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.summaryActions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .score { width: 66px; height: 66px; border-radius: 18px; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, currentColor 8%, transparent); }
 .score strong { font-size: 24px; line-height: 1; }.score span { font-size: 11px; margin-top: 5px; }.score.good { color: #16865b; }.score.warn { color: #b06c00; }.score.bad { color: #cf3439; }.score.muted { color: #6f7782; }
 .meta { min-width: 0; display: grid; gap: 5px; }.meta b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.meta span { font-size: 12px; opacity: .64; }
@@ -24,6 +25,7 @@
 .diagnosticAction:hover { color: #3374e8; }.diagnosticAction:focus-visible { outline: 2px solid color-mix(in srgb, #3374e8 70%, transparent); outline-offset: 2px; border-radius: 6px; }
 .primary:disabled, .diagnosticAction:disabled, .orchestration button:disabled, .feedback button:disabled { opacity: .55; cursor: wait; }
 .alert { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #e5484d 13%, transparent); color: #c52d33; font-size: 13px; }
+.connectionReady { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #16865b 13%, transparent); color: #16865b; font-size: 13px; }
 .orchestration { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 11px 12px; border-radius: 10px; background: color-mix(in srgb, currentColor 5%, transparent); font-size: 13px; }.orchestration button { margin-left: auto; background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; }
 .dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
 .dimension { display: grid; grid-template-columns: 88px 1fr 28px; align-items: center; gap: 8px; font-size: 12px; }.dimension > div { height: 7px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, currentColor 9%, transparent); }.dimension i { height: 100%; display: block; background: linear-gradient(90deg, #587cf6, #22a06b); border-radius: inherit; }

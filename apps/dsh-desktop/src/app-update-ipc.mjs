@@ -41,7 +41,7 @@ async function offerUpdate({ dialog, manager, getWindow, openReleasePage, status
     type: 'info',
     title: '发现应用更新',
     message: `${status.currentVersion} → ${status.availableVersion}`,
-    detail: '是否立即下载 Harness Design Desktop 新版本？官方 DSH 内核不会在此步骤中单独切换。',
+    detail: '是否立即下载积微 JIWEI 新版本？官方 DSH 内核不会在此步骤中单独切换。',
     buttons: ['立即下载', '稍后'],
     defaultId: 0,
     cancelId: 1,
@@ -57,7 +57,7 @@ async function offerUpdate({ dialog, manager, getWindow, openReleasePage, status
   const second = await dialog.showMessageBox(getWindow(), {
     type: 'info',
     title: '应用更新已下载',
-    message: `Harness Design Desktop ${downloaded.availableVersion} 已准备完成`,
+    message: `积微 JIWEI ${downloaded.availableVersion} 已准备完成`,
     detail: '立即安装会退出并重新启动应用。未保存的输入内容请先保存。',
     buttons: ['退出并安装', '稍后安装'],
     defaultId: 0,

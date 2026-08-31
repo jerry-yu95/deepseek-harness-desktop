@@ -24,6 +24,22 @@ function allocateId(base, usedIds, conflict) {
   return candidate
 }
 
+function isSameProviderRefresh(existing, source) {
+  return existing?.source?.kind === 'provider-json'
+    && source?.kind === 'provider-json'
+    && existing.source.providerId === source.providerId
+}
+
+function providerRefreshTarget(existing, source, suggestedId, selectedProviderCounts) {
+  if (source?.kind !== 'provider-json' || selectedProviderCounts.get(source.providerId) !== 1) return suggestedId
+  const matches = existing.filter((connector) => isSameProviderRefresh(connector, source))
+  const exact = matches.find((connector) => connector.id === suggestedId)
+  if (exact !== undefined) return exact.id
+  if (matches.length === 1) return matches[0].id
+  if (matches.length > 1) throw new Error(`connector-provider-conflict:${source.providerId}`)
+  return suggestedId
+}
+
 function credentialInput(input) {
   if (input === undefined) return {}
   if (!ownRecord(input)) throw new TypeError('connector secrets must be an object')
@@ -75,6 +91,36 @@ export function createProviderJsonSource({ providerId, parsed, capturedAt = new 
   return { kind: 'provider-json', providerId, configurationHash, capturedAt }
 }
 
+function providerForServer(server) {
+  const normalizedName = String(server.sourceName ?? '').toLowerCase()
+  if (/(?:^|[^a-z0-9])tapd(?:[^a-z0-9]|$)/u.test(normalizedName)) return 'tapd'
+  if (server.transport === 'streamable-http') {
+    try {
+      const hostname = new URL(server.url).hostname.toLowerCase()
+      if (hostname === 'mcp-oa.tapd.woa.com') return 'tapd'
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
+/** Associate recognized servers in a mixed JSON document with official catalog providers. */
+export function inferProviderJsonSources(parsed, capturedAt = new Date().toISOString()) {
+  if (!parsed || !Array.isArray(parsed.servers) || !(parsed.credentials instanceof Map)) throw new TypeError('invalid parsed MCP configuration')
+  const sources = {}
+  for (const server of parsed.servers) {
+    const providerId = providerForServer(server)
+    if (providerId === undefined) continue
+    sources[server.sourceName] = createProviderJsonSource({
+      providerId,
+      parsed: { servers: [server], credentials: parsed.credentials },
+      capturedAt,
+    })
+  }
+  return sources
+}
+
 /**
  * Parse and return a renderer-safe preview. Credential values are represented
  * only by `detected: true`; the actual values stay in the main process.
@@ -107,7 +153,7 @@ export function previewMcpJson(input) {
  * returns credential values separately so callers can encrypt them before the
  * connector records are committed.
  */
-export function buildMcpConnectorImport({ parsed, existing = [], selectedNames, conflict = 'reject', secrets, source = { kind: 'json' }, descriptions = {} }) {
+export function buildMcpConnectorImport({ parsed, existing = [], selectedNames, conflict = 'reject', secrets, source = { kind: 'json' }, sourcesByName = {}, descriptions = {} }) {
   if (!parsed || !Array.isArray(parsed.servers) || !(parsed.credentials instanceof Map)) throw new TypeError('invalid parsed MCP configuration')
   if (!CONFLICTS.has(conflict)) throw new TypeError(`unsupported connector conflict mode:${conflict}`)
   if (!Array.isArray(existing)) throw new TypeError('existing connectors must be an array')
@@ -120,9 +166,24 @@ export function buildMcpConnectorImport({ parsed, existing = [], selectedNames, 
   const usedIds = new Set(existingIds)
   const connectors = []
   const credentials = new Map()
+  const selectedProviderCounts = new Map()
 
   for (const server of selected) {
-    const id = allocateId(server.suggestedId, usedIds, conflict)
+    const connectorSource = sourcesByName[server.sourceName] ?? source
+    if (connectorSource?.kind !== 'provider-json') continue
+    selectedProviderCounts.set(connectorSource.providerId, (selectedProviderCounts.get(connectorSource.providerId) ?? 0) + 1)
+  }
+
+  for (const server of selected) {
+    const connectorSource = sourcesByName[server.sourceName] ?? source
+    const targetId = providerRefreshTarget(existing, connectorSource, server.suggestedId, selectedProviderCounts)
+    const existingAtSuggestedId = existing.find((connector) => connector.id === targetId)
+    // Re-importing the same official provider is an idempotent configuration
+    // refresh. Keep reject as the safe default for every unrelated collision.
+    const effectiveConflict = conflict === 'reject' && isSameProviderRefresh(existingAtSuggestedId, connectorSource)
+      ? 'replace'
+      : conflict
+    const id = allocateId(targetId, usedIds, effectiveConflict)
     const previous = existing.find((connector) => connector.id === id)
     for (const slot of server.secretSlots) {
       const value = parsed.credentials.get(slot.credentialRef) ?? supplied[slot.credentialRef]
@@ -139,7 +200,7 @@ export function buildMcpConnectorImport({ parsed, existing = [], selectedNames, 
       ...(Object.keys(server.plainEnv).length ? { plainEnv: server.plainEnv } : {}),
       ...(Object.keys(server.plainHeaders).length ? { plainHeaders: server.plainHeaders } : {}),
       ...(server.secretSlots.length ? { secretBindings: server.secretSlots } : {}),
-      source,
+      source: connectorSource,
       enabled: true,
     })
     connectors.push({ connector, previous })

@@ -38,6 +38,7 @@ function api(): HarnessClientApi {
   return {
     status: vi.fn(async () => status),
     mode: vi.fn(async () => status),
+    testConnection: vi.fn(async () => ({ ok: false, category: 'endpoint-not-found', modelKey: status.modelKey, latencyMs: 120, detail: '模型端点返回 404；请检查 Base URL 路径（通常包含 /v1）、API 协议与模型 ID。' })),
     probe: vi.fn(async () => ({ cached: false, summary: status.health })),
     feedback: vi.fn(async () => status),
     contextQuality: vi.fn(async () => ({ run: status.contextQuality['32K'].latest!, summary: status.contextQuality['32K'] })),
@@ -117,5 +118,14 @@ describe('health presentation', () => {
     expect(screen.getByText(/planner/)).toBeTruthy()
     expect(screen.getByText(/1.2s/)).toBeTruthy()
     expect(screen.getByText(/节省 500 Token/)).toBeTruthy()
+  })
+
+  it('runs a real model connection test and renders an actionable 404 diagnosis', async () => {
+    const client = api()
+    render(<HarnessSettingsCard {...standardProps('S1') as never} api={client} />)
+    const button = await screen.findByRole('button', { name: '测试连接' })
+    fireEvent.click(button)
+    await waitFor(() => { expect(client.testConnection).toHaveBeenCalledWith('S1') })
+    expect(await screen.findByText(/Base URL 路径/)).toBeTruthy()
   })
 })

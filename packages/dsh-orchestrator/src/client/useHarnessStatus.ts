@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HarnessDashboardStatus } from '../wire.ts'
 import type { ObservabilityPeriod } from '../observability.ts'
 import type { ContextQualityScale } from '../context-quality.ts'
+import type { ModelConnectionResult } from '../model-connection.ts'
 import type { HarnessClientApi } from './api.ts'
 
 export interface HarnessStatusState {
@@ -9,10 +10,12 @@ export interface HarnessStatusState {
   loading: boolean
   busy: boolean
   error?: string
+  connectionResult?: ModelConnectionResult
   period: ObservabilityPeriod
   refresh: () => Promise<void>
   setMode: (mode: 'standard' | 'enhanced' | 'adaptive', objective?: string) => Promise<void>
   probe: (bypassCache?: boolean) => Promise<void>
+  testConnection: () => Promise<void>
   runContextQuality: (scale: ContextQualityScale) => Promise<void>
   feedback: (verdict: 'normal' | 'degraded') => Promise<void>
   setPeriod: (period: ObservabilityPeriod) => void
@@ -23,6 +26,7 @@ export function useHarnessStatus(api: HarnessClientApi, sessionId: string): Harn
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [connectionResult, setConnectionResult] = useState<ModelConnectionResult>()
   const [period, setPeriod] = useState<ObservabilityPeriod>('7d')
   const request = useRef(0)
 
@@ -57,9 +61,15 @@ export function useHarnessStatus(api: HarnessClientApi, sessionId: string): Harn
   }, [])
 
   return {
-    status, loading, busy, period, ...(error === undefined ? {} : { error }), refresh, setPeriod,
+    status, loading, busy, period, ...(error === undefined ? {} : { error }), ...(connectionResult === undefined ? {} : { connectionResult }), refresh, setPeriod,
     setMode: (mode, objective) => action(() => api.mode(sessionId, mode, objective)),
     probe: bypassCache => action(async () => { await api.probe(sessionId, bypassCache); return api.status(sessionId) }),
+    testConnection: async () => {
+      setBusy(true)
+      try { setConnectionResult(await api.testConnection(sessionId)); setError(undefined) }
+      catch (cause) { setError(messageOf(cause)) }
+      finally { setBusy(false) }
+    },
     runContextQuality: scale => action(async () => { await api.contextQuality(sessionId, scale, true); return api.status(sessionId) }),
     feedback: verdict => action(() => api.feedback(sessionId, verdict)),
   }

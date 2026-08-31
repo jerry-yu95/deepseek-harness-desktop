@@ -7,6 +7,59 @@ window.__ModuleLoader__.load({
 		let react_dom_client = require("react-dom/client");
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
+		//#region ../dsh-knowledge/src/wire.ts
+		const KNOWLEDGE_RPC_CHANNEL = "/harness-knowledge-v1";
+		//#endregion
+		//#region ../dsh-knowledge/src/client/api.ts
+		/** Thin renderer-side projection of the knowledge Host RPC. */
+		var KnowledgeClientApi = class {
+			connection;
+			constructor(connection) {
+				this.connection = connection;
+			}
+			async list(status, signal) {
+				return (await this.call("list", status === void 0 ? {} : { status }, signal)).items;
+			}
+			async confirm(id, signal) {
+				return (await this.call("confirm", { id }, signal)).item;
+			}
+			async dismiss(id, signal) {
+				return (await this.call("dismiss", { id }, signal)).item;
+			}
+			async create(proposal, snapshot, signal) {
+				const request = {
+					proposal,
+					...snapshot === void 0 ? {} : { snapshot }
+				};
+				return (await this.call("create", request, signal)).item;
+			}
+			async update(id, update, signal) {
+				const request = {
+					id,
+					update
+				};
+				return (await this.call("update", request, signal)).item;
+			}
+			async importUrl(request, signal) {
+				return (await this.call("import-url", request, signal)).item;
+			}
+			async refine(id, sessionId, confirmed, signal) {
+				const request = {
+					id,
+					sessionId,
+					confirmed
+				};
+				return this.call("refine", request, signal);
+			}
+			async call(endpoint, payload, signal) {
+				const result = await this.connection.rpc.call(KNOWLEDGE_RPC_CHANNEL, endpoint, payload, signal);
+				if (!result.ok) throw new Error(result.error.message);
+				const value = result.value;
+				if (typeof value === "object" && value !== null && "error" in value) throw new Error(String(value.error));
+				return value;
+			}
+		};
+		//#endregion
 		//#region src/client/bridge.ts
 		/** Map a connector record to the provider authorization adapter, if supported. */
 		function connectorAuthProvider(connector) {
@@ -131,6 +184,47 @@ window.__ModuleLoader__.load({
 			return source.status === "available";
 		}
 		//#endregion
+		//#region src/client/connector-import-event.ts
+		/** In-memory handoff from a local attachment reference to the import dialog. */
+		const CONNECTOR_IMPORT_EVENT = "dsh:connector-import-preview";
+		let pending;
+		const listeners = /* @__PURE__ */ new Set();
+		function acceptConnectorImport(detail) {
+			if (!isConnectorImportDetail(detail)) return false;
+			pending = detail;
+			for (const listener of listeners) listener(detail);
+			return true;
+		}
+		function subscribeConnectorImport(listener) {
+			listeners.add(listener);
+			if (pending !== void 0) listener(pending);
+			return () => {
+				listeners.delete(listener);
+			};
+		}
+		function consumeConnectorImport(requestId) {
+			if (pending?.requestId === requestId) pending = void 0;
+		}
+		function isConnectorImportDetail(value) {
+			if (value === null || typeof value !== "object") return false;
+			const detail = value;
+			return typeof detail.text === "string" && detail.text.length > 0 && detail.text.length <= 1024 * 1024 && typeof detail.name === "string" && /^.{1,255}\.jsonc?$/iu.test(detail.name) && typeof detail.requestId === "string" && /^[0-9a-f-]{36}$/iu.test(detail.requestId) && (detail.requestedServerNames === void 0 || isRequestedServerNames(detail.requestedServerNames));
+		}
+		function isRequestedServerNames(value) {
+			return Array.isArray(value) && value.length > 0 && value.length <= 16 && value.every((name) => typeof name === "string" && name.length > 0 && name.length <= 128 && !/[\u0000-\u001f\u007f]/u.test(name));
+		}
+		function normalizedServerName(value) {
+			return value.toLocaleLowerCase("en-US").replace(/[^a-z0-9\p{L}\p{N}]+/gu, "");
+		}
+		function selectedServerMap(serverNames, requestedServerNames) {
+			if (requestedServerNames === void 0) return Object.fromEntries(serverNames.map((name) => [name, true]));
+			const requested = requestedServerNames.map(normalizedServerName).filter((name) => name.length > 0);
+			return Object.fromEntries(serverNames.map((name) => {
+				const normalized = normalizedServerName(name);
+				return [name, requested.some((target) => normalized === target || target.length >= 3 && normalized.includes(target))];
+			}));
+		}
+		//#endregion
 		//#region src/client/locales.ts
 		/**
 		* Extension-center surface copy: zh is the key source, en mirrors every key.
@@ -142,6 +236,8 @@ window.__ModuleLoader__.load({
 			"entry.connectors.tooltip": "连接器中心（MCP / HTTP）",
 			"entry.learning.label": "学习",
 			"entry.learning.tooltip": "了解 Harness 原理与社区增强",
+			"entry.knowledge.label": "我的大脑",
+			"entry.knowledge.tooltip": "审阅智能体提出的知识候选与已确认沉淀",
 			"panel.title": "扩展中心",
 			"tab.skills": "技能",
 			"tab.connectors": "连接器",
@@ -151,7 +247,67 @@ window.__ModuleLoader__.load({
 			"common.close": "关闭",
 			"common.error": "出错了：{error}",
 			"desktopOnly.title": "需要桌面版",
-			"desktopOnly.body": "技能与连接器管理运行在 Harness Design Desktop 中。当前浏览器环境未接入桌面桥，功能暂不可用。",
+			"desktopOnly.body": "技能与连接器管理运行在积微 JIWEI 中。当前浏览器环境未接入桌面桥，功能暂不可用。",
+			"knowledge.eyebrow": "LOCAL-FIRST KNOWLEDGE LOOP",
+			"knowledge.title": "我的大脑",
+			"knowledge.subtitle": "把项目里的决定、方法和经验沉淀成可追溯的知识，而不是散落在一次次对话里。",
+			"knowledge.boundary": "智能体建议，用户确认",
+			"knowledge.pending": "待确认",
+			"knowledge.confirmed": "已沉淀",
+			"knowledge.pending.empty": "当前没有待确认候选。",
+			"knowledge.confirmed.empty": "确认后的知识会出现在这里。",
+			"knowledge.empty.title": "知识循环已经就绪",
+			"knowledge.empty": "智能体可以提出建议，只有你确认后才会进入知识库。",
+			"knowledge.action.confirm": "确认沉淀",
+			"knowledge.action.dismiss": "忽略",
+			"knowledge.action.edit": "编辑",
+			"knowledge.action.refine": "AI 整理",
+			"knowledge.views": "知识视图",
+			"knowledge.view.all": "全部知识",
+			"knowledge.search": "搜索标题、正文或标签",
+			"knowledge.category": "分类",
+			"knowledge.category.all": "全部分类",
+			"knowledge.category.placeholder": "例如：产品设计",
+			"knowledge.filtered.empty.title": "这里暂时没有内容",
+			"knowledge.filtered.empty": "可以切换筛选条件，或从右上角导入第一条知识。",
+			"knowledge.capture.open": "记录或导入",
+			"knowledge.capture.eyebrow": "KNOWLEDGE INBOX",
+			"knowledge.capture.title": "添加到知识收件箱",
+			"knowledge.capture.manual": "粘贴内容",
+			"knowledge.capture.url": "导入链接",
+			"knowledge.capture.submit": "保存为待确认",
+			"knowledge.capture.localOnly": "原文只保存在本机。本次不会发送给模型；后续模型加工会在发送前再次确认。",
+			"knowledge.edit.eyebrow": "EDIT KNOWLEDGE",
+			"knowledge.edit.title": "编辑知识",
+			"knowledge.edit.submit": "保存修改",
+			"knowledge.edit.provenance": "修改只影响知识正文；原始来源和本地快照保持不变。",
+			"knowledge.refine.eyebrow": "MODEL PROCESSING",
+			"knowledge.refine.title": "确认发送给当前模型",
+			"knowledge.refine.disclosure": "将这条知识的本地原文发送给当前会话所选模型，由模型重新整理标题、正文、分类和标签。原文超过 128 KiB 时只发送前 128 KiB。",
+			"knowledge.refine.privacy": "原始快照仍只保存在本机。请先确认原文不含不希望发送给模型的密码、令牌、Cookie 或其他敏感信息。",
+			"knowledge.refine.confirm": "确认并发送",
+			"knowledge.refine.running": "整理中…",
+			"knowledge.refine.noSession": "请先打开一个会话并选择模型，再进行 AI 整理。",
+			"knowledge.refine.done": "已使用 {model} 完成整理",
+			"knowledge.form.title": "标题",
+			"knowledge.form.content": "正文",
+			"knowledge.form.kind": "知识类型",
+			"knowledge.form.url": "公开 HTTPS 链接",
+			"knowledge.form.tags": "标签",
+			"knowledge.form.tags.placeholder": "用逗号分隔，最多 8 个",
+			"knowledge.createdToast": "已保存到知识收件箱",
+			"knowledge.updatedToast": "知识内容已更新",
+			"knowledge.source": "来源",
+			"knowledge.project": "项目",
+			"knowledge.confidence": "置信度 {value}%",
+			"knowledge.kind.decision": "决定",
+			"knowledge.kind.lesson": "经验",
+			"knowledge.kind.method": "方法",
+			"knowledge.kind.fact": "事实",
+			"knowledge.kind.preference": "偏好",
+			"knowledge.confirmedToast": "已确认并沉淀到我的大脑",
+			"knowledge.dismissedToast": "已忽略这条候选",
+			"knowledge.loadError": "知识库加载失败：{error}",
 			"skills.empty": "尚未发现技能。创建或导入后，Harness 会自动发现。",
 			"skills.create": "创建技能",
 			"skills.import": "导入技能目录",
@@ -195,7 +351,7 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.official": "官方模板",
 			"connectors.catalog.providerJson": "服务方 JSON",
 			"connectors.catalog.officialSkill": "官方 Skill",
-			"connectors.catalog.installed": "已接入",
+			"connectors.catalog.installed": "已配置",
 			"connectors.catalog.tier.verified": "已验证",
 			"connectors.catalog.tier.community": "社区",
 			"connectors.catalog.tier.experimental": "实验性",
@@ -207,7 +363,7 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.search": "搜索连接器",
 			"connectors.catalog.statusLabel": "安装状态",
 			"connectors.catalog.status.all": "全部状态",
-			"connectors.catalog.status.installed": "已接入",
+			"connectors.catalog.status.installed": "已配置",
 			"connectors.catalog.status.uninstalled": "未接入",
 			"connectors.catalog.noMatches": "没有符合筛选条件的连接器。",
 			"connectors.catalog.provider": "提供方：{provider}",
@@ -260,6 +416,16 @@ window.__ModuleLoader__.load({
 			"connectors.import.fileReady": "已读取本地配置文件；文件内容只在桌面主进程中暂存，凭证不会回显。",
 			"connectors.import.noSecret": "令牌只在桌面主进程中加密保存，不会写入配置或日志。",
 			"connectors.import.preview": "预览配置",
+			"connectors.import.test": "测试连接",
+			"connectors.import.testing": "正在测试…",
+			"connectors.import.testHint": "测试连接不会保存配置，也不会重启 Host。OAuth 类服务通常需要先保存再授权，因此测试不是保存的强制前置条件。",
+			"connectors.import.testPassed": "已通过 {count} 个连接测试",
+			"connectors.import.testFailed": "{count} 个连接测试未通过，请查看详细诊断",
+			"connectors.import.needsAuth": "{count} 个服务需要完成授权后才能完成握手，可以先保存再授权。",
+			"connectors.import.testUnavailable": "当前桌面版不支持保存前测试，请先升级应用。",
+			"connectors.import.testResults": "连接测试结果",
+			"connectors.import.testReady": "可连接",
+			"connectors.import.testBlocked": "未通过",
 			"connectors.import.edit": "返回修改 JSON",
 			"connectors.import.servers": "{count} 个服务",
 			"connectors.import.selectAll": "全选",
@@ -281,6 +447,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.desktopRequired": "当前桌面版本不支持 MCP JSON 导入，请先升级应用。",
 			"connectors.imported": "已接入 {count} 个连接器",
 			"connectors.import.conflictError": "连接器 {name} 已存在，请选择覆盖已有或自动重命名。",
+			"connectors.import.providerConflictError": "检测到多个已有的 {name} 连接器，无法安全判断要更新哪一个。请先移除重复项后重试。",
 			"connectors.advanced.title": "高级配置（开发者）",
 			"connectors.form.id": "标识",
 			"connectors.form.name": "名称",
@@ -296,7 +463,7 @@ window.__ModuleLoader__.load({
 			"connectors.form.description": "说明",
 			"connectors.form.capabilities": "能力标签（逗号分隔）",
 			"connectors.form.secrets": "凭证环境变量（逗号分隔）",
-			"connectors.form.submit": "保存并接入",
+			"connectors.form.submit": "保存并启用",
 			"connectors.form.hint": "MCP 保存后会通过官方 dsh-mcp-client 注册为 Agent 原生工具，并安全重载 Harness。",
 			"connectors.form.id.placeholder": "my-tapd",
 			"connectors.form.name.placeholder": "我的 TAPD",
@@ -312,16 +479,22 @@ window.__ModuleLoader__.load({
 			"connectors.disabled": "{name} 已停用，凭证和配置仍安全保留",
 			"connectors.enable": "启用",
 			"connectors.disable": "停用",
-			"connectors.state.enabled": "已启用",
+			"connectors.state.enabled": "已配置",
 			"connectors.state.disabled": "已停用",
 			"connectors.check": "检测",
+			"connectors.retest": "重新测试",
+			"connectors.reconfigure": "重新配置",
+			"connectors.test.passed": "测试通过",
+			"connectors.test.needsAuth": "待授权",
+			"connectors.test.failed": "测试失败",
+			"connectors.test.pending": "未测试",
 			"connectors.diagnostics.title": "连接诊断",
 			"connectors.diagnostics.configuration": "配置",
 			"connectors.diagnostics.credentials": "凭证",
 			"connectors.diagnostics.runtime": "运行环境",
 			"connectors.diagnostics.registration": "Harness 注册",
 			"connectors.remove": "移除",
-			"connectors.unchecked": "尚未检测 · {endpoint}",
+			"connectors.unchecked": "未测试 · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
 			"connectors.type.http": "HTTP API",
 			"connectors.source.external": "来源：{client}",
@@ -368,6 +541,8 @@ window.__ModuleLoader__.load({
 			"entry.connectors.tooltip": "Connector Center (MCP / HTTP)",
 			"entry.learning.label": "Learn",
 			"entry.learning.tooltip": "Learn Harness concepts and community additions",
+			"entry.knowledge.label": "My Brain",
+			"entry.knowledge.tooltip": "Review agent-proposed knowledge and confirmed memories",
 			"panel.title": "Extension Center",
 			"tab.skills": "Skills",
 			"tab.connectors": "Connectors",
@@ -377,7 +552,67 @@ window.__ModuleLoader__.load({
 			"common.close": "Close",
 			"common.error": "Error: {error}",
 			"desktopOnly.title": "Desktop required",
-			"desktopOnly.body": "Skills and connectors management runs inside Harness Design Desktop. The desktop bridge is not available in this browser session.",
+			"desktopOnly.body": "Skills and connectors management runs inside JIWEI. The desktop bridge is not available in this browser session.",
+			"knowledge.eyebrow": "LOCAL-FIRST KNOWLEDGE LOOP",
+			"knowledge.title": "My Brain",
+			"knowledge.subtitle": "Turn project decisions, methods, and lessons into provenance-backed knowledge instead of leaving them scattered across chats.",
+			"knowledge.boundary": "Agent proposes, you confirm",
+			"knowledge.pending": "Pending review",
+			"knowledge.confirmed": "Confirmed knowledge",
+			"knowledge.pending.empty": "No candidates are waiting for review.",
+			"knowledge.confirmed.empty": "Confirmed knowledge will appear here.",
+			"knowledge.empty.title": "The knowledge loop is ready",
+			"knowledge.empty": "The agent can propose candidates; only you can confirm them into the knowledge base.",
+			"knowledge.action.confirm": "Confirm knowledge",
+			"knowledge.action.dismiss": "Dismiss",
+			"knowledge.action.edit": "Edit",
+			"knowledge.action.refine": "Refine with AI",
+			"knowledge.views": "Knowledge views",
+			"knowledge.view.all": "All knowledge",
+			"knowledge.search": "Search titles, content, or tags",
+			"knowledge.category": "Category",
+			"knowledge.category.all": "All categories",
+			"knowledge.category.placeholder": "For example: Product design",
+			"knowledge.filtered.empty.title": "Nothing here yet",
+			"knowledge.filtered.empty": "Change the filters or import your first knowledge item.",
+			"knowledge.capture.open": "Capture or import",
+			"knowledge.capture.eyebrow": "KNOWLEDGE INBOX",
+			"knowledge.capture.title": "Add to knowledge inbox",
+			"knowledge.capture.manual": "Paste content",
+			"knowledge.capture.url": "Import URL",
+			"knowledge.capture.submit": "Save for review",
+			"knowledge.capture.localOnly": "The source stays on this device. This import is not sent to a model; model processing will require confirmation first.",
+			"knowledge.edit.eyebrow": "EDIT KNOWLEDGE",
+			"knowledge.edit.title": "Edit knowledge",
+			"knowledge.edit.submit": "Save changes",
+			"knowledge.edit.provenance": "Edits change the knowledge note only; its original source and local snapshot stay unchanged.",
+			"knowledge.refine.eyebrow": "MODEL PROCESSING",
+			"knowledge.refine.title": "Confirm sending to the current model",
+			"knowledge.refine.disclosure": "Send this knowledge item’s local source to the model selected in the current session. The model will refine its title, note, category, and tags. Sources over 128 KiB are truncated locally first.",
+			"knowledge.refine.privacy": "The original snapshot remains local. Confirm that the source contains no passwords, tokens, cookies, or other information you do not want to send to the model.",
+			"knowledge.refine.confirm": "Confirm and send",
+			"knowledge.refine.running": "Refining…",
+			"knowledge.refine.noSession": "Open a conversation and select a model before using AI refinement.",
+			"knowledge.refine.done": "Refined with {model}",
+			"knowledge.form.title": "Title",
+			"knowledge.form.content": "Content",
+			"knowledge.form.kind": "Knowledge type",
+			"knowledge.form.url": "Public HTTPS URL",
+			"knowledge.form.tags": "Tags",
+			"knowledge.form.tags.placeholder": "Comma separated, up to 8",
+			"knowledge.createdToast": "Saved to the knowledge inbox",
+			"knowledge.updatedToast": "Knowledge updated",
+			"knowledge.source": "Source",
+			"knowledge.project": "Project",
+			"knowledge.confidence": "{value}% confidence",
+			"knowledge.kind.decision": "Decision",
+			"knowledge.kind.lesson": "Lesson",
+			"knowledge.kind.method": "Method",
+			"knowledge.kind.fact": "Fact",
+			"knowledge.kind.preference": "Preference",
+			"knowledge.confirmedToast": "Confirmed and saved to My Brain",
+			"knowledge.dismissedToast": "Candidate dismissed",
+			"knowledge.loadError": "Failed to load knowledge: {error}",
 			"skills.empty": "No skills discovered yet. Create or import one; the Harness watcher picks it up automatically.",
 			"skills.create": "Create skill",
 			"skills.import": "Import skill bundle",
@@ -421,7 +656,7 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.official": "Official template",
 			"connectors.catalog.providerJson": "Provider JSON",
 			"connectors.catalog.officialSkill": "Official Skill",
-			"connectors.catalog.installed": "Connected",
+			"connectors.catalog.installed": "Configured",
 			"connectors.catalog.tier.verified": "Verified",
 			"connectors.catalog.tier.community": "Community",
 			"connectors.catalog.tier.experimental": "Experimental",
@@ -433,7 +668,7 @@ window.__ModuleLoader__.load({
 			"connectors.catalog.search": "Search connectors",
 			"connectors.catalog.statusLabel": "Installation status",
 			"connectors.catalog.status.all": "All statuses",
-			"connectors.catalog.status.installed": "Connected",
+			"connectors.catalog.status.installed": "Configured",
 			"connectors.catalog.status.uninstalled": "Not connected",
 			"connectors.catalog.noMatches": "No connectors match these filters.",
 			"connectors.catalog.provider": "Provider: {provider}",
@@ -486,6 +721,16 @@ window.__ModuleLoader__.load({
 			"connectors.import.fileReady": "Local configuration loaded; the file stays staged in the desktop main process and credentials are never shown.",
 			"connectors.import.noSecret": "Credentials are encrypted in the desktop main process and never written to config or logs.",
 			"connectors.import.preview": "Preview config",
+			"connectors.import.test": "Test connection",
+			"connectors.import.testing": "Testing…",
+			"connectors.import.testHint": "Testing does not save configuration or restart the Host. OAuth services usually need to be saved before authorization, so a connection test is not a required save step.",
+			"connectors.import.testPassed": "{count} connection test(s) passed",
+			"connectors.import.testFailed": "{count} connection test(s) failed. Review the diagnostics below.",
+			"connectors.import.needsAuth": "{count} service(s) need authorization before the handshake can finish. You can save first, then authorize.",
+			"connectors.import.testUnavailable": "This desktop build cannot test before saving. Upgrade the app first.",
+			"connectors.import.testResults": "Connection test results",
+			"connectors.import.testReady": "Reachable",
+			"connectors.import.testBlocked": "Failed",
 			"connectors.import.edit": "Edit JSON",
 			"connectors.import.servers": "{count} servers",
 			"connectors.import.selectAll": "Select all",
@@ -507,6 +752,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.desktopRequired": "This desktop build does not support MCP JSON import. Upgrade the app first.",
 			"connectors.imported": "{count} connector(s) connected",
 			"connectors.import.conflictError": "Connector {name} already exists. Choose Replace existing or Auto-rename.",
+			"connectors.import.providerConflictError": "Multiple existing {name} connectors were found, so the app cannot safely choose one to refresh. Remove the duplicate entries and try again.",
 			"connectors.advanced.title": "Advanced configuration (developer)",
 			"connectors.form.id": "ID",
 			"connectors.form.name": "Name",
@@ -522,7 +768,7 @@ window.__ModuleLoader__.load({
 			"connectors.form.description": "Description",
 			"connectors.form.capabilities": "Capabilities (comma-separated)",
 			"connectors.form.secrets": "Secret environment keys (comma-separated)",
-			"connectors.form.submit": "Save and connect",
+			"connectors.form.submit": "Save and enable",
 			"connectors.form.hint": "MCP connectors register as native Agent tools through the official dsh-mcp-client and safely reload the Harness.",
 			"connectors.form.id.placeholder": "my-tapd",
 			"connectors.form.name.placeholder": "My TAPD",
@@ -538,16 +784,22 @@ window.__ModuleLoader__.load({
 			"connectors.disabled": "{name} disabled; credentials and configuration are preserved",
 			"connectors.enable": "Enable",
 			"connectors.disable": "Disable",
-			"connectors.state.enabled": "Enabled",
+			"connectors.state.enabled": "Configured",
 			"connectors.state.disabled": "Disabled",
 			"connectors.check": "Check",
+			"connectors.retest": "Retest",
+			"connectors.reconfigure": "Reconfigure",
+			"connectors.test.passed": "Test passed",
+			"connectors.test.needsAuth": "Needs authorization",
+			"connectors.test.failed": "Test failed",
+			"connectors.test.pending": "Not tested",
 			"connectors.diagnostics.title": "Connection diagnostics",
 			"connectors.diagnostics.configuration": "Configuration",
 			"connectors.diagnostics.credentials": "Credentials",
 			"connectors.diagnostics.runtime": "Runtime",
 			"connectors.diagnostics.registration": "Harness registration",
 			"connectors.remove": "Remove",
-			"connectors.unchecked": "Not checked · {endpoint}",
+			"connectors.unchecked": "Not tested · {endpoint}",
 			"connectors.type.mcp": "MCP · {transport}",
 			"connectors.type.http": "HTTP API",
 			"connectors.source.external": "Source: {client}",
@@ -615,7 +867,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:5;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_importInputActions{justify-content:flex-end;margin-top:8px;display:flex}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:1fr}}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:100;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}html[data-dsh-extension-active] [data-composer-seat]{display:none!important}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_importInputActions{justify-content:flex-end;margin-top:8px;display:flex}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_knowledgeBody{gap:14px}.bid-pG_knowledgeHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 62%);border-radius:14px;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px;display:flex}.bid-pG_knowledgeHero h3{margin:4px 0 7px;font-size:21px}.bid-pG_knowledgeHero p{max-width:720px;color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_knowledgeHero>span{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, transparent);color:var(--dsw-alias-state-business-primary);border-radius:999px;flex:none;padding:5px 9px;font-size:11px;font-weight:600}.bid-pG_knowledgeEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_knowledgeWorkspace{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;min-width:0;overflow:hidden}.bid-pG_knowledgeWorkspaceHeader{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;display:flex}.bid-pG_knowledgeTabs,.bid-pG_knowledgeFilters,.bid-pG_knowledgeCaptureModes{align-items:center;gap:6px;display:flex}.bid-pG_knowledgeTabs button,.bid-pG_knowledgeCaptureModes button{color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:1px solid #0000;border-radius:8px;align-items:center;gap:6px;padding:6px 9px;display:inline-flex}.bid-pG_knowledgeTabs button[data-active],.bid-pG_knowledgeCaptureModes button[data-active]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);color:var(--dsw-alias-state-business-primary)}.bid-pG_knowledgeTabs button span{background:color-mix(in srgb, currentColor 10%, transparent);text-align:center;border-radius:999px;min-width:17px;padding:1px 5px;font-size:10px}.bid-pG_knowledgeFilters input,.bid-pG_knowledgeFilters select{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-width:160px;color:var(--dsw-alias-label-primary);border-radius:8px;padding:6px 8px}.bid-pG_knowledgeGrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_knowledgeCategory{background:color-mix(in srgb, var(--dsw-alias-label-secondary) 10%, transparent);color:var(--dsw-alias-label-secondary);border-radius:999px;margin-left:5px;padding:2px 6px;font-size:10px}.bid-pG_knowledgeCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:10px;padding:11px}.bid-pG_knowledgeCardHeader,.bid-pG_knowledgeActions{justify-content:space-between;align-items:center;gap:8px;display:flex}.bid-pG_knowledgeKind,.bid-pG_knowledgeConfidence,.bid-pG_knowledgeTags span{color:var(--dsw-alias-label-secondary);font-size:10px}.bid-pG_knowledgeKind,.bid-pG_knowledgeTags span{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);border-radius:999px;padding:2px 6px}.bid-pG_knowledgeCard h4{margin:8px 0 5px;font-size:14px}.bid-pG_knowledgeCard>p{color:var(--dsw-alias-label-secondary);white-space:pre-wrap;margin:0;font-size:12px;line-height:1.6}.bid-pG_knowledgeMeta{gap:4px;margin:9px 0 0;display:grid}.bid-pG_knowledgeMeta div{grid-template-columns:42px minmax(0,1fr);gap:6px;font-size:10px;display:grid}.bid-pG_knowledgeMeta dt{color:var(--dsw-alias-label-secondary)}.bid-pG_knowledgeMeta dd{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;margin:0}.bid-pG_knowledgeTags{flex-wrap:wrap;gap:4px;margin-top:9px;display:flex}.bid-pG_knowledgeActions{justify-content:flex-end;margin-top:10px}.bid-pG_knowledgeDialog{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;width:min(720px,100vw - 36px);max-height:min(760px,100vh - 36px);overflow:auto;box-shadow:0 18px 60px #0000002e}.bid-pG_knowledgeDialog>header,.bid-pG_knowledgeDialog>footer{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;display:flex}.bid-pG_knowledgeDialog>footer{border-top:1px solid var(--dsw-alias-border-l1);border-bottom:0;justify-content:flex-end}.bid-pG_knowledgeDialog h3{margin:3px 0 0}.bid-pG_knowledgeCaptureModes{padding:10px 16px 0}.bid-pG_knowledgeDialogBody{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px 16px;display:grid}.bid-pG_knowledgeDialogBody label{color:var(--dsw-alias-label-secondary);gap:6px;font-size:12px;display:grid}.bid-pG_knowledgeDialogBody label:has(textarea),.bid-pG_knowledgePrivacy{grid-column:1/-1}.bid-pG_knowledgeDialogBody input,.bid-pG_knowledgeDialogBody textarea,.bid-pG_knowledgeDialogBody select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);width:100%;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:8px 9px}.bid-pG_knowledgeDialogBody textarea{resize:vertical;line-height:1.55}.bid-pG_knowledgePrivacy{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);color:var(--dsw-alias-label-secondary);border-radius:8px;margin:0;padding:9px 10px;font-size:11px;line-height:1.5}.bid-pG_knowledgeEmpty,.bid-pG_knowledgeSectionEmpty{text-align:center;color:var(--dsw-alias-label-secondary);margin:auto;padding:24px}.bid-pG_knowledgeEmpty strong{color:var(--dsw-alias-label-primary);margin-bottom:7px;display:block}.bid-pG_knowledgeEmpty p,.bid-pG_knowledgeSectionEmpty{font-size:12px;line-height:1.6}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid,.bid-pG_knowledgeGrid{grid-template-columns:1fr}.bid-pG_knowledgeHero,.bid-pG_knowledgeWorkspaceHeader,.bid-pG_knowledgeFilters{flex-direction:column;align-items:stretch}.bid-pG_knowledgeDialogBody{grid-template-columns:1fr}}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -671,6 +923,28 @@ window.__ModuleLoader__.load({
 			"itemActions": "bid-pG_itemActions",
 			"itemBody": "bid-pG_itemBody",
 			"jsonEditor": "bid-pG_jsonEditor",
+			"knowledgeActions": "bid-pG_knowledgeActions",
+			"knowledgeBody": "bid-pG_knowledgeBody",
+			"knowledgeCaptureModes": "bid-pG_knowledgeCaptureModes",
+			"knowledgeCard": "bid-pG_knowledgeCard",
+			"knowledgeCardHeader": "bid-pG_knowledgeCardHeader",
+			"knowledgeCategory": "bid-pG_knowledgeCategory",
+			"knowledgeConfidence": "bid-pG_knowledgeConfidence",
+			"knowledgeDialog": "bid-pG_knowledgeDialog",
+			"knowledgeDialogBody": "bid-pG_knowledgeDialogBody",
+			"knowledgeEmpty": "bid-pG_knowledgeEmpty",
+			"knowledgeEyebrow": "bid-pG_knowledgeEyebrow",
+			"knowledgeFilters": "bid-pG_knowledgeFilters",
+			"knowledgeGrid": "bid-pG_knowledgeGrid",
+			"knowledgeHero": "bid-pG_knowledgeHero",
+			"knowledgeKind": "bid-pG_knowledgeKind",
+			"knowledgeMeta": "bid-pG_knowledgeMeta",
+			"knowledgePrivacy": "bid-pG_knowledgePrivacy",
+			"knowledgeSectionEmpty": "bid-pG_knowledgeSectionEmpty",
+			"knowledgeTabs": "bid-pG_knowledgeTabs",
+			"knowledgeTags": "bid-pG_knowledgeTags",
+			"knowledgeWorkspace": "bid-pG_knowledgeWorkspace",
+			"knowledgeWorkspaceHeader": "bid-pG_knowledgeWorkspaceHeader",
 			"learningBody": "bid-pG_learningBody",
 			"learningEyebrow": "bid-pG_learningEyebrow",
 			"learningGrid": "bid-pG_learningGrid",
@@ -1211,12 +1485,29 @@ window.__ModuleLoader__.load({
 			if (id === "runtime") return tt("connectors.diagnostics.runtime");
 			return tt("connectors.diagnostics.registration");
 		}
+		function connectorTestKind(checked) {
+			if (checked === void 0) return "pending";
+			if (checked.state === "needs-authorization") return "needsAuth";
+			if (checked.ok) return "passed";
+			return "failed";
+		}
+		function connectorTestLabel(kind) {
+			if (kind === "passed") return tt("connectors.test.passed");
+			if (kind === "needsAuth") return tt("connectors.test.needsAuth");
+			if (kind === "failed") return tt("connectors.test.failed");
+			return tt("connectors.test.pending");
+		}
+		function importTestBadge(result) {
+			if (result.state === "needs-authorization") return tt("connectors.test.needsAuth");
+			return result.ok ? tt("connectors.import.testReady") : tt("connectors.import.testBlocked");
+		}
 		function providerJsonLabel(providerId) {
 			return providerId === "tapd" ? "TAPD" : "腾讯工蜂";
 		}
 		function friendlyImportError(error) {
 			const message = errorMessage(error);
 			if (message.includes("local-command-trust-required")) return tt("connectors.import.localTrustRequired");
+			if (message.startsWith("connector-provider-conflict:")) return tt("connectors.import.providerConflictError", { name: providerJsonLabel(message.slice(28)) });
 			if (message.startsWith("connector-conflict:")) return tt("connectors.import.conflictError", { name: message.slice(19) });
 			return message;
 		}
@@ -1254,6 +1545,7 @@ window.__ModuleLoader__.load({
 			const [conflict, setConflict] = (0, react.useState)("reject");
 			const [importSource, setImportSource] = (0, react.useState)({ kind: "json" });
 			const [importError, setImportError] = (0, react.useState)(null);
+			const [draftChecks, setDraftChecks] = (0, react.useState)([]);
 			const [localCommandTrusted, setLocalCommandTrusted] = (0, react.useState)(false);
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [kind, setKind] = (0, react.useState)("mcp");
@@ -1273,6 +1565,7 @@ window.__ModuleLoader__.load({
 				keyword: storeFilter.keyword,
 				installed: storeFilter.installed === "all" ? void 0 : storeFilter.installed === "installed"
 			}, installedStoreIds);
+			const customConnectors = (connectors ?? []).filter((connector) => connector.source?.kind !== "provider-json");
 			const load = (0, react.useCallback)(async () => {
 				try {
 					const next = await bridge.listConnectors();
@@ -1444,6 +1737,10 @@ window.__ModuleLoader__.load({
 					setBusy(true);
 					try {
 						await checkConnectorIds(checkIds);
+						const targetId = checkIds[0];
+						requestAnimationFrame(() => {
+							document.querySelector(`[data-connector-id="${targetId}"]`)?.scrollIntoView({ block: "center" });
+						});
 					} finally {
 						initialCheckIds.current = [];
 						clearPendingConnectorChecks();
@@ -1466,6 +1763,7 @@ window.__ModuleLoader__.load({
 				setStagedSource(null);
 				setStagedJsonFile(null);
 				setImportError(null);
+				setDraftChecks([]);
 				setLocalCommandTrusted(false);
 				secretInputs.current = {};
 			}, []);
@@ -1539,7 +1837,7 @@ window.__ModuleLoader__.load({
 				setConflict(replaceExisting ? "replace" : "reject");
 				setImportOpen(true);
 			}, []);
-			const previewJson = (0, react.useCallback)(async (text, source = { kind: "json" }, replaceExisting = false) => {
+			const previewJson = (0, react.useCallback)(async (text, source = { kind: "json" }, replaceExisting = false, requestedServerNames) => {
 				if (!canImportJson || bridge.previewMcpJson === void 0) {
 					notify(tt("connectors.import.desktopRequired"), true);
 					return;
@@ -1558,7 +1856,7 @@ window.__ModuleLoader__.load({
 				try {
 					const result = await bridge.previewMcpJson(text);
 					setPreview(result);
-					setSelected(Object.fromEntries(result.servers.map((server) => [server.sourceName, true])));
+					setSelected(selectedServerMap(result.servers.map((server) => server.sourceName), requestedServerNames));
 				} catch (error) {
 					setImportError(friendlyImportError(error));
 				} finally {
@@ -1569,6 +1867,10 @@ window.__ModuleLoader__.load({
 				canImportJson,
 				notify
 			]);
+			(0, react.useEffect)(() => subscribeConnectorImport((detail) => {
+				consumeConnectorImport(detail.requestId);
+				previewJson(detail.text, { kind: "json" }, false, detail.requestedServerNames);
+			}), [previewJson]);
 			const pickJsonFile = (0, react.useCallback)(async () => {
 				if (!canPickJsonFile || bridge.pickMcpJsonFile === void 0) {
 					notify(tt("connectors.import.desktopRequired"), true);
@@ -1664,6 +1966,58 @@ window.__ModuleLoader__.load({
 					setBusy(false);
 				}
 			};
+			const onTestImport = async () => {
+				if (preview === null) return;
+				if (selectedNames.length === 0) {
+					setImportError(tt("connectors.import.selectOne"));
+					return;
+				}
+				if (missingSecrets.length > 0) {
+					const first = missingSecrets[0];
+					setImportError(tt("connectors.import.missingSecret", { name: mcpCredentialLabel(first) }));
+					requestAnimationFrame(() => {
+						secretInputs.current[first.credentialRef]?.focus();
+					});
+					return;
+				}
+				if (requiresLocalExecution && !localCommandTrusted) {
+					setImportError(tt("connectors.import.localTrustRequired"));
+					return;
+				}
+				if ((stagedSource === null ? bridge.testMcpJson : bridge.testMcpClientSource) === void 0) {
+					setImportError(tt("connectors.import.testUnavailable"));
+					return;
+				}
+				setImportError(null);
+				setDraftChecks([]);
+				setBusy(true);
+				try {
+					const options = {
+						selectedNames,
+						conflict,
+						secrets: Object.fromEntries(Object.entries(secretValues).filter(([, value]) => value.trim().length > 0)),
+						allowLocalCommand: localCommandTrusted
+					};
+					const tested = stagedSource === null ? await bridge.testMcpJson({
+						...stagedJsonFile === null ? { text: jsonText } : { fileToken: stagedJsonFile.token },
+						...options,
+						source: importSource
+					}) : await bridge.testMcpClientSource({
+						token: stagedSource.source.token,
+						...options
+					});
+					setDraftChecks(tested.results);
+					const needsAuth = tested.results.filter((item) => item.result.state === "needs-authorization");
+					const failed = tested.results.filter((item) => !item.result.ok && item.result.state !== "needs-authorization");
+					if (failed.length > 0) setImportError(tt("connectors.import.testFailed", { count: failed.length }));
+					else if (needsAuth.length > 0) notify(tt("connectors.import.needsAuth", { count: needsAuth.length }));
+					else notify(tt("connectors.import.testPassed", { count: tested.results.length }));
+				} catch (error) {
+					setImportError(friendlyImportError(error));
+				} finally {
+					setBusy(false);
+				}
+			};
 			const onSave = async (event) => {
 				event.preventDefault();
 				const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -1705,6 +2059,28 @@ window.__ModuleLoader__.load({
 				} finally {
 					setBusy(false);
 				}
+			};
+			const onReconfigure = (connector) => {
+				const preset = CONNECTOR_STORE_ENTRIES.find((entry) => {
+					if (entry.integration === "provider-json" && entry.providerId !== void 0) return connector.source?.kind === "provider-json" && connector.source.providerId === entry.providerId;
+					return connector.source?.kind === "preset" && connector.source.presetId === entry.id;
+				});
+				setCatalogOpen(true);
+				if (preset?.json !== void 0) {
+					previewJson(preset.json, {
+						kind: "preset",
+						presetId: preset.id
+					}, true);
+					return;
+				}
+				if (preset?.providerId !== void 0) {
+					openJsonImport({
+						kind: "provider-json",
+						providerId: preset.providerId
+					}, true);
+					return;
+				}
+				openJsonImport();
 			};
 			const onInstallOfficialSkill = async (preset) => {
 				if (preset.id !== "tencent-meeting" && preset.id !== "wecom") return;
@@ -1768,10 +2144,12 @@ window.__ModuleLoader__.load({
 				}
 			};
 			const renderPreset = (preset) => {
-				const installed = connectors?.some((connector) => {
+				const installedConnector = connectors?.find((connector) => {
 					if (preset.integration === "provider-json" && preset.providerId !== void 0) return connector.source?.kind === "provider-json" && connector.source.providerId === preset.providerId;
 					return connector.source?.kind === "preset" && connector.source.presetId === preset.id;
-				}) ?? false;
+				});
+				const installed = installedConnector !== void 0;
+				const installedCheck = installedConnector === void 0 ? void 0 : health[installedConnector.id];
 				const typeLabel = preset.integration === "mcp-template" ? tt("connectors.catalog.official") : preset.integration === "provider-json" ? tt("connectors.catalog.providerJson") : tt("connectors.catalog.officialSkill");
 				const docsLabel = preset.documentation === "official-mcp" ? tt("connectors.catalog.docsOfficialMcp") : preset.documentation === "provider-config" ? tt("connectors.catalog.docsProviderConfig") : preset.documentation === "official-skill" ? tt("connectors.catalog.docsOfficialSkill") : tt("connectors.catalog.docsOfficialApi");
 				const tierLabel = tt(`connectors.catalog.tier.${preset.tier}`);
@@ -1838,9 +2216,57 @@ window.__ModuleLoader__.load({
 									permissions: preset.permissionSummary.join(", "),
 									auth: preset.authModes.join(", ") || tt("connectors.catalog.noAuth")
 								})
+							}),
+							installedConnector !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.health,
+								"data-error": installedCheck !== void 0 && !installedCheck.ok ? "true" : void 0,
+								children: installedCheck?.detail ?? tt("connectors.unchecked", { endpoint: connectorEndpoint(installedConnector) })
 							})
 						]
-					}), preset.integration === "official-skill" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					}), installedConnector !== void 0 && preset.integration === "provider-json" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.actionRow,
+						children: [
+							bridge.setConnectorEnabled !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									onToggleEnabled(installedConnector);
+								},
+								children: installedConnector.enabled === false ? tt("connectors.enable") : tt("connectors.disable")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									onCheck(installedConnector.id);
+								},
+								children: tt("connectors.retest")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy || !canImportJson || preset.providerId === void 0,
+								onClick: () => {
+									if (preset.providerId !== void 0) openJsonImport({
+										kind: "provider-json",
+										providerId: preset.providerId
+									}, true);
+								},
+								children: tt("connectors.catalog.reconfigure")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.dangerButton,
+								disabled: busy,
+								onClick: () => {
+									onRemove(installedConnector.id);
+								},
+								children: tt("connectors.remove")
+							})
+						]
+					}) : preset.integration === "official-skill" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: panel_module_css_default.actionRow,
 						children: [bridge.previewOfficialSkill !== void 0 && bridge.installOfficialSkill !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
@@ -2151,6 +2577,7 @@ window.__ModuleLoader__.load({
 															checked: preview.servers.every((server) => selected[server.sourceName]),
 															onChange: (event) => {
 																setImportError(null);
+																setDraftChecks([]);
 																setLocalCommandTrusted(false);
 																setSelected(Object.fromEntries(preview.servers.map((server) => [server.sourceName, event.target.checked])));
 															}
@@ -2170,6 +2597,7 @@ window.__ModuleLoader__.load({
 															checked: Boolean(selected[server.sourceName]),
 															onChange: (event) => {
 																setImportError(null);
+																setDraftChecks([]);
 																setLocalCommandTrusted(false);
 																setSelected((items) => ({
 																	...items,
@@ -2206,6 +2634,7 @@ window.__ModuleLoader__.load({
 														value: secretValues[slot.credentialRef] ?? "",
 														onChange: (event) => {
 															setImportError(null);
+															setDraftChecks([]);
 															setSecretValues((values) => ({
 																...values,
 																[slot.credentialRef]: event.target.value
@@ -2222,8 +2651,42 @@ window.__ModuleLoader__.load({
 													onChange: (event) => {
 														setLocalCommandTrusted(event.target.checked);
 														setImportError(null);
+														setDraftChecks([]);
 													}
 												}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("connectors.import.localTrustTitle") }), tt("connectors.import.localTrustBody")] })]
+											}),
+											preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+												className: panel_module_css_default.formHint,
+												children: tt("connectors.import.testHint")
+											}),
+											draftChecks.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+												className: panel_module_css_default.diagnostics,
+												"aria-label": tt("connectors.import.testResults"),
+												children: draftChecks.map(({ connector, result }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
+													className: panel_module_css_default.importServer,
+													children: [
+														/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+															className: panel_module_css_default.formHeader,
+															children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: connector.name }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+																className: panel_module_css_default.badge,
+																children: importTestBadge(result)
+															})]
+														}),
+														/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+															className: panel_module_css_default.formHint,
+															children: result.detail
+														}),
+														(result.checks ?? []).map((check) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+															className: panel_module_css_default.diagnosticRow,
+															"data-status": check.status,
+															children: [
+																/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: panel_module_css_default.diagnosticDot }),
+																/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: diagnosticLabel(check.id) }),
+																/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: check.detail })
+															]
+														}, check.id))
+													]
+												}, connector.id))
 											})
 										]
 									})
@@ -2238,58 +2701,70 @@ window.__ModuleLoader__.load({
 										children: importError ?? (preview === null ? tt("connectors.import.noSecret") : selectedNames.length === 0 ? tt("connectors.import.selectOne") : missingSecrets.length > 0 ? tt("connectors.import.missingCount", { count: missingSecrets.length }) : requiresLocalExecution && !localCommandTrusted ? tt("connectors.import.localTrustRequired") : tt("connectors.import.ready"))
 									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: panel_module_css_default.connectorDialogActions,
-										children: [preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: panel_module_css_default.secondaryButton,
-											disabled: busy,
-											onClick: () => {
-												if (stagedSource === null) {
-													setPreview(null);
-													setImportError(null);
-													setLocalCommandTrusted(false);
-												} else {
-													closeImport();
-													setSourcePickerOpen(true);
-												}
-											},
-											children: stagedSource === null ? tt("connectors.import.edit") : tt("connectors.sources.reselect")
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-											className: panel_module_css_default.conflictField,
-											children: [
-												tt("connectors.import.conflict"),
-												" ",
-												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-													value: conflict,
-													onChange: (event) => {
-														setConflict(event.target.value);
+										children: [
+											preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: panel_module_css_default.secondaryButton,
+												disabled: busy,
+												onClick: () => {
+													if (stagedSource === null) {
+														setPreview(null);
 														setImportError(null);
-													},
-													children: [
-														/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-															value: "reject",
-															children: tt("connectors.import.conflict.reject")
-														}),
-														/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-															value: "replace",
-															children: tt("connectors.import.conflict.replace")
-														}),
-														/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-															value: "rename",
-															children: tt("connectors.import.conflict.rename")
-														})
-													]
-												})
-											]
-										})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: preview === null ? "submit" : "button",
-											form: preview === null ? "mcp-json-import-form" : void 0,
-											className: panel_module_css_default.primaryButton,
-											disabled: busy || (preview === null ? jsonText.trim().length === 0 : selectedNames.length === 0),
-											onClick: preview === null ? void 0 : () => {
-												onImport();
-											},
-											children: preview === null ? tt("connectors.import.preview") : tt("connectors.import.submit")
-										})]
+														setLocalCommandTrusted(false);
+													} else {
+														closeImport();
+														setSourcePickerOpen(true);
+													}
+												},
+												children: stagedSource === null ? tt("connectors.import.edit") : tt("connectors.sources.reselect")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+												className: panel_module_css_default.conflictField,
+												children: [
+													tt("connectors.import.conflict"),
+													" ",
+													/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+														value: conflict,
+														onChange: (event) => {
+															setConflict(event.target.value);
+															setImportError(null);
+														},
+														children: [
+															/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+																value: "reject",
+																children: tt("connectors.import.conflict.reject")
+															}),
+															/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+																value: "replace",
+																children: tt("connectors.import.conflict.replace")
+															}),
+															/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+																value: "rename",
+																children: tt("connectors.import.conflict.rename")
+															})
+														]
+													})
+												]
+											})] }),
+											preview !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: panel_module_css_default.secondaryButton,
+												disabled: busy || selectedNames.length === 0,
+												onClick: () => {
+													onTestImport();
+												},
+												children: busy ? tt("connectors.import.testing") : tt("connectors.import.test")
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: preview === null ? "submit" : "button",
+												form: preview === null ? "mcp-json-import-form" : void 0,
+												className: panel_module_css_default.primaryButton,
+												disabled: busy || (preview === null ? jsonText.trim().length === 0 : selectedNames.length === 0),
+												onClick: preview === null ? void 0 : () => {
+													onImport();
+												},
+												children: preview === null ? tt("connectors.import.preview") : tt("connectors.import.submit")
+											})
+										]
 									})]
 								})
 							]
@@ -2603,18 +3078,17 @@ window.__ModuleLoader__.load({
 					connectors === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: panel_module_css_default.empty,
 						children: tt("common.loading")
-					}) : connectors.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: panel_module_css_default.empty,
-						children: tt("connectors.empty")
-					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					}) : customConnectors.length === 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: panel_module_css_default.list,
 						"aria-live": "polite",
-						children: connectors.map((connector) => {
+						children: customConnectors.map((connector) => {
 							const endpoint = connectorEndpoint(connector);
 							const checked = health[connector.id];
 							const authStatus = authStatuses[connector.id];
+							const testKind = connectorTestKind(checked);
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
 								className: panel_module_css_default.item,
+								"data-connector-id": connector.id,
 								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: panel_module_css_default.itemBody,
 									children: [
@@ -2634,6 +3108,11 @@ window.__ModuleLoader__.load({
 													"data-success": connector.enabled === false ? void 0 : "true",
 													children: connector.enabled === false ? tt("connectors.state.disabled") : tt("connectors.state.enabled")
 												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: panel_module_css_default.badge,
+													"data-success": testKind === "passed" ? "true" : void 0,
+													children: connectorTestLabel(testKind)
+												}),
 												connector.source?.kind === "external-client" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													className: panel_module_css_default.badge,
 													children: tt("connectors.source.external", { client: CLIENT_NAMES[connector.source.clientId ?? ""] ?? connector.source.clientId ?? tt("connectors.source.unknown") })
@@ -2646,7 +3125,7 @@ window.__ModuleLoader__.load({
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 											className: panel_module_css_default.health,
-											"data-error": checked !== void 0 && !checked.ok ? "true" : void 0,
+											"data-error": testKind === "failed" ? "true" : void 0,
 											children: checked !== void 0 ? checked.detail : tt("connectors.unchecked", { endpoint })
 										}),
 										authStatus !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
@@ -2712,7 +3191,16 @@ window.__ModuleLoader__.load({
 											onClick: () => {
 												onCheck(connector.id);
 											},
-											children: tt("connectors.check")
+											children: tt("connectors.retest")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: panel_module_css_default.secondaryButton,
+											disabled: busy,
+											onClick: () => {
+												onReconfigure(connector);
+											},
+											children: tt("connectors.reconfigure")
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 											type: "button",
@@ -2796,6 +3284,636 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region ../dsh-knowledge/src/core/types.ts
+		const KNOWLEDGE_KINDS = [
+			"decision",
+			"lesson",
+			"method",
+			"fact",
+			"preference"
+		];
+		//#endregion
+		//#region src/client/panel/KnowledgeTab.tsx
+		const KIND_KEYS = {
+			decision: "knowledge.kind.decision",
+			lesson: "knowledge.kind.lesson",
+			method: "knowledge.kind.method",
+			fact: "knowledge.kind.fact",
+			preference: "knowledge.kind.preference"
+		};
+		/** Searchable single-workspace knowledge inbox and library. */
+		function KnowledgeTab({ api, refreshKey, notify, getSessionId = () => void 0 }) {
+			const [items, setItems] = (0, react.useState)([]);
+			const [loading, setLoading] = (0, react.useState)(true);
+			const [busyId, setBusyId] = (0, react.useState)();
+			const [view, setView] = (0, react.useState)("all");
+			const [query, setQuery] = (0, react.useState)("");
+			const [category, setCategory] = (0, react.useState)("");
+			const [captureOpen, setCaptureOpen] = (0, react.useState)(false);
+			const [editing, setEditing] = (0, react.useState)(null);
+			const [refining, setRefining] = (0, react.useState)(null);
+			const load = (0, react.useCallback)(async () => {
+				const next = await api.list();
+				setItems(next.filter((item) => item.status !== "dismissed"));
+			}, [api]);
+			(0, react.useEffect)(() => {
+				let active = true;
+				setLoading(true);
+				api.list().then((next) => {
+					if (active) setItems(next.filter((item) => item.status !== "dismissed"));
+				}).catch((error) => {
+					if (active) notify(tt("knowledge.loadError", { error: errorMessage(error) }), true);
+				}).finally(() => {
+					if (active) setLoading(false);
+				});
+				return () => {
+					active = false;
+				};
+			}, [
+				api,
+				notify,
+				refreshKey
+			]);
+			const counts = (0, react.useMemo)(() => ({
+				candidate: items.filter((item) => item.status === "candidate").length,
+				confirmed: items.filter((item) => item.status === "confirmed").length
+			}), [items]);
+			const categories = (0, react.useMemo)(() => [...new Set(items.flatMap((item) => item.category === void 0 ? [] : [item.category]))].sort(), [items]);
+			const visible = (0, react.useMemo)(() => {
+				const needle = query.trim().toLocaleLowerCase();
+				return items.filter((item) => (view === "all" || item.status === view) && (category === "" || item.category === category) && (needle === "" || `${item.title}\n${item.content}\n${item.tags.join(" ")}\n${item.category ?? ""}`.toLocaleLowerCase().includes(needle)));
+			}, [
+				category,
+				items,
+				query,
+				view
+			]);
+			const transition = async (item, action) => {
+				setBusyId(item.id);
+				try {
+					await api[action](item.id);
+					await load();
+					notify(tt(action === "confirm" ? "knowledge.confirmedToast" : "knowledge.dismissedToast"));
+				} catch (error) {
+					notify(tt("common.error", { error: errorMessage(error) }), true);
+				} finally {
+					setBusyId(void 0);
+				}
+			};
+			if (loading) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: panel_module_css_default.knowledgeEmpty,
+				children: tt("common.loading")
+			});
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: `${panel_module_css_default.tabBody} ${panel_module_css_default.knowledgeBody}`,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.knowledgeHero,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.knowledgeEyebrow,
+								children: tt("knowledge.eyebrow")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", { children: tt("knowledge.title") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("knowledge.subtitle") })
+						] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.primaryButton,
+							onClick: () => {
+								setCaptureOpen(true);
+							},
+							children: tt("knowledge.capture.open")
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						className: panel_module_css_default.knowledgeWorkspace,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+							className: panel_module_css_default.knowledgeWorkspaceHeader,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.knowledgeTabs,
+								role: "tablist",
+								"aria-label": tt("knowledge.views"),
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+										active: view === "all",
+										onClick: () => {
+											setView("all");
+										},
+										label: tt("knowledge.view.all"),
+										count: items.length
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+										active: view === "candidate",
+										onClick: () => {
+											setView("candidate");
+										},
+										label: tt("knowledge.pending"),
+										count: counts.candidate
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+										active: view === "confirmed",
+										onClick: () => {
+											setView("confirmed");
+										},
+										label: tt("knowledge.confirmed"),
+										count: counts.confirmed
+									})
+								]
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.knowledgeFilters,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									type: "search",
+									value: query,
+									onChange: (event) => {
+										setQuery(event.target.value);
+									},
+									placeholder: tt("knowledge.search"),
+									"aria-label": tt("knowledge.search")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+									value: category,
+									onChange: (event) => {
+										setCategory(event.target.value);
+									},
+									"aria-label": tt("knowledge.category"),
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+										value: "",
+										children: tt("knowledge.category.all")
+									}), categories.map((value) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+										value,
+										children: value
+									}, value))]
+								})]
+							})]
+						}), visible.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeEmpty,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("knowledge.filtered.empty.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("knowledge.filtered.empty") })]
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: panel_module_css_default.knowledgeGrid,
+							children: visible.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeCard, {
+								item,
+								busy: busyId === item.id,
+								onEdit: setEditing,
+								onRefine: setRefining,
+								onTransition: transition
+							}, item.id))
+						})]
+					}),
+					captureOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CaptureDialog, {
+						api,
+						onClose: () => {
+							setCaptureOpen(false);
+						},
+						onSaved: async () => {
+							setCaptureOpen(false);
+							await load();
+							notify(tt("knowledge.createdToast"));
+						},
+						notify
+					}),
+					editing !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(EditDialog, {
+						item: editing,
+						api,
+						onClose: () => {
+							setEditing(null);
+						},
+						onSaved: async () => {
+							setEditing(null);
+							await load();
+							notify(tt("knowledge.updatedToast"));
+						},
+						notify
+					}),
+					refining !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(RefineDialog, {
+						item: refining,
+						api,
+						getSessionId,
+						onClose: () => {
+							setRefining(null);
+						},
+						onSaved: async (model) => {
+							setRefining(null);
+							await load();
+							notify(tt("knowledge.refine.done", { model }));
+						},
+						notify
+					})
+				]
+			});
+		}
+		function ViewButton({ active, onClick, label, count }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+				type: "button",
+				role: "tab",
+				"aria-selected": active,
+				"data-active": active ? "true" : void 0,
+				onClick,
+				children: [label, /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: count })]
+			});
+		}
+		function KnowledgeCard({ item, busy, onEdit, onRefine, onTransition }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
+				className: panel_module_css_default.knowledgeCard,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.knowledgeCardHeader,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: panel_module_css_default.knowledgeKind,
+							children: tt(KIND_KEYS[item.kind])
+						}), item.category !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: panel_module_css_default.knowledgeCategory,
+							children: item.category
+						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: panel_module_css_default.knowledgeConfidence,
+							children: tt("knowledge.confidence", { value: Math.round(item.confidence * 100) })
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", { children: item.title }),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: item.content }),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("dl", {
+						className: panel_module_css_default.knowledgeMeta,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("dt", { children: tt("knowledge.source") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("dd", { children: item.source.uri === void 0 ? item.source.label : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+							href: item.source.uri,
+							target: "_blank",
+							rel: "noreferrer",
+							children: item.source.label
+						}) })] }), item.project !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("dt", { children: tt("knowledge.project") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("dd", { children: item.project })] })]
+					}),
+					item.tags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: panel_module_css_default.knowledgeTags,
+						children: item.tags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tag }, tag))
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.knowledgeActions,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									onEdit(item);
+								},
+								children: tt("knowledge.action.edit")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									onRefine(item);
+								},
+								children: tt("knowledge.action.refine")
+							}),
+							item.status === "candidate" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: () => {
+									onTransition(item, "dismiss");
+								},
+								children: tt("knowledge.action.dismiss")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.primaryButton,
+								disabled: busy,
+								onClick: () => {
+									onTransition(item, "confirm");
+								},
+								children: tt("knowledge.action.confirm")
+							})] })
+						]
+					})
+				]
+			});
+		}
+		function CaptureDialog({ api, onClose, onSaved, notify }) {
+			const [mode, setMode] = (0, react.useState)("manual");
+			const [busy, setBusy] = (0, react.useState)(false);
+			const submit = async (event) => {
+				event.preventDefault();
+				setBusy(true);
+				const data = new FormData(event.currentTarget);
+				try {
+					const category = optionalField(data, "category");
+					const tags = tagsField(data);
+					if (mode === "url") {
+						const url = requiredField(data, "url");
+						const desktop = getDesktopBridge();
+						if (isWeChatArticleUrl(url) && desktop?.importKnowledgeUrl !== void 0) {
+							const imported = await desktop.importKnowledgeUrl(url);
+							await api.create({
+								kind: "fact",
+								title: imported.title,
+								content: imported.content,
+								...category ? { category } : {},
+								...tags.length ? { tags } : {},
+								confidence: .6,
+								source: imported.source
+							}, imported.snapshot);
+						} else await api.importUrl({
+							url,
+							...category ? { category } : {},
+							...tags.length ? { tags } : {}
+						});
+					} else {
+						const title = requiredField(data, "title");
+						const content = requiredField(data, "content");
+						const proposal = {
+							kind: requiredField(data, "kind"),
+							title,
+							content,
+							...category ? { category } : {},
+							...tags.length ? { tags } : {},
+							confidence: 1,
+							source: {
+								kind: "manual",
+								label: title
+							}
+						};
+						await api.create(proposal, content);
+					}
+					await onSaved();
+				} catch (error) {
+					notify(tt("common.error", { error: errorMessage(error) }), true);
+				} finally {
+					setBusy(false);
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: panel_module_css_default.connectorOverlay,
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-labelledby": "knowledge-capture-title",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+					className: panel_module_css_default.knowledgeDialog,
+					onSubmit: (event) => {
+						submit(event);
+					},
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgeEyebrow,
+							children: tt("knowledge.capture.eyebrow")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							id: "knowledge-capture-title",
+							children: tt("knowledge.capture.title")
+						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.secondaryButton,
+							onClick: onClose,
+							children: tt("common.close")
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeCaptureModes,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								"data-active": mode === "manual" ? "true" : void 0,
+								onClick: () => {
+									setMode("manual");
+								},
+								children: tt("knowledge.capture.manual")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								"data-active": mode === "url" ? "true" : void 0,
+								onClick: () => {
+									setMode("url");
+								},
+								children: tt("knowledge.capture.url")
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeDialogBody,
+							children: [
+								mode === "manual" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										name: "title",
+										maxLength: 160,
+										required: true
+									})] }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.content"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+										name: "content",
+										rows: 10,
+										maxLength: 4e3,
+										required: true
+									})] }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.kind"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+										name: "kind",
+										defaultValue: "fact",
+										children: KNOWLEDGE_KINDS.map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: kind,
+											children: tt(KIND_KEYS[kind])
+										}, kind))
+									})] })
+								] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.url"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "url",
+									type: "url",
+									inputMode: "url",
+									placeholder: "https://",
+									required: true
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.category"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "category",
+									maxLength: 64,
+									placeholder: tt("knowledge.category.placeholder")
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.tags"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "tags",
+									placeholder: tt("knowledge.form.tags.placeholder")
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: panel_module_css_default.knowledgePrivacy,
+									children: tt("knowledge.capture.localOnly")
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "submit",
+							className: panel_module_css_default.primaryButton,
+							disabled: busy,
+							children: tt("knowledge.capture.submit")
+						}) })
+					]
+				})
+			});
+		}
+		function EditDialog({ item, api, onClose, onSaved, notify }) {
+			const [busy, setBusy] = (0, react.useState)(false);
+			const submit = async (event) => {
+				event.preventDefault();
+				setBusy(true);
+				const data = new FormData(event.currentTarget);
+				try {
+					const project = optionalField(data, "project");
+					const category = optionalField(data, "category");
+					const update = {
+						kind: requiredField(data, "kind"),
+						title: requiredField(data, "title"),
+						content: requiredField(data, "content"),
+						...project ? { project } : {},
+						...category ? { category } : {},
+						tags: tagsField(data)
+					};
+					await api.update(item.id, update);
+					await onSaved();
+				} catch (error) {
+					notify(tt("common.error", { error: errorMessage(error) }), true);
+				} finally {
+					setBusy(false);
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: panel_module_css_default.connectorOverlay,
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-labelledby": "knowledge-edit-title",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+					className: panel_module_css_default.knowledgeDialog,
+					onSubmit: (event) => {
+						submit(event);
+					},
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgeEyebrow,
+							children: tt("knowledge.edit.eyebrow")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							id: "knowledge-edit-title",
+							children: tt("knowledge.edit.title")
+						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.secondaryButton,
+							onClick: onClose,
+							children: tt("common.close")
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeDialogBody,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "title",
+									defaultValue: item.title,
+									maxLength: 160,
+									required: true
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.content"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+									name: "content",
+									defaultValue: item.content,
+									rows: 10,
+									maxLength: 4e3,
+									required: true
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.kind"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+									name: "kind",
+									defaultValue: item.kind,
+									children: KNOWLEDGE_KINDS.map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+										value: kind,
+										children: tt(KIND_KEYS[kind])
+									}, kind))
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.project"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "project",
+									defaultValue: item.project ?? "",
+									maxLength: 240
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.category"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "category",
+									defaultValue: item.category ?? "",
+									maxLength: 64
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.tags"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									name: "tags",
+									defaultValue: item.tags.join(", ")
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: panel_module_css_default.knowledgePrivacy,
+									children: tt("knowledge.edit.provenance")
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "submit",
+							className: panel_module_css_default.primaryButton,
+							disabled: busy,
+							children: tt("knowledge.edit.submit")
+						}) })
+					]
+				})
+			});
+		}
+		function RefineDialog({ item, api, getSessionId, onClose, onSaved, notify }) {
+			const [busy, setBusy] = (0, react.useState)(false);
+			const submit = async () => {
+				const sessionId = getSessionId();
+				if (sessionId === void 0) {
+					notify(tt("knowledge.refine.noSession"), true);
+					return;
+				}
+				setBusy(true);
+				try {
+					await onSaved((await api.refine(item.id, sessionId, true)).model);
+				} catch (error) {
+					notify(tt("common.error", { error: errorMessage(error) }), true);
+				} finally {
+					setBusy(false);
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: panel_module_css_default.connectorOverlay,
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-labelledby": "knowledge-refine-title",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: panel_module_css_default.knowledgeDialog,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgeEyebrow,
+							children: tt("knowledge.refine.eyebrow")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							id: "knowledge-refine-title",
+							children: tt("knowledge.refine.title")
+						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.secondaryButton,
+							onClick: onClose,
+							children: tt("common.close")
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeDialogBody,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("knowledge.refine.disclosure") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.knowledgePrivacy,
+								children: tt("knowledge.refine.privacy")
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.primaryButton,
+							disabled: busy,
+							onClick: () => {
+								submit();
+							},
+							children: busy ? tt("knowledge.refine.running") : tt("knowledge.refine.confirm")
+						}) })
+					]
+				})
+			});
+		}
+		function requiredField(data, name) {
+			const value = data.get(name);
+			if (typeof value !== "string" || value.trim() === "") throw new Error(`${name} is required`);
+			return value.trim();
+		}
+		function optionalField(data, name) {
+			const value = data.get(name);
+			return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
+		}
+		function tagsField(data) {
+			return (optionalField(data, "tags") ?? "").split(/[,，]/u).map((value) => value.trim()).filter(Boolean).slice(0, 8);
+		}
+		function isWeChatArticleUrl(input) {
+			try {
+				const url = new URL(input);
+				return url.protocol === "https:" && url.hostname.toLowerCase().replace(/\.$/u, "") === "mp.weixin.qq.com" && (url.pathname === "/s" || url.pathname.startsWith("/s/"));
+			} catch {
+				return false;
+			}
+		}
+		//#endregion
 		//#region src/client/panel/ExtensionPanel.tsx
 		/**
 		* The extension-center panel shell: header, tab bar, desktop-only notice,
@@ -2803,7 +3921,7 @@ window.__ModuleLoader__.load({
 		* the sidebar entries) so both surfaces always agree.
 		*/
 		/** The panel shell component. */
-		function ExtensionPanel({ controller, bridge }) {
+		function ExtensionPanel({ controller, bridge, knowledgeApi, getSessionId }) {
 			const snapshot = (0, react.useSyncExternalStore)(controller.subscribe, controller.getSnapshot);
 			const [toast, setToast] = (0, react.useState)(null);
 			const [refreshKey, setRefreshKey] = (0, react.useState)(0);
@@ -2826,10 +3944,10 @@ window.__ModuleLoader__.load({
 						className: panel_module_css_default.panelHeader,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", {
 							className: panel_module_css_default.panelTitle,
-							children: tt("panel.title")
+							children: tt(snapshot.tab === "knowledge" ? "knowledge.title" : "panel.title")
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: panel_module_css_default.headerActions,
-							children: [bridge !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							children: [(bridge !== void 0 || snapshot.tab === "knowledge") && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,
 								onClick: () => {
@@ -2846,7 +3964,7 @@ window.__ModuleLoader__.load({
 							})]
 						})]
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("nav", {
+					snapshot.tab !== "knowledge" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("nav", {
 						className: panel_module_css_default.tabBar,
 						children: [
 							{
@@ -2873,7 +3991,12 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: panel_module_css_default.panelContent,
-						children: snapshot.tab === "learning" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(LearningTab, {}) : bridge === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+						children: snapshot.tab === "knowledge" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeTab, {
+							api: knowledgeApi,
+							refreshKey,
+							notify,
+							getSessionId
+						}) : snapshot.tab === "learning" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(LearningTab, {}) : bridge === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 							className: panel_module_css_default.notice,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", { children: tt("desktopOnly.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("desktopOnly.body") })]
 						}) : snapshot.tab === "skills" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SkillsTab, {
@@ -2924,7 +4047,7 @@ window.__ModuleLoader__.load({
 		* @param bridge - the desktop IPC bridge (undefined in plain browser sessions).
 		* @returns disposer unmounting the tree and restoring the column.
 		*/
-		function mountPanel(controller, bridge) {
+		function mountPanel(controller, bridge, knowledgeApi, getSessionId = () => void 0) {
 			let root;
 			let container;
 			const ensure = () => {
@@ -2944,7 +4067,9 @@ window.__ModuleLoader__.load({
 				root = (0, react_dom_client.createRoot)(container);
 				root.render(/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExtensionPanel, {
 					controller,
-					bridge
+					bridge,
+					knowledgeApi,
+					getSessionId
 				}));
 			};
 			const waitObserver = new MutationObserver(() => {
@@ -3038,7 +4163,8 @@ window.__ModuleLoader__.load({
 		const ICONS = {
 			skills: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 2.5h7a.5.5 0 0 1 .5.5v10.5L8 11l-4 2.5V3a.5.5 0 0 1 .5-.5z\"/></svg>",
 			connectors: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.5 2v3M10.5 2v3\"/><rect x=\"4\" y=\"5\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M8 9v5\"/></svg>",
-			learning: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 3.5h3.2A2.3 2.3 0 0 1 8 5.8v7a2.3 2.3 0 0 0-2.3-2.3H2.5z\"/><path d=\"M13.5 3.5h-3.2A2.3 2.3 0 0 0 8 5.8v7a2.3 2.3 0 0 1 2.3-2.3h3.2z\"/></svg>"
+			learning: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 3.5h3.2A2.3 2.3 0 0 1 8 5.8v7a2.3 2.3 0 0 0-2.3-2.3H2.5z\"/><path d=\"M13.5 3.5h-3.2A2.3 2.3 0 0 0 8 5.8v7a2.3 2.3 0 0 1 2.3-2.3h3.2z\"/></svg>",
+			knowledge: "<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"3\" r=\"1.5\"/><circle cx=\"3\" cy=\"11.5\" r=\"1.5\"/><circle cx=\"13\" cy=\"11.5\" r=\"1.5\"/><path d=\"M7.2 4.3 3.8 10M8.8 4.3l3.4 5.7M4.5 11.5h7\"/></svg>"
 		};
 		/** One entry row per tab, with its locale keys. */
 		const ENTRIES = [
@@ -3056,6 +4182,11 @@ window.__ModuleLoader__.load({
 				tab: "learning",
 				labelKey: "entry.learning.label",
 				tooltipKey: "entry.learning.tooltip"
+			},
+			{
+				tab: "knowledge",
+				labelKey: "entry.knowledge.label",
+				tooltipKey: "entry.knowledge.tooltip"
 			}
 		];
 		/** Find the sidebar shell root element, or undefined while not yet mounted. */
@@ -3099,7 +4230,7 @@ window.__ModuleLoader__.load({
 			return true;
 		}
 		/**
-		* Mount both sidebar entries, waiting for the shell to render and
+		* Mount the sidebar entries, waiting for the shell to render and
 		* self-healing on later React re-renders.
 		* @param controller - the panel controller the entries toggle.
 		* @returns disposer removing the entries and their observers.
@@ -3159,15 +4290,35 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region src/client/session-tracker.tsx
+		let activeSessionId;
+		function getActiveSessionId() {
+			return activeSessionId;
+		}
+		/** Observe the official conversation slot without rendering another control. */
+		function SessionTracker({ sessionId }) {
+			(0, react.useEffect)(() => {
+				activeSessionId = sessionId;
+				return () => {
+					if (activeSessionId === sessionId) activeSessionId = void 0;
+				};
+			}, [sessionId]);
+			return null;
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Locale namespace this plugin owns. */
 		const NS = "dsh-extension-center";
 		/** Required services (fiber inject waiting — the runtime must be up first). */
-		const inject = ["slots", "locale"];
+		const inject = [
+			"slots",
+			"locale",
+			"connection"
+		];
 		function initialExtensionTab() {
 			if (typeof window === "undefined") return void 0;
 			const tab = new URLSearchParams(window.location.search).get("dsh-extension-tab");
-			return tab === "skills" || tab === "connectors" || tab === "learning" ? tab : void 0;
+			return tab === "skills" || tab === "connectors" || tab === "learning" || tab === "knowledge" ? tab : void 0;
 		}
 		/**
 		* Mount the extension center.
@@ -3179,16 +4330,28 @@ window.__ModuleLoader__.load({
 				en
 			}), "dsh-extension-center: dictionaries");
 			const controller = new PanelController();
+			const knowledgeApi = new KnowledgeClientApi(ctx.get("connection"));
+			ctx.slots.inject("conversation.input.left", () => ctx.slots.register({
+				name: "conversation.input.left",
+				id: "extension-center-session-tracker",
+				order: 999
+			}, SessionTracker));
+			const onConnectorImport = (event) => {
+				if (!(event instanceof CustomEvent) || !acceptConnectorImport(event.detail)) return;
+				controller.open("connectors");
+			};
+			document.addEventListener(CONNECTOR_IMPORT_EVENT, onConnectorImport);
 			const tab = initialExtensionTab();
 			if (tab !== void 0) controller.open(tab);
 			const disposers = [];
 			try {
 				disposers.push(mountSidebarEntries(controller));
-				disposers.push(mountPanel(controller, getDesktopBridge()));
+				disposers.push(mountPanel(controller, getDesktopBridge(), knowledgeApi, getActiveSessionId));
 			} catch (error) {
 				console.warn("[dsh-extension-center] mount failed:", error);
 			}
 			ctx.effect(() => () => {
+				document.removeEventListener(CONNECTOR_IMPORT_EVENT, onConnectorImport);
 				for (const dispose of disposers.splice(0)) dispose();
 			}, "dsh-extension-center: ui mounts");
 		}

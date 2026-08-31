@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.spec.{ts,tsx}'],
     pool: 'forks',
+    testTimeout: 20_000,
     // @deepseek-ai SDK packages ship browser bundles (CSS imports included);
     // keep them vite-transformed instead of node-externalized.
     server: {

@@ -6,7 +6,8 @@ import { DESKTOP_METADATA } from '../src/main.mjs'
 test('desktop metadata is stable and identifies the embedded DSH surface', () => {
   assert.deepEqual(DESKTOP_METADATA, {
     appId: 'studio.harness.design.desktop',
-    productName: 'Harness Design Desktop',
+    productName: 'JIWEI',
+    version: '0.1.43',
     profile: 'desktop',
     protocol: 'dsh',
   })

@@ -51,7 +51,7 @@ export async function registerGitLabClient({ registrationEndpoint, redirectUri, 
       method: 'POST',
       headers: { accept: 'application/json', 'content-type': 'application/json' },
       body: JSON.stringify({
-        client_name: 'DeepSeek Harness Desktop',
+        client_name: 'JIWEI',
         redirect_uris: [redirectUri],
         token_endpoint_auth_method: 'none',
         grant_types: ['authorization_code'],

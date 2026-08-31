@@ -1,6 +1,6 @@
 # Official-core updates and extension safety
 
-Harness Design Desktop separates three things that should not be upgraded as one blob:
+JIWEI separates three things that should not be upgraded as one blob:
 
 1. The official `@deepseek-ai/dsh` runtime.
 2. The desktop profile and community Cordis bundles.

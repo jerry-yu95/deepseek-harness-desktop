@@ -8,6 +8,7 @@ import { AppUpdateManager, loadElectronUpdater } from './app-update-manager.mjs'
 import { registerAppUpdateIpc } from './app-update-ipc.mjs'
 import { serializeClipboardImage } from './clipboard-image.mjs'
 import { buildNativeImagePasteScript } from './native-image-paste.mjs'
+import { buildNativeFilePasteScript, clipboardFilePaths, prepareClipboardFiles } from './native-file-paste.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
 import { ConnectorSecretStore } from './extensions/connector-secrets.mjs'
 import { PluginManager } from './extensions/plugins.mjs'
@@ -22,6 +23,7 @@ import { resolvePnpmCliPath } from './extensions/plugins.mjs'
 import { isClipboardPermissionAllowed } from './clipboard-permissions.mjs'
 import { installWindowChrome, windowChromeBrowserOptions } from './window-chrome.mjs'
 import { attachWindowStatePersistence, loadWindowState } from './window-state.mjs'
+import { createKnowledgeBrowserImporter } from './knowledge-browser-import.mjs'
 
 const SOURCE_DIR = dirname(fileURLToPath(import.meta.url))
 const PRELOAD_PATH = join(SOURCE_DIR, 'preload.cjs')
@@ -41,6 +43,7 @@ export async function startElectronApp(metadata) {
   const electron = await import('electron')
   const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, screen, shell } = electron
   if (process.env.DSH_DESKTOP_USER_DATA) app.setPath('userData', process.env.DSH_DESKTOP_USER_DATA)
+  app.setName(metadata.productName)
   if (!app.requestSingleInstanceLock()) {
     app.quit()
     return
@@ -78,7 +81,7 @@ export async function startElectronApp(metadata) {
   })
   const appUpdateManager = new AppUpdateManager({
     updater: await loadElectronUpdater(),
-    currentVersion: app.getVersion(),
+    currentVersion: metadata.version ?? app.getVersion(),
     packaged: app.isPackaged,
     platform: process.platform,
   })
@@ -117,7 +120,7 @@ export async function startElectronApp(metadata) {
   })
   const removeMainWindowChrome = installWindowChrome({
     browserWindow: mainWindow,
-    title: 'DeepSeek Harness',
+    title: 'JIWEI',
     getContext: (url) => url.startsWith('http:') ? 'Web Surface' : 'Startup',
     onError: (error) => void logStore.append(`[window-chrome] ${error.message}`),
   })
@@ -173,6 +176,18 @@ export async function startElectronApp(metadata) {
   })
   const onBeforeInputEvent = (event, input) => {
     if (input?.type !== 'keyDown' || input?.key?.toLowerCase() !== 'v' || input.meta !== true) return
+    const copiedFilePaths = clipboardFilePaths(clipboard)
+    if (copiedFilePaths.length > 0) {
+      event.preventDefault()
+      void prepareClipboardFiles(copiedFilePaths).then(files => {
+        const script = buildNativeFilePasteScript(files)
+        if (script === undefined) return
+        return mainWindow.webContents.executeJavaScript(script, true)
+      }).catch(error => {
+        void logStore.append(`[clipboard-file] ${error instanceof Error ? error.message : String(error)}`)
+      })
+      return
+    }
     const image = clipboard.readImage()
     if (!image.isEmpty()) {
       const script = buildNativeImagePasteScript(image.toPNG())
@@ -205,7 +220,7 @@ export async function startElectronApp(metadata) {
     controller,
     getWindow: () => mainWindow,
     metadata,
-    version: app.getVersion(),
+    version: metadata.version ?? app.getVersion(),
     platform: process.platform,
     ensureProfile,
     openLogs: () => shell.openPath(logsDirectory),
@@ -251,7 +266,7 @@ export async function startElectronApp(metadata) {
     })
     const removeExtensionWindowChrome = installWindowChrome({
       browserWindow: extensionWindow,
-      title: 'DeepSeek Harness',
+      title: 'JIWEI',
       getContext: () => 'Extension Dock',
       onError: (error) => void logStore.append(`[window-chrome] ${error.message}`),
     })
@@ -270,6 +285,7 @@ export async function startElectronApp(metadata) {
   }
 
   const pluginManager = new PluginManager({ profileDir: profile.profileDir })
+  const knowledgeUrlImporter = createKnowledgeBrowserImporter({ BrowserWindow, getParent: () => extensionWindow ?? mainWindow, dialog })
   const unregisterExtensionIpc = registerExtensionIpc({
     ipcMain,
     dialog,
@@ -283,6 +299,7 @@ export async function startElectronApp(metadata) {
     agentsHome: process.env.DSH_AGENTS_HOME,
     connectorSecretStore,
     prepareRendererForConnectorRestart,
+    knowledgeUrlImporter,
   })
   const updateIpc = registerUpdateIpc({
     ipcMain,
