@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "tapd_mcp_http": {
+      "url": "https://mcp-oa.tapd.woa.com/mcp/",
+      "timeout": 20000,
+      "headers": {
+        "X-Tapd-Access-Token": "${TAPD_TOKEN}"
+      },
+      "transportType": "streamable-http"
+    },
+    "local_fixture": {
+      "command": "jiwei-fixture-mcp",
+      "args": ["--mode", "success"]
+    },
+    "unknown_fixture": {
+      "url": "https://example.com/mcp",
+      "transportType": "streamable-http"
+    }
+  }
+}

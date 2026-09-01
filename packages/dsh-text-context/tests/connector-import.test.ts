@@ -41,4 +41,31 @@ describe('connector import bridge', () => {
     stop()
     document.removeEventListener(CONNECTOR_IMPORT_EVENT, listener)
   })
+
+  it('keeps only a bounded number of pending imports and consumes each handoff once', async () => {
+    const attachments = Array.from({ length: 9 }, (_, index) => ({
+      id: `file_${String(index).padStart(32, '0')}`,
+      name: `mcp-${index}.json`,
+      mediaType: 'application/json',
+      bytes: 24,
+      kind: 'text' as const,
+      redacted: true,
+    }))
+    attachments.forEach((attachment) => rememberConnectorImportSource(attachment, `{"mcpServers":{"server-${attachment.name}" : {}}}`))
+    const listener = vi.fn()
+    document.addEventListener(CONNECTOR_IMPORT_EVENT, listener)
+    const takeConnectorImport = vi.fn()
+      .mockResolvedValueOnce({ requestId: 'old', attachmentId: attachments[0].id, name: attachments[0].name })
+      .mockResolvedValueOnce({ requestId: 'new', attachmentId: attachments[8].id, name: attachments[8].name })
+      .mockResolvedValue(undefined)
+    const stop = installConnectorImportBridge({ takeConnectorImport }, document, 5)
+    try {
+      await vi.waitFor(() => { expect(listener).toHaveBeenCalledOnce() })
+      expect(listener.mock.calls[0]?.[0].detail).toMatchObject({ requestId: 'new', name: 'mcp-8.json' })
+      expect(listener.mock.calls[0]?.[0].detail.text).toContain('server-mcp-8.json')
+    } finally {
+      stop()
+      document.removeEventListener(CONNECTOR_IMPORT_EVENT, listener)
+    }
+  })
 })

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
 
 import { importKnowledgeUrl, isPublicAddress, selectPinnedAddress } from '../src/core/url-import.ts'
@@ -15,24 +16,26 @@ describe('knowledge URL import', () => {
   })
 
   it('extracts a WeChat article from its platform-specific content nodes', async () => {
+    const body = await readFile(new URL('./fixtures/wechat-article.html', import.meta.url), 'utf8')
     const fetcher = vi.fn().mockResolvedValue({
       status: 200,
       headers: { 'content-type': 'text/html; charset=utf-8' },
-      body: '<html><head><title>微信公众平台</title></head><body><h1 id="activity-name">Agent 知识库</h1><span id="js_name">Datawhale</span><div id="js_content"><h2>三层架构</h2><p>原始轨迹、持久知识与可执行技能。</p><script>steal()</script></div><div>留言与推荐</div></body></html>',
+      body,
     })
     const result = await importKnowledgeUrl('https://mp.weixin.qq.com/s/example', fetcher)
-    expect(result.title).toBe('Agent 知识库')
-    expect(result.content).toContain('原始轨迹、持久知识与可执行技能。')
-    expect(result.snapshot).toContain('作者：Datawhale')
-    expect(result.snapshot).not.toContain('留言与推荐')
-    expect(result.snapshot).not.toContain('steal')
+    expect(result.title).toBe('从对话到知识')
+    expect(result.content).toContain('把经验变成可复用资产')
+    expect(result.snapshot).toContain('作者：JIWEI 测试作者')
+    expect(result.snapshot).not.toContain('相关推荐')
+    expect(result.snapshot).not.toContain('this content must not be imported')
   })
 
   it('reports a WeChat error page instead of saving it as knowledge', async () => {
+    const body = await readFile(new URL('./fixtures/wechat-challenge.html', import.meta.url), 'utf8')
     const fetcher = vi.fn().mockResolvedValue({
       status: 200,
       headers: { 'content-type': 'text/html; charset=utf-8' },
-      body: '<html><head><title>微信公众平台</title></head><body><div class="weui-msg__title warn">参数错误</div></body></html>',
+      body,
     })
     await expect(importKnowledgeUrl('https://mp.weixin.qq.com/s/example', fetcher)).rejects.toThrow(/WeChat article requires browser session/u)
   })

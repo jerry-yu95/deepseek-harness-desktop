@@ -101,6 +101,24 @@ describe('tool-readable file intake', () => {
     stop()
   })
 
+  it('passes each selected MCP source to the connector bridge without changing the visible file references', async () => {
+    const connectorImportSource = vi.fn()
+    const stop = install({ connectorImportSource })
+    const ta = mountComposer() as HTMLTextAreaElement
+    dispatchFiles('drop', [
+      makeFile('mcp.json', '{"mcpServers":{"tapd":{}}}', 'application/json'),
+      makeFile('notes.txt', 'plain project notes', 'text/plain'),
+    ])
+    await settle()
+    expect(connectorImportSource).toHaveBeenCalledTimes(1)
+    expect(connectorImportSource.mock.calls[0]?.[0]).toMatchObject({ name: 'mcp.json', redacted: false })
+    expect(connectorImportSource.mock.calls[0]?.[1]).toContain('mcpServers')
+    expect(ta.value).toBe('@mcp.json\n\n@notes.txt')
+    expect(ta.value).not.toContain('file_')
+    expect(ta.value).not.toContain('connector_import_prepare')
+    stop()
+  })
+
   it('enforces text and batch size limits before upload', async () => {
     const stop = install({ limits: { maxFiles: 4, maxFileBytes: 1000, maxTotalBytes: 1500 } })
     const ta = mountComposer() as HTMLTextAreaElement

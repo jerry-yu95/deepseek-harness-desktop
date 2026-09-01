@@ -37,6 +37,8 @@ describe('native file references', () => {
       '文件附件：mcp.json',
     )
     expect(source.codec?.clipboardText(ref)).toBe('@mcp.json')
+    expect(source.codec?.clipboardText(ref)).not.toContain(attachment.id)
+    expect(source.codec?.clipboardText(ref)).not.toContain('attachment_read')
   })
 
   it('inserts through the official session input machine at the caret', () => {
