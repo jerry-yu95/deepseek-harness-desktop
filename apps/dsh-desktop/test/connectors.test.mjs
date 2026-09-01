@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 
 import { commandExists, ConnectorStore, renderMcpConnectorPatch, validateConnectorInput } from '../src/extensions/connectors.mjs'
+import { createFakeMcpServer } from './helpers/fake-mcp-server.mjs'
 
 /** A fake bin directory holding one empty marker file; nothing ever executes. */
 async function makeFakeBin(root, name) {
@@ -265,7 +266,7 @@ test('draft MCP diagnostics perform an initialize handshake without persisting t
     }, { DSH_CONNECTOR_TAPD_TOKEN: 'test-only-token' })
 
     assert.equal(result.ok, true)
-    assert.equal(result.state, 'mcp-ready')
+    assert.equal(result.state, 'ready')
     assert.equal(result.checks.find((item) => item.id === 'registration').status, 'skipped')
     assert.match(result.checks.find((item) => item.id === 'credentials').detail, /不会保存/u)
     assert.equal(requests[0].url, 'https://example.com/mcp')
@@ -292,6 +293,46 @@ test('draft MCP diagnostics explain a missing endpoint instead of reporting succ
     assert.equal(result.ok, false)
     assert.equal(result.state, 'endpoint-not-found')
     assert.match(result.detail, /404/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('remote MCP readiness requires initialize and a non-empty tools/list response', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connector-handshake-'))
+  try {
+    for (const mode of ['success', 'redirect', 'empty-tools', 'malformed-json-rpc']) {
+      const server = await createFakeMcpServer(mode)
+      try {
+        const store = new ConnectorStore({ path: join(root, `${mode}.json`), env: {}, fetchImpl: fetch })
+        const result = await store.checkCandidate({
+          id: `fixture-${mode}`,
+          name: `Fixture ${mode}`,
+          kind: 'mcp',
+          transport: 'streamable-http',
+          url: server.url,
+        })
+        if (mode === 'success') {
+          assert.equal(result.ok, true)
+          assert.equal(result.state, 'ready')
+          assert.deepEqual(server.requests.map(request => request.body?.method), ['initialize', 'notifications/initialized', 'tools/list'])
+        }
+        if (mode === 'redirect') {
+          assert.equal(result.ok, false)
+          assert.equal(result.state, 'needs-authorization')
+        }
+        if (mode === 'empty-tools') {
+          assert.equal(result.ok, false)
+          assert.equal(result.state, 'tools-unavailable')
+        }
+        if (mode === 'malformed-json-rpc') {
+          assert.equal(result.ok, false)
+          assert.equal(result.state, 'protocol-rejected')
+        }
+      } finally {
+        await server.close()
+      }
+    }
   } finally {
     await rm(root, { recursive: true, force: true })
   }

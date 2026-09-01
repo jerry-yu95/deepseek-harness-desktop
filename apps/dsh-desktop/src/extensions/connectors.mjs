@@ -468,9 +468,9 @@ async function probeMcpTools(fetchImpl, url, headers, initializeResponse, signal
     return { ok: false, state: 'tools-unavailable', runtimeStatus: 'fail', detail: 'MCP 已初始化，但 tools/list 未返回可注册的工具列表' }
   }
   if (tools.length === 0) {
-    return { ok: false, state: 'tools-empty', runtimeStatus: 'fail', detail: 'MCP 已初始化，但服务没有提供任何工具' }
+    return { ok: false, state: 'tools-unavailable', runtimeStatus: 'fail', detail: 'MCP 已初始化，但服务没有提供任何工具' }
   }
-  return { ok: true, state: 'mcp-ready', runtimeStatus: 'pass', detail: `MCP 握手成功，可注册 ${tools.length} 个工具` }
+  return { ok: true, state: 'ready', runtimeStatus: 'pass', detail: `MCP 握手成功，可注册 ${tools.length} 个工具` }
 }
 
 async function probeMcpSse(fetchImpl, url, headers, signal, uniqueReferences) {
@@ -552,7 +552,7 @@ async function classifyRemoteResponse(response, { isMcp, uniqueReferences }) {
   }
   return {
     ok: true,
-    state: isMcp ? 'mcp-ready' : 'reachable',
+    state: isMcp ? 'ready' : 'reachable',
     runtimeStatus: 'pass',
     detail: isMcp ? `MCP initialize 已响应（HTTP ${status}）` : `端点响应 HTTP ${status}`,
   }

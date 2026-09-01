@@ -22,4 +22,28 @@ describe('connector truth and configuration access', () => {
     expect(await screen.findByRole('heading', { name: '导入官方 MCP 配置' })).toBeTruthy()
     expect(within(screen.getByRole('dialog')).getByLabelText('MCP JSON')).toBeTruthy()
   })
+
+  it('keeps custom connectors visible with truthful failed health and a reconfigure action', async () => {
+    const connector = {
+      id: 'iwiki', name: 'iWiki', description: 'Imported MCP server', kind: 'mcp', transport: 'streamable-http',
+      url: 'https://example.com/mcp', enabled: true, source: { kind: 'json' },
+    }
+    const bridge = {
+      listConnectors: vi.fn().mockResolvedValue([connector]),
+      previewMcpJson: vi.fn().mockResolvedValue({ servers: [] }), importMcpJson: vi.fn(), checkConnector: vi.fn().mockResolvedValue({
+        ok: false, state: 'needs-authorization', detail: '需要完成授权后才能完成握手', checks: [
+          { id: 'configuration', status: 'pass', detail: '配置结构有效' },
+          { id: 'credentials', status: 'pass', detail: '无需额外凭证' },
+          { id: 'runtime', status: 'warn', detail: '需要完成授权' },
+          { id: 'registration', status: 'pass', detail: '已写入桌面连接器注册表' },
+        ],
+      }), removeConnector: vi.fn(), setConnectorEnabled: vi.fn(),
+    }
+    render(<ConnectorsTab bridge={bridge as never} refreshKey={0} notify={vi.fn()} />)
+    expect(await screen.findByText('iWiki')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重新测试' }))
+    expect(await screen.findByText('需要完成授权后才能完成握手')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重新配置' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '连接诊断' })).toBeTruthy()
+  })
 })

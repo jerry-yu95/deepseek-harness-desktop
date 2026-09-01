@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import { buildMcpConnectorImport, createProviderJsonSource, inferProviderJsonSources, previewMcpJson } from '../src/extensions/mcp-import.mjs'
@@ -106,6 +107,17 @@ test('mixed MCP JSON associates TAPD with its official catalog and keeps unknown
   assert.equal(tapd?.source.kind, 'provider-json')
   assert.equal(tapd?.source.providerId, 'tapd')
   assert.equal(iwiki?.source.kind, 'json')
+})
+
+test('the mixed-provider fixture imports one official TAPD connector and independent custom entries', async () => {
+  const text = await readFile(new URL('./fixtures/mcp/mixed-provider.json', import.meta.url), 'utf8')
+  const parsed = parseMcpServersJson(text)
+  const sourcesByName = inferProviderJsonSources(parsed, '2026-09-02T00:00:00.000Z')
+  const imported = buildMcpConnectorImport({ parsed, sourcesByName, secrets: { DSH_CONNECTOR_TAPD_MCP_HTTP_X_TAPD_ACCESS_TOKEN: 'x' } })
+  assert.deepEqual(imported.connectors.map(({ connector }) => connector.name), ['tapd_mcp_http', 'local_fixture', 'unknown_fixture'])
+  assert.equal(imported.connectors.find(({ connector }) => connector.name === 'tapd_mcp_http')?.connector.source.providerId, 'tapd')
+  assert.deepEqual(imported.connectors.filter(({ connector }) => connector.source?.kind === 'json').map(({ connector }) => connector.name), ['local_fixture', 'unknown_fixture'])
+  assert.equal(imported.connectors.find(({ connector }) => connector.name === 'local_fixture')?.connector.source.kind, 'json')
 })
 
 test('re-importing the same official provider refreshes it without weakening unrelated conflict protection', () => {
