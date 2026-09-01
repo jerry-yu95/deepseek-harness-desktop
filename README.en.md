@@ -106,13 +106,21 @@ pnpm build
 pnpm --filter @harness-design/desktop dev
 ```
 
-## Privacy, license, and contribution
+## Privacy and security
 
 - Local-first and loopback-only by default; remote capability requires explicit opt-in.
 - Source paths do not enter conversation prose; file reads are bounded and connector credentials are encrypted.
 - URL ingestion rejects private networks, mixed DNS, unsafe redirects, and oversized responses.
 - Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-The repository is BSD-3-Clause licensed; see [LICENSE](LICENSE). It includes components from the earlier `dsh-web-ui` collection and other open-source packages. Required copyrights, licenses, and provenance remain in [NOTICE.md](NOTICE.md) and package-level license files. Attribution does not imply endorsement or reuse of third-party branding, promotional copy, or screenshots.
+## Open-source license and third-party notices
+
+JIWEI's original code is released under the [BSD-3-Clause](LICENSE) license.
+
+This repository also includes or depends on DeepSeek Harness, components from the earlier `dsh-web-ui` collection, and other open-source projects. Those components remain under their respective licenses, with their original copyright and license information preserved as required. See [NOTICE.md](NOTICE.md) and the license files in the relevant package directories.
+
+JIWEI is an independently maintained community product and is not affiliated with DeepSeek or the other third-party projects named here. Third-party names identify technical provenance and licensing only; JIWEI's product brand, public copy, visual assets, and screenshots are maintained independently.
+
+## Contributing
 
 Issues and pull requests are welcome. Please provide reproducible, sanitized evidence and read [CONTRIBUTING.md](CONTRIBUTING.md).

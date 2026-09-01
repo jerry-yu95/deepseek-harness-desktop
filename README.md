@@ -123,11 +123,13 @@ pnpm --filter @harness-design/desktop pack:verify:mac:arm64
 
 安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
-## 开源与署名
+## 开源许可与第三方声明
 
-仓库使用 BSD-3-Clause 许可，详见 [LICENSE](LICENSE)。本项目包含来自早期 `dsh-web-ui` 集合及其他开源包的组件；这些代码的版权、许可证与来源必须保留，详见 [NOTICE.md](NOTICE.md) 和各包目录中的许可文件。
+积微 JIWEI 的原创代码采用 [BSD-3-Clause](LICENSE) 许可证开放。
 
-保留法定署名不代表积微沿用第三方品牌、宣传文案或截图，也不代表第三方为积微背书。
+本仓库同时包含或依赖 DeepSeek Harness、早期 `dsh-web-ui` 组件及其他开源项目。相关组件仍遵循各自的开源许可证，其原有版权声明与许可信息按相应条款保留，具体请参阅 [NOTICE.md](NOTICE.md) 及各组件目录中的许可文件。
+
+积微是由社区独立维护的产品，与 DeepSeek 及上述第三方项目不存在隶属关系，也不代表获得其官方背书。第三方名称仅用于说明技术来源与许可证归属；积微的产品品牌、公开文案、视觉素材和产品截图均由本项目独立维护。
 
 ## 参与贡献
 

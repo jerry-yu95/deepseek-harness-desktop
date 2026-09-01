@@ -22,11 +22,12 @@ pnpm desktop:pack
 
 ## Change expectations
 
-- Preserve the original DSH Web surface and official package composition.
+- Preserve the integrated DSH Web surface and the upstream package composition where compatibility requires it; do not present upstream code as JIWEI-owned code.
 - Add tests for lifecycle, profile, extension, security, or recovery behavior.
 - Keep the Electron renderer sandboxed, context-isolated, and free of Node integration.
 - Do not accept raw shell fragments, arbitrary URLs, or unvalidated filesystem paths over IPC.
-- Do not commit credentials, local profiles, logs, or generated release directories.
+- Do not commit credentials, API keys, Authorization headers, Cookies, local profiles, unsanitized `mcp.json` files, logs, or generated release directories.
+- Do not paste credentials or private provider URLs into issues, pull requests, commit messages, screenshots, test fixtures, or documentation.
 - Keep source, documentation, commit messages, and user-visible strings free of emoji.
 
 Before submitting a change, run `pnpm desktop:test`, `pnpm --filter @harness-design/desktop pack:verify` after packaging, and `git diff --check`.
