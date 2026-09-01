@@ -18,6 +18,7 @@
     "desktop:pack": "pnpm --filter @harness-design/desktop pack:win",
     "desktop:pack:mac": "pnpm --filter @harness-design/desktop pack:mac",
     "aggregate:check": "node scripts/aggregate.mjs --check",
+    "audit:public": "node scripts/public-surface-audit.mjs",
     "gallery:check": "node scripts/gallery-build --check",
     "skin-center:check": "node scripts/skin-center-bundles --check",
     "test:scripts": "node --test scripts/*.test.mjs",
