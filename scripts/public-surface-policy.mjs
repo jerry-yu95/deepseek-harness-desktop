@@ -17,7 +17,7 @@ export function classifyPublicSurfacePath(relativePath) {
   const name = basename(path)
   const extension = extname(name).toLowerCase()
 
-  if (path.startsWith('docs/plans/') || path.startsWith('docs/qa/')) return 'historical'
+  if (path.startsWith('docs/plans/') || path.startsWith('docs/qa/') || path === 'docs/publish-prep.md') return 'historical'
   if (name === 'LICENSE' || name.startsWith('LICENSE.') || name === 'NOTICE.md') return 'legal'
   if (name === 'package.json' || name === 'pnpm-lock.yaml' || name.endsWith('.patch.yml')) return 'metadata'
   if (ACTIVE_ROOT_DOCS.has(path)) return 'active-doc'
@@ -29,7 +29,7 @@ export function classifyPublicSurfacePath(relativePath) {
 export const PUBLIC_SURFACE_RULES = [
   {
     id: 'legacy-installation',
-    pattern: /(?:git\s+clone[^\n]*dsh-web-ui|github\.com\/zhu1090093659\/dsh-web-ui|dsh-web-ui-all|github:<org>\/dsh-web-ui)/iu,
+    pattern: /(?:git\s+clone[^\n]*dsh-web-ui|github\.com\/zhu1090093659\/dsh-web-ui|github:<org>\/dsh-web-ui)/iu,
     message: 'legacy public installation instruction or inherited product reference',
   },
   {

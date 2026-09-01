@@ -13,8 +13,8 @@
 dsh plugin --profile web add @linxin666/dsh-client-ui-aionui-panel
 
 # 或从仓库安装（开发调试）
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-aionui-panel
 

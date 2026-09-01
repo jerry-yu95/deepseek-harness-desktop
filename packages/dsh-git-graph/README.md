@@ -32,7 +32,7 @@ git 安装（无 sibling checkout 的消费者机器）走 `prepare` 脚本：`t
 
 ### 通用安装（任何机器）
 
-本插件已并入 dsh-web-ui 全家桶仓库（`github.com/zhu1090093659/dsh-web-ui`）。插件已发布到 npm，推荐一行安装：
+本插件已并入 JIWEI monorepo。插件已发布到 npm，推荐一行安装：
 
 ```sh
 dsh plugin --profile web add @linxin666/dsh-client-ui-git-graph
@@ -43,8 +43,8 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-git-graph
 需要改代码调试时再从仓库安装：
 
 ```sh
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-git-graph
 ```

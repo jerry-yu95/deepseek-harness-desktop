@@ -24,8 +24,8 @@ Install the family aggregate package `@linxin666/dsh-web-ui-all` (all plugins an
 dsh plugin --profile web add @linxin666/dsh-live-stats
 
 # Or from the repository (development loop)
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 

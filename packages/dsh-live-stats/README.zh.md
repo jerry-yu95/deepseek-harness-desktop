@@ -24,8 +24,8 @@ DSH Web 的实时输入/输出 token 估算与生成吞吐显示。它供给内�
 dsh plugin --profile web add @linxin666/dsh-live-stats
 
 # 或从仓库安装（开发调试）
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-live-stats
 

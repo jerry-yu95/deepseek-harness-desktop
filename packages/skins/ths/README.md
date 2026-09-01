@@ -19,9 +19,9 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-ths
 # From the repo (dev): dsh plugin --profile web add link:$(pwd)/packages/skins/ths
 ```
 
-`$(pwd)` is your clone of the dsh-web-ui monorepo.
+`$(pwd)` is your clone of the JIWEI monorepo.
 
-A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the monorepo before linking. Git installs (`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
+A local `link:` install needs built artifacts first — `lib/` is git-ignored and not committed, so run `pnpm install && pnpm -r build` in the JIWEI monorepo before linking. Git installs (`dsh plugin --profile web add github:jerry-yu95/deepseek-harness-desktop#<sha>`) build `lib/` themselves via the `prepare` script; pnpm ≥10 blocks that until you copy the printed package key into the profile's `pnpm-workspace.yaml` `allowBuilds` list and re-run.
 
 Activate or switch with `dsh-skin use ths` (helper script `scripts/dsh-skin` in the monorepo); only one skin is active at a time.
 

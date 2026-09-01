@@ -5,7 +5,7 @@
 **真实执行**（`session.prompt`），执行状态实时回写卡片。
 
 - 不修改 DSH 源码：以 cordis 插件 + 浏览器 DOM 扩展挂载（外挂形态与
-  `dsh-web-ui/packages/skins/skin-center` 一致）。
+  `packages/skins/skin-center` 一致）。
 - 卸载即恢复原状，其它 managed 段（dsh-skin / skin-center / 个人配置）互不干扰。
 - 任务数据本地持久化，刷新页面、重启 DSH 均不丢失。
 
@@ -92,8 +92,8 @@ scripts/dsh-task-board.js                          # 一键挂载/卸载/状态 
 dsh plugin --profile web add @linxin666/dsh-client-ui-task-board
 
 # 或从仓库安装（开发调试）
-git clone https://github.com/zhu1090093659/dsh-web-ui.git
-cd dsh-web-ui
+git clone https://github.com/jerry-yu95/deepseek-harness-desktop.git
+cd deepseek-harness-desktop
 pnpm install && pnpm -r build
 dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 
@@ -108,7 +108,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-task-board
 devDependencies），**无需任何 DSH 源码 checkout**。
 
 ```sh
-cd ~/code/dsh-web-ui/packages/dsh-task-board
+cd ~/code/deepseek-harness-desktop/packages/dsh-task-board
 pnpm install        # 首次（workspace 根执行 pnpm install）
 pnpm run build      # 产出 lib/index.js + lib/client.js（tsdown + shared/tsdown.client.ts 预设）
 pnpm run typecheck  # 类型检查（node_modules 的 SDK 包类型）

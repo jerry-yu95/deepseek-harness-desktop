@@ -25,7 +25,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-whale-song
 
 本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
 `pnpm install && pnpm -r build` 后再 link 安装。
-通过 git 安装（`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`）时
+通过 git 安装（`dsh plugin --profile web add github:jerry-yu95/deepseek-harness-desktop#<sha>`）时
 `prepare` 脚本自动自包含构建 `lib/`，无需单独构建；pnpm ≥10 首次安装 git 依赖需先把
 pnpm 打印的包键加入相应 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 列表再重试。
 

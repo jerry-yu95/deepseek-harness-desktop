@@ -43,7 +43,7 @@ dsh plugin --profile web add @linxin666/dsh-client-ui-skin-center
 
 skin-center 是符合 DSH 官方插件标准的自包含 bundle（`dsh.bundle.patch` 指向
 `cordis.patch.yml`、`prepare` 用专用 tsdown 配置自包含构建，无项目引用、无类型检查），
-也可经 git 安装：`dsh plugin --profile web add github:<org>/dsh-web-ui#<sha>`
+也可经 git 安装：`dsh plugin --profile web add github:jerry-yu95/deepseek-harness-desktop#<sha>`
 （`prepare` 会原地构建 `lib/`）。
 
 本地 link 安装前需先在全家桶仓库内构建产物（`lib/` 被 git 忽略、不随仓库提交）：
@@ -105,7 +105,7 @@ node scripts/skin-center-bundles
 #    皮肤 bundle 自身变化只需重建对应皮肤（tsdown），GUI 下次试穿即取到新文本
 
 # 2. 在仓库内构建
-cd ~/code/dsh-web-ui && export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
+cd ~/code/deepseek-harness-desktop && export NPM_TOKEN='<token>'   # 若仍使用私有 scope 认证
 pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
 ```
 
@@ -113,7 +113,7 @@ pnpm --filter @linxin666/dsh-client-ui-skin-center run bundle
 
 ```sh
 # 1. profile symlink（与 qq98/blue-fantasy 同款）
-ln -sfn ~/code/dsh-web-ui/packages/skins/skin-center \
+ln -sfn ~/code/deepseek-harness-desktop/packages/skins/skin-center \
   ~/.dsh/profiles/node_modules/@linxin666/dsh-client-ui-skin-center
 
 # 2. ~/.dsh/cordis.patch.yml 增加（放在 dsh-skin managed 段之外，勿动该段）：
