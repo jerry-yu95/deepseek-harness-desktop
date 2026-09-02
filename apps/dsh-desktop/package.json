@@ -22,6 +22,7 @@
     "test:window-chrome:e2e": "node scripts/verify-window-chrome.mjs",
     "test:directory-picker:e2e": "node scripts/verify-directory-picker.mjs",
     "test:adaptive-theme:e2e": "node scripts/verify-adaptive-theme.mjs",
+    "test:acceptance": "node scripts/verify-jiwei-acceptance.mjs",
     "test": "node --test test/*.test.mjs",
     "pack:dir": "electron-builder --dir",
     "pack:verify": "node scripts/verify-package.mjs \"dist/win-unpacked/resources\" win32 x64",
