@@ -103,6 +103,33 @@ test('profile bootstrap activates saved MCP connectors through the official brid
   }
 })
 
+test('profile bootstrap keeps incomplete credential connectors out of the runtime patch', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-missing-connector-credentials-'))
+  try {
+    await mkdir(join(root, 'desktop'), { recursive: true })
+    await writeFile(join(root, 'desktop', 'connectors.json'), JSON.stringify([{
+      id: 'private-tools', name: 'Private tools', description: '', kind: 'mcp', enabled: true,
+      capabilities: [], secretEnvKeys: [], transport: 'stdio', command: 'node', args: ['server.mjs'],
+      secretBindings: [{
+        location: 'arg', targetKey: '0', credentialRef: 'DSH_CONNECTOR_PRIVATE_TOKEN', template: '${secret}',
+      }],
+    }]))
+    const result = await ensureDesktopProfile({ dshHome: root, availableCredentialReferences: [] })
+    const patch = await readFile(join(result.profileDir, 'cordis.patch.yml'), 'utf8')
+    assert.doesNotMatch(patch, /desktop-mcp-private-tools/u)
+
+    const composed = spawnSync(
+      process.execPath,
+      [resolveDshCliPath(), '--profile', 'desktop', '--dump-config'],
+      { encoding: 'utf8', env: { ...process.env, DSH_HOME: root }, timeout: 20_000 },
+    )
+    assert.equal(composed.status, 0, composed.stderr)
+    assert.doesNotMatch(composed.stdout, /desktop-mcp-private-tools/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('profile bootstrap renders imported MCP environment and HTTP header bindings without secrets', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-desktop-imported-mcp-'))
   try {

@@ -271,6 +271,7 @@ export async function ensureDesktopProfile({
   dshHome,
   packageRoots = resolveRuntimePackages(),
   profileName = 'desktop',
+  availableCredentialReferences,
 } = {}) {
   if (typeof dshHome !== 'string' || dshHome.length === 0) {
     throw new TypeError('dshHome must be a non-empty absolute path')
@@ -300,7 +301,7 @@ export async function ensureDesktopProfile({
   }
   changed = (await writeIfChanged(join(profileDir, 'cordis.yml'), ROOT_CONFIG)) || changed
   const connectors = await new ConnectorStore({ path: join(dshHome, 'desktop', 'connectors.json') }).list()
-  const connectorPatch = renderMcpConnectorPatch(connectors)
+  const connectorPatch = renderMcpConnectorPatch(connectors, { availableCredentialReferences })
   changed = (await writeIfChanged(join(profileDir, 'cordis.patch.yml'), `${DESKTOP_PATCH_CONFIG}${connectorPatch}`)) || changed
   changed = (await writeIfChanged(join(profileDir, 'pnpm-workspace.yaml'), WORKSPACE_CONFIG)) || changed
   changed = (await writeIfChanged(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)) || changed

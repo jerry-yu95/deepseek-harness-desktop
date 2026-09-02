@@ -66,12 +66,24 @@ export async function startElectronApp(metadata) {
   let connectorSecretStoreRequiresRepair = false
   try {
     await connectorSecretStore.load()
+    connectorSecretStore.environment()
   } catch (error) {
     if (!isSecureStorageCorrupt(error)) throw error
     connectorSecretStoreRequiresRepair = true
   }
+  const availableConnectorCredentialReferences = () => {
+    if (connectorSecretStoreRequiresRepair) return []
+    try {
+      return Object.keys(connectorSecretStore.environment())
+    } catch (error) {
+      if (!isSecureStorageCorrupt(error)) throw error
+      connectorSecretStoreRequiresRepair = true
+      return []
+    }
+  }
   const ensureProfile = (officialRuntimeAnchor) => ensureDesktopProfile({
     dshHome,
+    availableCredentialReferences: availableConnectorCredentialReferences(),
     packageRoots: resolveRuntimePackages(
       undefined,
       officialRuntimeAnchor ? [officialRuntimeAnchor, import.meta.url] : import.meta.url,

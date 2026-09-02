@@ -156,9 +156,23 @@ function yamlValue(value) {
   return JSON.stringify(value)
 }
 
-export function renderMcpConnectorPatch(connectors) {
+function requiredCredentialReferences(connector) {
+  return [
+    ...connector.secretEnvKeys,
+    ...(connector.secretBindings ?? []).map((binding) => binding.credentialRef),
+  ]
+}
+
+export function renderMcpConnectorPatch(connectors, { availableCredentialReferences } = {}) {
+  const available = availableCredentialReferences === undefined
+    ? undefined
+    : new Set(availableCredentialReferences)
   const entries = []
-  for (const connector of connectors.map(validateConnectorInput).filter((item) => item.enabled && item.kind === 'mcp')) {
+  for (const connector of connectors.map(validateConnectorInput).filter((item) => {
+    if (!item.enabled || item.kind !== 'mcp') return false
+    if (available === undefined) return true
+    return requiredCredentialReferences(item).every((reference) => available.has(reference))
+  })) {
     const lines = []
     lines.push(`  - id: ${yamlValue(`desktop-mcp-${connector.id}`)}`)
     lines.push(`    name: '@deepseek-ai/dsh-mcp-client'`)

@@ -124,6 +124,32 @@ test('MCP connectors render imported env and streamable HTTP header bindings wit
   assert.doesNotMatch(patch, /literal-secret|YOUR_TOKEN|DOCS_TOKEN/)
 })
 
+test('MCP profile omits credential-bound connectors until every credential is available', () => {
+  const connectors = [{
+    id: 'public-tools', name: 'Public tools', kind: 'mcp', transport: 'stdio', command: 'node', args: ['server.mjs'],
+  }, {
+    id: 'private-tools', name: 'Private tools', kind: 'mcp', transport: 'stdio', command: 'node', args: ['server.mjs'],
+    secretBindings: [
+      { location: 'env', targetKey: 'CLIENT_ID', credentialRef: 'DSH_CONNECTOR_PRIVATE_CLIENT_ID', template: '${secret}' },
+      { location: 'env', targetKey: 'CLIENT_SECRET', credentialRef: 'DSH_CONNECTOR_PRIVATE_CLIENT_SECRET', template: '${secret}' },
+    ],
+  }]
+
+  const unavailable = renderMcpConnectorPatch(connectors, { availableCredentialReferences: [] })
+  assert.match(unavailable, /desktop-mcp-public-tools/u)
+  assert.doesNotMatch(unavailable, /desktop-mcp-private-tools/u)
+
+  const partial = renderMcpConnectorPatch(connectors, {
+    availableCredentialReferences: ['DSH_CONNECTOR_PRIVATE_CLIENT_ID'],
+  })
+  assert.doesNotMatch(partial, /desktop-mcp-private-tools/u)
+
+  const complete = renderMcpConnectorPatch(connectors, {
+    availableCredentialReferences: ['DSH_CONNECTOR_PRIVATE_CLIENT_ID', 'DSH_CONNECTOR_PRIVATE_CLIENT_SECRET'],
+  })
+  assert.match(complete, /desktop-mcp-private-tools/u)
+})
+
 test('connector store persists, updates, removes and checks without executing MCP commands', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-connectors-'))
   try {
