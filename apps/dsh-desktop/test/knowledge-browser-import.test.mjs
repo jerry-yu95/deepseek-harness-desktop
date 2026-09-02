@@ -27,3 +27,10 @@ test('knowledge browser import returns a bounded provenance-backed snapshot', ()
   assert.equal(result.source.uri, url.toString())
   assert.equal(result.source.mimeType, 'text/html')
 })
+
+test('knowledge browser import bounds long article snapshots before persistence', () => {
+  const url = new URL('https://mp.weixin.qq.com/s/example')
+  const result = projectWeChatArticle({ title: '长文章', text: '可复用内容。'.repeat(80_000) }, url)
+  assert.equal(result.snapshot.length, 200_000)
+  assert.equal(result.content.length, 4_000)
+})

@@ -48,6 +48,15 @@ describe('knowledge Host contract', () => {
     expect(await store.readSnapshot(item.id)).toBe('只在用户确认后发送的原始内容')
   })
 
+  it('does not overwrite the source record when model refinement fails', async () => {
+    const store = await makeStore()
+    const item = await store.propose(proposal('失败前的标题'), { snapshot: '保持不变的原始快照' })
+    const handle = createKnowledgeRpcHandler(store, { refine: async () => { throw new Error('model unavailable') } })
+    expect(await handle('refine', { id: item.id, sessionId: 'session-1', confirmed: true })).toMatchObject({ ok: true, value: { error: 'model unavailable' } })
+    expect(await store.read(item.id)).toMatchObject({ id: item.id, title: '失败前的标题', status: 'candidate' })
+    expect(await store.readSnapshot(item.id)).toBe('保持不变的原始快照')
+  })
+
   it('lets the agent propose candidates but exposes no confirmation action or storage path', async () => {
     const store = await makeStore()
     const tool = createKnowledgeProposalTool(store) as unknown as {

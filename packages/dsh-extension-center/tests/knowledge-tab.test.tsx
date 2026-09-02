@@ -90,6 +90,42 @@ describe('My Brain knowledge review', () => {
     expect(await screen.findByText('更新后的标题')).toBeTruthy()
   })
 
+  it('edits candidate knowledge before confirmation and keeps the confirmation action explicit', async () => {
+    const updated = { ...candidate, title: '更新后的候选', content: '用户先修订，再决定是否沉淀。', category: '复盘' }
+    const api = {
+      list: vi.fn().mockResolvedValueOnce([candidate]).mockResolvedValueOnce([updated]),
+      confirm: vi.fn(), dismiss: vi.fn(), create: vi.fn(), importUrl: vi.fn(), refine: vi.fn(),
+      update: vi.fn().mockResolvedValue(updated),
+    }
+    render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: '编辑' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('标题'), { target: { value: '更新后的候选' } })
+    fireEvent.change(within(dialog).getByLabelText('正文'), { target: { value: '用户先修订，再决定是否沉淀。' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存修改' }))
+    await waitFor(() => { expect(api.update).toHaveBeenCalledWith(candidate.id, expect.objectContaining({ title: '更新后的候选', content: '用户先修订，再决定是否沉淀。' })) })
+    expect(api.confirm).not.toHaveBeenCalled()
+    expect(await screen.findByText('更新后的候选')).toBeTruthy()
+  })
+
+  it('keeps filtered and empty views inside one full-width knowledge workspace', async () => {
+    const categorizedCandidate = { ...candidate, category: '连接器' }
+    const categorizedConfirmed = { ...confirmed, category: '产品设计' }
+    const api = { list: vi.fn().mockResolvedValue([categorizedCandidate, categorizedConfirmed]), confirm: vi.fn(), dismiss: vi.fn(), create: vi.fn(), update: vi.fn(), importUrl: vi.fn(), refine: vi.fn() }
+    render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+
+    expect(await screen.findByText('先验证工具链再扩大实现范围')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('分类'), { target: { value: '连接器' } })
+    expect(screen.getByText('先验证工具链再扩大实现范围')).toBeTruthy()
+    expect(screen.queryByText('MCP 导入走受控工具')).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: /待确认/u }))
+    expect(screen.getByText('先验证工具链再扩大实现范围')).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: /已沉淀/u }))
+    expect(screen.getByText('这里暂时没有内容')).toBeTruthy()
+    const emptyWorkspace = screen.getByText('这里暂时没有内容').closest('section')
+    expect(emptyWorkspace?.className).toContain('knowledgeWorkspace')
+  })
+
   it('captures pasted content locally as a candidate with a source snapshot', async () => {
     const created = { ...candidate, title: '手动记录', source: { kind: 'manual' as const, label: '手动记录', capturedAt: candidate.createdAt } }
     const api = {
@@ -103,6 +139,24 @@ describe('My Brain knowledge review', () => {
     fireEvent.change(screen.getByLabelText('正文'), { target: { value: '只保存在本机的原文' } })
     fireEvent.click(screen.getByRole('button', { name: '保存为待确认' }))
     await waitFor(() => { expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ title: '手动记录' }), '只保存在本机的原文') })
+  })
+
+  it('imports an external HTTPS URL into the candidate inbox without confirming it', async () => {
+    const api = {
+      list: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]),
+      confirm: vi.fn(), dismiss: vi.fn(), create: vi.fn(), update: vi.fn(), refine: vi.fn(),
+      importUrl: vi.fn().mockResolvedValue({ ...candidate, status: 'candidate' }),
+    }
+    render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: '记录或导入' }))
+    fireEvent.click(screen.getByRole('button', { name: '导入链接' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('公开 HTTPS 链接'), { target: { value: 'https://example.com/article' } })
+    fireEvent.change(within(dialog).getByLabelText('分类'), { target: { value: '阅读' } })
+    fireEvent.change(within(dialog).getByLabelText('标签'), { target: { value: '输入, 复盘' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存为待确认' }))
+    await waitFor(() => { expect(api.importUrl).toHaveBeenCalledWith({ url: 'https://example.com/article', category: '阅读', tags: ['输入', '复盘'] }) })
+    expect(api.confirm).not.toHaveBeenCalled()
   })
 
   it('sends a source to the current model only after a second explicit confirmation', async () => {
