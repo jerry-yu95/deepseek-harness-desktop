@@ -7,6 +7,10 @@ const CREDENTIAL_REF_PATTERN = /^DSH_CONNECTOR_[A-Z0-9_]+$/u
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u
 const OAUTH_PROVIDER_PATTERN = /^(github|feishu|gitlab|dingtalk)$/u
 
+export function isSecureStorageCorrupt(error) {
+  return typeof error?.message === 'string' && error.message.startsWith('secure-storage-corrupt')
+}
+
 /** Return stable opaque references used by provider OAuth adapters. */
 export function oauthCredentialReferences(providerId) {
   if (typeof providerId !== 'string' || !OAUTH_PROVIDER_PATTERN.test(providerId)) {
@@ -92,6 +96,37 @@ export class ConnectorSecretStore {
     }
     this.loaded = true
     return this
+  }
+
+  async repairCorrupt() {
+    try {
+      await this.load()
+      this.environment()
+      return { repaired: false }
+    } catch (error) {
+      if (!isSecureStorageCorrupt(error)) throw error
+    }
+
+    const backupPath = `${this.path}.corrupt-${Date.now()}-${randomUUID()}`
+    let movedExisting = false
+    try {
+      try {
+        await rename(this.path, backupPath)
+        movedExisting = true
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error
+      }
+      await atomicJsonWrite(this.path, { version: STORE_VERSION, entries: {} })
+    } catch (error) {
+      if (movedExisting) {
+        await rm(this.path, { force: true }).catch(() => {})
+        await rename(backupPath, this.path).catch(() => {})
+      }
+      throw error
+    }
+    this.entries = Object.create(null)
+    this.loaded = true
+    return { repaired: true }
   }
 
   #assertLoaded() {

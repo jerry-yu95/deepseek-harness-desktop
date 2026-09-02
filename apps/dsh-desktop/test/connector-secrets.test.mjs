@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -75,6 +75,46 @@ test('connector secret store fails closed on corrupt ciphertext and never return
     const store = new ConnectorSecretStore({ path, ...cryptoBackend() })
     await store.load()
     assert.throws(() => store.resolveMany(['DSH_CONNECTOR_OK_TOKEN', 'DSH_CONNECTOR_BAD_TOKEN']), /secure-storage-corrupt/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('connector secret store repair isolates undecryptable ciphertext and creates an empty usable store', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connector-secrets-'))
+  try {
+    const path = join(root, 'secrets.json')
+    const original = JSON.stringify({
+      version: 1,
+      entries: { DSH_CONNECTOR_LEGACY_TOKEN: Buffer.from('legacy-ciphertext').toString('base64') },
+    })
+    await writeFile(path, original)
+    const store = new ConnectorSecretStore({ path, ...cryptoBackend() })
+    await store.load()
+    assert.throws(() => store.environment(), /secure-storage-corrupt/)
+
+    assert.deepEqual(await store.repairCorrupt(), { repaired: true })
+    assert.deepEqual(store.environment(), {})
+    assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { version: 1, entries: {} })
+    const backup = (await readdir(root)).find(name => name.startsWith('secrets.json.corrupt-'))
+    assert.ok(backup)
+    assert.equal(await readFile(join(root, backup), 'utf8'), original)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('connector secret store repair leaves decryptable credentials untouched', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-connector-secrets-'))
+  try {
+    const path = join(root, 'secrets.json')
+    const store = new ConnectorSecretStore({ path, ...cryptoBackend() })
+    await store.load()
+    await store.setMany({ DSH_CONNECTOR_VALID_TOKEN: 'valid-value' })
+
+    assert.deepEqual(await store.repairCorrupt(), { repaired: false })
+    assert.deepEqual(store.environment(), { DSH_CONNECTOR_VALID_TOKEN: 'valid-value' })
+    assert.deepEqual(await readdir(root), ['secrets.json'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -69,6 +69,7 @@ export function registerDesktopIpc({
   version,
   platform,
   ensureProfile,
+  repairProfile = ensureProfile,
   openLogs,
   exitApp,
   revealPath,
@@ -113,7 +114,7 @@ export function registerDesktopIpc({
     if (action === 'retry') return controller.restart()
     if (action === 'repair') {
       await controller.stop()
-      await ensureProfile()
+      await repairProfile()
       return controller.start()
     }
     if (action === 'open-logs') return openLogs()

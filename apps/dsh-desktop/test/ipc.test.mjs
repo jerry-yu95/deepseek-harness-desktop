@@ -111,3 +111,36 @@ test('remote enable rejects renderer IPC from a window other than the main windo
   )
   dispose()
 })
+
+test('repair action recovers desktop state before restarting the runtime', async () => {
+  const handlers = new Map()
+  const calls = []
+  const controller = {
+    status: { state: 'crashed' },
+    on() {},
+    off() {},
+    stop: async () => calls.push('stop'),
+    start: async () => { calls.push('start'); return 'ready' },
+  }
+  const ipcMain = {
+    removeHandler(channel) { handlers.delete(channel) },
+    handle(channel, callback) { handlers.set(channel, callback) },
+  }
+  const dispose = registerDesktopIpc({
+    ipcMain,
+    controller,
+    getWindow: () => undefined,
+    metadata: {},
+    version: '0.1.44',
+    platform: 'darwin',
+    ensureProfile: async () => calls.push('legacy-profile-repair'),
+    repairProfile: async () => calls.push('repair'),
+    openLogs: () => {},
+    exitApp: () => {},
+    revealPath: () => {},
+  })
+
+  assert.equal(await handlers.get('desktop:action')({}, 'repair'), 'ready')
+  assert.deepEqual(calls, ['stop', 'repair', 'start'])
+  dispose()
+})

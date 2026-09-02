@@ -10,7 +10,7 @@ import { serializeClipboardImage } from './clipboard-image.mjs'
 import { buildNativeImagePasteScript } from './native-image-paste.mjs'
 import { buildNativeFilePasteScript, clipboardFilePaths, prepareClipboardFiles } from './native-file-paste.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
-import { ConnectorSecretStore } from './extensions/connector-secrets.mjs'
+import { ConnectorSecretStore, isSecureStorageCorrupt } from './extensions/connector-secrets.mjs'
 import { PluginManager } from './extensions/plugins.mjs'
 import { registerDesktopIpc } from './ipc.mjs'
 import { installApplicationMenu } from './menu.mjs'
@@ -63,7 +63,13 @@ export async function startElectronApp(metadata) {
     encrypt: (value) => safeStorage.encryptString(value),
     decrypt: (value) => safeStorage.decryptString(value),
   })
-  await connectorSecretStore.load()
+  let connectorSecretStoreRequiresRepair = false
+  try {
+    await connectorSecretStore.load()
+  } catch (error) {
+    if (!isSecureStorageCorrupt(error)) throw error
+    connectorSecretStoreRequiresRepair = true
+  }
   const ensureProfile = (officialRuntimeAnchor) => ensureDesktopProfile({
     dshHome,
     packageRoots: resolveRuntimePackages(
@@ -94,7 +100,10 @@ export async function startElectronApp(metadata) {
     dshHome,
     executable: process.execPath,
     logStore,
-    environmentProvider: () => connectorSecretStore.environment(),
+    environmentProvider: () => {
+      if (connectorSecretStoreRequiresRepair) throw new Error('secure-storage-corrupt')
+      return connectorSecretStore.environment()
+    },
     autoRestart: true,
     startupTimeoutMs: 60_000,
   })
@@ -223,6 +232,19 @@ export async function startElectronApp(metadata) {
     version: metadata.version ?? app.getVersion(),
     platform: process.platform,
     ensureProfile,
+    repairProfile: async () => {
+      const result = await connectorSecretStore.repairCorrupt()
+      connectorSecretStoreRequiresRepair = false
+      await ensureProfile()
+      if (result.repaired) {
+        await dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: '连接器凭据需要重新授权',
+          message: '无法解密的旧连接器凭据已安全隔离，运行环境可以继续启动。',
+          detail: '会话、项目和知识库未受影响。请在扩展中心重新授权需要凭据的连接器。',
+        })
+      }
+    },
     openLogs: () => shell.openPath(logsDirectory),
     exitApp: () => app.quit(),
     revealPath: async (root, relativePath, isDirectory) => {
