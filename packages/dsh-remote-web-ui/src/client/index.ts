@@ -1,3 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 /**
  * Mobile remote control — browser half. Registers the `remote` dictionaries,
  * the sidebar-foot entry (phone trigger + pairing panel) into the
@@ -6,9 +9,11 @@
  * one-time failed-pair notice. Export discipline: packages/client/AGENTS.md
  * — the /client surface carries only what cordis loading needs plus types.
  */
-import { createElement } from 'react'
+import { createElement, useSyncExternalStore } from 'react'
+import type { ComponentProps } from 'react'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createRoot } from 'react-dom/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and the
 // ui-sidebar SlotMap merge (the 'sidebar.remote' hole).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -17,7 +22,6 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import { FooterRemoteEntry } from './FooterRemoteEntry.tsx'
 import { RemoteEntry } from './RemoteEntry.tsx'
 import { PairFailedNotice } from './PairFailedNotice.tsx'
 import { RemoteSettingsCard, RemoteSettingsCardController, type RemoteSettings } from './RemoteSettingsCard.tsx'
@@ -76,7 +80,7 @@ const REMOTE_WEB_UI_NS = 'remote-web-ui'
 const HEARTBEAT_INTERVAL_MS = 10_000
 
 /** Services required by this plugin. */
-export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote', 'sessions', 'workspaces']
 
 /**
  * Register the remote-control surface.
@@ -86,6 +90,16 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'remote-web-ui: dictionaries')
 
   const t = ctx.locale.bind(NS)
+  // This package compiles both host and browser augmentations; select the
+  // browser service face explicitly at the injection boundary.
+  const sessions = ctx.get('sessions') as unknown as ISessions
+  const CurrentRemoteEntry = (props: ComponentProps<typeof RemoteEntry>) => {
+    const selected = useSyncExternalStore(listener => sessions.list.subscribe(listener), () => sessions.list.getSnapshot())
+    const workspaces = useSyncExternalStore(listener => ctx.workspaces.list.subscribe(listener), () => ctx.workspaces.list.getSnapshot())
+    const cwd = selected.current ? selected.byId[selected.current]?.cwd : undefined
+    const workspaceId = workspaces.items.find(workspace => workspace.path === cwd)?.workspaceId
+    return createElement(RemoteEntry, { ...props, workspaceId })
+  }
   const settingsScope = ctx.settingsScope.bind<RemoteSettings>({ namespace: REMOTE_WEB_UI_NS })
   const enabled = (): boolean => {
     const snapshot = settingsScope.getSnapshot()
@@ -103,7 +117,7 @@ export function apply(ctx: ClientContext): void {
     let disposeEntry: (() => void) | undefined
     const syncEntry = (): void => {
       if (enabled() && disposeEntry === undefined) {
-        disposeEntry = ctx.slots.register({ name: 'sidebar.remote', locale: NS }, RemoteEntry)
+        disposeEntry = ctx.slots.register({ name: 'sidebar.remote', locale: NS }, CurrentRemoteEntry)
       } else if (!enabled() && disposeEntry !== undefined) {
         disposeEntry()
         disposeEntry = undefined
@@ -125,7 +139,7 @@ export function apply(ctx: ClientContext): void {
     let disposeEntry: (() => void) | undefined
     const syncEntry = (): void => {
       if (enabled() && disposeEntry === undefined) {
-        disposeEntry = ctx.slots.register({ name: 'sidebar.footer.action', id: 'remote-web-ui', locale: NS }, FooterRemoteEntry)
+        disposeEntry = ctx.slots.register({ name: 'sidebar.footer.action', id: 'remote-web-ui', locale: NS }, CurrentRemoteEntry)
       } else if (!enabled() && disposeEntry !== undefined) {
         disposeEntry()
         disposeEntry = undefined

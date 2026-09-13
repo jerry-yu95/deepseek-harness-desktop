@@ -1,3 +1,5 @@
+import { registerLocalRpc } from '@harness-design/dsh-local-rpc'
+import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-client-connection'
@@ -7,7 +9,8 @@ import type {} from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-token-meter'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-workflow'
-import { defineTool, type JsonValue } from '@deepseek-ai/dsh-tools'
+import { defineTool } from '@deepseek-ai/dsh-tools'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { assessTask, type AdaptiveDecision } from './adaptive.ts'
 import { appendProgress, harnessContextSync, initHarness, loadHarness, setOrchestrationMode, transitionHarness, updateFeature, updateOrchestration, type FeatureStatus, type HarnessPhase } from './core.ts'
 import { runOrchestrationRole, type OrchestrationRole } from './orchestration.ts'
@@ -19,7 +22,7 @@ import { runContextQualityProbe } from './context-quality-probe.ts'
 import { HARNESS_RPC_CHANNEL, type HarnessConnectionTestRequest, type HarnessContextQualityRequest, type HarnessDashboardStatus, type HarnessFeedbackRequest, type HarnessModeRequest, type HarnessProbeRequest, type HarnessRouteRequest, type HarnessStatusRequest } from './wire.ts'
 
 export const name = 'harness-orchestrator'
-export const inject = ['systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter']
+export const inject = ['webServer', 'systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter']
 
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.commands.register({
@@ -30,7 +33,7 @@ export function apply(ctx: Context): void {
     handler: executeHarnessCommand,
   }), 'harness-orchestrator: slash command')
 
-  ctx.effect(() => ctx.connection.rpc.handle(HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
+  ctx.effect(() => registerLocalRpc(ctx, HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
     try {
       if (endpoint === 'status') {
         const request = parseSessionRequest(payload)
@@ -84,7 +87,7 @@ export function apply(ctx: Context): void {
     } catch (error) {
       return { ok: true, value: { error: safeError(error) } }
     }
-  }, { authority: 'loopback' }), 'harness-orchestrator: dashboard rpc')
+  }), 'harness-orchestrator: dashboard rpc')
 
   ctx.systemPrompt.context({
     name: 'harness:project-state', order: 80,

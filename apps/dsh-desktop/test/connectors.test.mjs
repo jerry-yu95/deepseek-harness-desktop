@@ -2,10 +2,38 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { commandExists, ConnectorStore, renderMcpConnectorPatch, validateConnectorInput } from '../src/extensions/connectors.mjs'
+import { commandExists, ConnectorStore, renderMcpConnectorPatch, validateConnectorInput, readMcpRpcResponse } from '../src/extensions/connectors.mjs'
 import { createFakeMcpServer } from './helpers/fake-mcp-server.mjs'
+
+test('SSE consumes split frames without waiting for connection close', { timeout: 1000 }, async () => {
+  let cancelled = false
+  const body = new ReadableStream({
+    start(controller) {
+      for (const chunk of [': heartbeat\n\n', 'data: {"id":9,"result":{}}\n\n', 'data: {"id":1,', '"result":{"protocolVersion":"2025-03-26"}}\r\n\r\n']) controller.enqueue(new TextEncoder().encode(chunk))
+    },
+    cancel() { cancelled = true },
+  })
+  const response = new Response(body, { headers: { 'content-type': 'text/event-stream' } })
+  assert.equal((await readMcpRpcResponse(response, 1)).result.protocolVersion, '2025-03-26')
+  assert.equal(cancelled, true)
+})
+
+test('a real stdio MCP handshake and tools list passes without saving configuration', { timeout: 5000 }, async () => {
+  const store = new ConnectorStore({ path: join(tmpdir(), 'unused-connector-fixture.json'), env: process.env })
+  const result = await store.checkCandidate({ id: 'fixture-mcp', name: 'Fixture', kind: 'mcp', command: process.execPath, args: [fileURLToPath(new URL('./helpers/stdio-mcp-fixture.mjs', import.meta.url))] }, undefined, { executeLocal: true })
+  assert.equal(result.ok, true)
+  assert.equal(result.state, 'ready')
+})
+
+test('an executable that is not an MCP server cannot pass connection testing', { timeout: 3000 }, async () => {
+  const store = new ConnectorStore({ path: join(tmpdir(), 'unused-connector-fixture.json'), env: process.env })
+  const result = await store.checkCandidate({ id: 'not-mcp', name: 'Fixture', kind: 'mcp', command: process.execPath, args: ['--version'] }, undefined, { executeLocal: true })
+  assert.equal(result.ok, false)
+  assert.equal(result.state, 'protocol-rejected')
+})
 
 /** A fake bin directory holding one empty marker file; nothing ever executes. */
 async function makeFakeBin(root, name) {
@@ -162,8 +190,9 @@ test('connector store persists, updates, removes and checks without executing MC
     await store.save({ id: 'local-git', name: 'Local Git', kind: 'mcp', command: 'git', args: [] })
     assert.equal((await store.list()).length, 1)
     assert.equal((await store.list())[0].name, 'Local Git')
-    const checked = await store.check('local-git')
-    assert.equal(checked.ok, true)
+    const checked = await store.checkCandidate((await store.list())[0], undefined, { registered: true })
+    assert.equal(checked.ok, false)
+    assert.equal(checked.state, 'configured-unverified')
     assert.deepEqual(checked.checks.map(({ id, status }) => ({ id, status })), [
       { id: 'configuration', status: 'pass' },
       { id: 'credentials', status: 'pass' },
@@ -245,7 +274,7 @@ test('remote diagnostics distinguish reachable auth challenges from server failu
     const challenge = await store.check('remote-mcp')
     assert.equal(challenge.ok, false)
     assert.equal(challenge.state, 'needs-authorization')
-    assert.match(challenge.detail, /需要完成授权/u)
+    assert.match(challenge.detail, /服务要求授权/u)
     assert.equal(challenge.checks.find((item) => item.id === 'runtime').status, 'warn')
 
     status = 503
@@ -300,6 +329,9 @@ test('draft MCP diagnostics perform an initialize handshake without persisting t
     assert.equal(requests[0].init.headers['X-Tapd-Access-Token'], 'test-only-token')
     assert.equal(JSON.parse(requests[0].init.body).method, 'initialize')
     assert.equal(JSON.parse(requests[2].init.body).method, 'tools/list')
+    assert.equal(requests[2].init.headers['mcp-session-id'], 'test-session')
+    assert.equal(requests[2].init.headers['mcp-protocol-version'], '2025-03-26')
+    assert.equal(requests[2].init.headers['X-Tapd-Access-Token'], 'test-only-token')
     assert.match(result.detail, /1 个工具/u)
     assert.deepEqual(await store.list(), [])
   } finally {

@@ -13,8 +13,8 @@ describe("compaction replay", () => {
     const b = appendUserText(session, "beta".repeat(200));
     await ctx.compaction.compactRegion(a.seq, b.seq, { session, options: { provider: "fixture", model: "fixture-model" } });
     session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
-    const replay = Session.create(SessionId("replay-session"), session.events);
+    const replay = Session.create(SessionId("replay-session"), session.snapshotEvents());
     expect(hash(replay.deriveMessages())).toBe(hash(session.deriveMessages()));
-    expect(replay.events.filter(({ type }) => type.startsWith("compaction/")).map(({ type }) => type)).toEqual(["compaction/start", "compaction/summary", "compaction/end"]);
+    expect(replay.snapshotEvents().filter(({ type }) => type.startsWith("compaction/")).map(({ type }) => type)).toEqual(["compaction/start", "compaction/summary", "compaction/end"]);
   });
 });

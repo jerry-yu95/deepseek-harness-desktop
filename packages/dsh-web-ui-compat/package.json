@@ -36,6 +36,6 @@
   "license": "BSD-3-Clause",
   "devDependencies": {
     "tsdown": "^0.22.2",
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.2"
   }
 }

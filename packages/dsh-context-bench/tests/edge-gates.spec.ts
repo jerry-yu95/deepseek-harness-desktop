@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CallId, createToolResultMessage } from "@deepseek-ai/dsh-llm";
+import { ToolCallId, createToolResultMessage } from "@deepseek-ai/dsh-llm";
 import { appendUserText, createOfficialHarness } from "../src/runner/official-harness.ts";
 
 describe("strict compaction release gates", () => {
@@ -14,15 +14,15 @@ describe("strict compaction release gates", () => {
     controller.abort(new Error("benchmark cancellation"));
     await expect(pending).rejects.toBeTruthy();
     expect(adapter.abortSeen.value).toBe(true);
-    expect(session.events.at(-1)?.type).toBe("compaction/end");
-    expect(session.events.some(({ type }) => type === "compaction/end" && "error" in (session.events.at(-1)?.data ?? {}))).toBe(true);
+    expect(session.snapshotEvents().at(-1)?.type).toBe("compaction/end");
+    expect(session.snapshotEvents().some(({ type }) => type === "compaction/end" && "error" in (session.snapshotEvents().at(-1)?.data ?? {}))).toBe(true);
     expect(session.deriveMessages().map((message) => JSON.stringify(message.content)).join(" ")).toContain("cancel me");
   });
 
   it("prunes a long tool result while preserving the paired call and result", async () => {
     const { ctx, session } = await createOfficialHarness("summary", 8_192, {}, false, { thresholdChars: 100, headChars: 20, tailChars: 20 });
     session.append("turn/start", { turn: 1 });
-    const callId = CallId("tool-1");
+    const callId = ToolCallId("tool-1");
     const call = session.append("tool/call", { turn: 1, step: 1, callId, name: "read", arguments: "{}" });
     const result = session.append("tool/result", {
       turn: 1,
@@ -31,7 +31,7 @@ describe("strict compaction release gates", () => {
     }, { surfaceOp: "append", sourceEventSeqs: [call.seq] });
     const pruned = ctx.toolResultPruner.pruneSession(session);
     expect(pruned.pruned[0]?.originalSeq).toBe(result.seq);
-    expect(session.events.find(({ seq }) => seq === result.seq)?.data).toMatchObject({ message: { source: { callId } } });
+    expect(session.snapshotEvents().find(({ seq }) => seq === result.seq)?.data).toMatchObject({ message: { source: { callId } } });
     expect(JSON.stringify(session.deriveMessages())).toContain("HEAD-");
     expect(JSON.stringify(session.deriveMessages())).toContain("TAIL");
   });
@@ -40,8 +40,8 @@ describe("strict compaction release gates", () => {
     const { session } = await createOfficialHarness("summary");
     session.append("turn/start", { turn: 1 });
     session.append("compaction/start", { compactionId: "compaction-test", turn: 1 });
-    const starts = session.events.filter(({ type }) => type === "compaction/start").length;
-    const ends = session.events.filter(({ type }) => type === "compaction/end").length;
+    const starts = session.snapshotEvents().filter(({ type }) => type === "compaction/start").length;
+    const ends = session.snapshotEvents().filter(({ type }) => type === "compaction/end").length;
     expect(starts).toBe(1);
     expect(ends).toBe(0);
   });

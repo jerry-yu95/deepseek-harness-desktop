@@ -186,6 +186,7 @@ export class OAuthFlowManager {
     assertNonEmptyString(expectedState, 'expectedState', 256)
     if (!LOOPBACK_HOSTS.has(host)) throw new TypeError('OAuth callback host must be loopback')
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 10 * 60 * 1000) throw new TypeError('invalid callback timeout')
+    if (signal?.aborted) throw oauthError('authorization-cancelled')
 
     let resolveWait
     let rejectWait
@@ -219,10 +220,13 @@ export class OAuthFlowManager {
       resolveWait = resolve
       rejectWait = reject
     })
+    void wait.catch(() => {})
+    const onAbort = () => finish(oauthError('authorization-cancelled'))
     const finish = (error, value) => {
       if (finished) return
       finished = true
       clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
       server.close(() => {})
       if (error) rejectWait(error)
       else resolveWait(value)
@@ -230,13 +234,14 @@ export class OAuthFlowManager {
     if (signal !== undefined) {
       if (!(signal instanceof AbortSignal)) throw new TypeError('OAuth callback signal is invalid')
       if (signal.aborted) finish(oauthError('authorization-cancelled'))
-      else signal.addEventListener('abort', () => finish(oauthError('authorization-cancelled')), { once: true })
+      else signal.addEventListener('abort', onAbort, { once: true })
     }
     await new Promise((resolve, reject) => {
       server.once('error', reject)
       server.listen(0, host, resolve)
     })
     const address = server.address()
+    if (finished) { server.close(); throw oauthError('authorization-cancelled') }
     timer = setTimeout(() => finish(oauthError('callback-timeout')), timeoutMs)
     return {
       redirectUri: `http://${host}:${address.port}/callback`,

@@ -1,3 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 /**
  * Task-board client plugin: wires the framework-free core (controller,
  * execution service, store) to the real client runtime and mounts the two
@@ -8,8 +11,10 @@
  * shell fails the whole boot when a plugin apply throws, and an external
  * plugin must not take the GUI down.
  */
-import type { ClientContext, SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import { createSessionDriver } from './session-driver.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale) and its
 // LocaleNamespaceMap merge table.
@@ -85,28 +90,48 @@ export function apply(ctx: ClientContext): void {
     if (uiDisposer !== undefined) return
     const sessions = ctx.sessions
     const workspaces = ctx.workspaces
-    const connection = ctx.get('connection') as ConnectionHandle
 
     // Core wiring: real runtime faces into the framework-free services.
     const store = new LocalStorageTaskStore()
     const exec = new ExecutionService({
       sessions: {
         list: sessions.list,
-        binding: id => sessions.binding(id as SessionId),
+        binding: id => {
+          const binding = sessions.binding(id as SessionId)
+          if (!binding) return undefined
+          const { session, eventSource } = binding
+          const driver = createSessionDriver({
+            session: {
+              rename: title => session.rename(title),
+              prompt: (content, mode) => session.prompt(content as Parameters<typeof session.prompt>[0], mode),
+              getSnapshot: () => session.getSnapshot(), subscribe: listener => session.subscribe(listener),
+            },
+            list: sessions.list,
+            running: () => sessions.list.getSnapshot().byId[id as SessionId]?.running ?? false,
+            initialEvents: () => eventSource.getSnapshot().entries.map(entry => entry.event),
+            follow: signal => ctx.remote.session.follow({ address: { kind: 'session', sessionId: id as SessionId }, maxMessages: 20 }, signal),
+          })
+          return { session: driver }
+        },
       },
       workspaces: {
-        list: workspaces.list,
-        connectWorkspace: id => workspaces.connectWorkspace(id as WorkspaceId),
+        list: { getSnapshot: () => {
+          const workspace = workspaces.list.getSnapshot()
+          const selected = sessions.list.getSnapshot()
+          const cwd = selected.current ? selected.byId[selected.current]?.cwd : undefined
+          return { ...workspace, recentWorkspaceId: workspace.items.find(item => item.path === cwd)?.workspaceId }
+        } },
+        connectWorkspace: id => sessions.create({ workspaceId: id as WorkspaceId }),
       },
       history: {
         loadTail: async sessionId => {
-          const response = await connection.api.sessions.history({
-            sessionId: sessionId as SessionId,
-            maxMessages: 20,
-          })
-          return response.result.ok
-            ? { events: response.result.value.events.map(entry => entry.event) }
-            : undefined
+          const controller = new AbortController()
+          try {
+            for await (const frame of ctx.remote.session.follow({ address: { kind: 'session', sessionId: sessionId as SessionId }, maxMessages: 20 }, controller.signal)) {
+              if (frame.type === 'snapshot') return { events: frame.records.map(entry => entry.event) }
+            }
+          } finally { controller.abort() }
+          return undefined
         },
       },
     })

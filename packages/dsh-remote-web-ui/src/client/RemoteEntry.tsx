@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
 import { RemotePanel, type PanelState } from './RemotePanel.tsx'
 import { copyText, issuePair, stopPair, type IssueResponse, type PairStateFrame, type TunnelStatusFrame } from './pair-api.ts'
@@ -67,7 +67,7 @@ function readDesktopRemoteStatus(): Promise<DesktopRemoteStatus | undefined> {
 }
 
 /** Entry props: the sidebar column state + the standard locale seat. */
-export type RemoteEntryProps = PropsRuntime<'sidebar.remote'> & PropsLocale<'remote'>
+export type RemoteEntryProps = PropsLocale<'remote'> & { wide: boolean; workspaceId?: string }
 
 /** Apply one status frame onto the current ready state. */
 function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
@@ -86,7 +86,7 @@ function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
  * @param props - composed slot props (contract in this package).
  * @returns the entry element tree.
  */
-export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
+export function RemoteEntry({ wide, workspaceId, t }: RemoteEntryProps) {
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<PanelState>({ kind: 'lan-required' })
   const [copied, setCopied] = useState(false)
@@ -95,7 +95,6 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
 
   // The current workspace (the recent-workspace projection the shell's New
   // Session flow targets) — the deep-link target for the phone.
-  const workspaceId = useWorkspaces(s => s.recentWorkspaceId)
 
   const closeEventSource = useCallback(() => {
     eventSource.current?.close()

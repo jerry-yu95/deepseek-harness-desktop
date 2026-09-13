@@ -25,6 +25,7 @@ export const BUILTIN_BUNDLES = Object.freeze([
 
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
   '@harness-design/dsh-knowledge',
+  '@harness-design/dsh-local-rpc',
   '@harness-design/dsh-orchestrator',
   '@linxin666/dsh-client-ui-aionui-panel',
   '@linxin666/dsh-client-ui-extension-center',
@@ -69,27 +70,37 @@ export const MANAGED_RUNTIME_PACKAGES = Object.freeze([
   ...DESKTOP_SUPPORT_PACKAGES,
 ].toSorted())
 
-// DSH rc.6 exposes these runtime modules as peers. Keep them explicit so the
+// DSH 0.1.5 exposes these runtime modules as peers. Keep them explicit so the
 // packaged host is hermetic instead of resolving through a developer machine.
 export const DSH_BOOT_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/cordis-plugin-group',
   '@deepseek-ai/dsh',
   '@deepseek-ai/dsh-anonymous-user-id',
   '@deepseek-ai/dsh-atomic-write',
+  '@deepseek-ai/dsh-attachment',
   '@deepseek-ai/dsh-bash-local',
+  '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-code-runtime',
   '@deepseek-ai/dsh-compaction',
   '@deepseek-ai/dsh-fs',
+  '@deepseek-ai/dsh-hook-protocol',
+  '@deepseek-ai/dsh-jobs',
   '@deepseek-ai/dsh-output-retention',
   '@deepseek-ai/dsh-sandbox',
   '@deepseek-ai/dsh-scope',
+  '@deepseek-ai/dsh-sdk-protocol',
+  '@deepseek-ai/dsh-session-persistence',
+  '@deepseek-ai/dsh-session-query',
   '@deepseek-ai/dsh-session-telemetry',
   '@deepseek-ai/dsh-session-title-llm',
+  '@deepseek-ai/dsh-settings',
   '@deepseek-ai/dsh-shell',
   '@deepseek-ai/dsh-spill',
   '@deepseek-ai/dsh-subagent-in-process-driver',
   '@deepseek-ai/dsh-subprocess',
   '@deepseek-ai/dsh-timeout',
+  '@deepseek-ai/dsh-util-time',
+  '@deepseek-ai/dsh-util-workspace-path',
   '@deepseek-ai/dsh-workflow',
 ].toSorted())
 
@@ -108,6 +119,10 @@ export const DESKTOP_PATCH_CONFIG = `- id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-browse'
     - id: directory-picker-desktop-client
       name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
+- id: connection
+  inject:
+    - webRuntime
+    - webServer
 `
 const WORKSPACE_CONFIG = `packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n`
 
@@ -270,7 +285,7 @@ async function removeRetiredManagedPackage({ packageName, profileDir, previous }
 export async function ensureDesktopProfile({
   dshHome,
   packageRoots = resolveRuntimePackages(),
-  profileName = 'desktop',
+  profileName = 'jiwei',
   availableCredentialReferences,
 } = {}) {
   if (typeof dshHome !== 'string' || dshHome.length === 0) {
@@ -279,7 +294,10 @@ export async function ensureDesktopProfile({
   const profileDir = join(dshHome, 'profiles', profileName)
   await mkdir(profileDir, { recursive: true })
   const manifestPath = join(profileDir, 'package.json')
+  // The official CLI now reserves "desktop". Preserve the legacy manifest
+  // as a read-only source for community bundles on the first JIWEI boot.
   const existing = await readJsonIfPresent(manifestPath)
+    ?? (profileName === 'jiwei' ? await readJsonIfPresent(join(dshHome, 'profiles', 'desktop', 'package.json')) : undefined)
   const manifest = createDesktopProfileManifest(existing)
 
   for (const [packageName, sourceDir] of packageRoots) {

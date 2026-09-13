@@ -10,23 +10,30 @@ import { _electron as electron } from 'playwright'
 import { buildNativeFilePasteScript, prepareClipboardFiles } from '../src/native-file-paste.mjs'
 import { projectWeChatArticle } from '../src/knowledge-browser-import.mjs'
 import { createFakeMcpServer } from '../test/helpers/fake-mcp-server.mjs'
+import { captureE2eScreenshot, createE2eArtifacts } from './e2e-artifacts.mjs'
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const temporary = await mkdtemp(join(tmpdir(), 'jiwei-0.1.45-acceptance-'))
+const artifacts = await createE2eArtifacts('acceptance')
 const dshHome = join(temporary, 'dsh-home')
 const fakeMcp = await createFakeMcpServer('success')
 let electronApp
 let completed = 0
+let passed = false
 
 async function check(name, operation) {
-  await operation()
+  try { await operation() } catch (error) {
+    await captureE2eScreenshot(electronApp, join(artifacts, 'failure.png'))
+    if (process.env.DSH_DESKTOP_E2E_SCREENSHOT) await captureE2eScreenshot(electronApp, process.env.DSH_DESKTOP_E2E_SCREENSHOT)
+    throw error
+  }
   completed += 1
   console.log(`PASS ${name}`)
 }
 
 try {
   await mkdir(dshHome, { recursive: true })
-  await writeFile(join(dshHome, 'settings.yaml'), "ui-onboarding:\n  welcomeNoticeVersion: '2026-08-13.1'\n", 'utf8')
+  await writeFile(join(dshHome, 'settings.yaml'), "locale:\n  preference: zh\nui-onboarding:\n  welcomeNoticeVersion: '2026-08-13.1'\n", 'utf8')
   const filePath = join(temporary, 'mcp.json')
   await writeFile(filePath, '{"mcpServers":{"fixture_remote":{"url":"loopback"}}}\n', 'utf8')
   await check('native file reference keeps basename and MIME', async () => {
@@ -53,7 +60,8 @@ try {
   await check('WeChat fixture becomes bounded URL knowledge', async () => {
     assert.equal(importedArticle.source.kind, 'url')
     assert.equal(importedArticle.title, '从对话到知识')
-    assert.match(importedArticle.content, /把经验变成可复用资产/u)
+    assert.equal(importedArticle.content, '')
+    assert.match(importedArticle.snapshot, /把经验变成可复用资产/u)
     assert.doesNotMatch(importedArticle.snapshot, /this content must not be imported/u)
   })
 
@@ -68,34 +76,52 @@ try {
     },
   })
   const page = await electronApp.firstWindow()
+  await page.addLocatorHandler(page.getByRole('button', { name: /稍后配置|Configure later/u }), async button => { await button.click() })
   const rendererErrors = []
+  let expectedRestart = false
+  let restartTransportDisconnects = 0
   page.on('pageerror', error => rendererErrors.push(error.message))
-  page.on('console', message => { if (message.type() === 'error') rendererErrors.push(message.text()) })
+  page.on('console', message => {
+    if (message.type() !== 'error') return
+    const text = message.text()
+    // Deliberately stopping the local runtime drops its active HTTP/SSE/WS
+    // transports. Ignore only these known disconnects within restart steps;
+    // JavaScript exceptions and other console errors remain test failures.
+    if (expectedRestart && /^(?:Failed to load resource: net::ERR_(?:CONNECTION_REFUSED|INCOMPLETE_CHUNKED_ENCODING)$|WebSocket connection to 'ws:\/\/127\.0\.0\.1:\d+\/api\/remote\.mux' failed:.*net::ERR_CONNECTION_REFUSED$)/u.test(text)) {
+      restartTransportDisconnects += 1
+      return
+    }
+    rendererErrors.push(text)
+  })
   await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 60_000 })
   await page.waitForSelector('#dsh-desktop-window-chrome', { timeout: 20_000 })
 
   const continueButton = page.getByRole('button', { name: /^(继续|Continue)$/u })
   if (await continueButton.count() > 0 && await continueButton.last().isVisible()) await continueButton.last().click()
-  const configureLater = page.getByRole('button', { name: /稍后配置|Configure later/u })
-  if (await configureLater.count() > 0 && await configureLater.last().isVisible()) await configureLater.last().click()
 
   const knowledgeEntry = page.locator('[data-dsh-extension-entry="knowledge"]')
   await knowledgeEntry.waitFor({ timeout: 20_000 })
   await knowledgeEntry.click()
-  await page.getByRole('heading', { name: '我的大脑' }).waitFor({ timeout: 15_000 })
+  await page.getByRole('heading', { name: '我的大脑', level: 2 }).waitFor({ timeout: 15_000 })
 
   await check('My Brain creates, edits, and confirms a candidate', async () => {
     await page.getByRole('button', { name: '记录或导入' }).click()
     let dialog = page.getByRole('dialog')
     await dialog.getByLabel('标题').fill('隔离验收知识')
-    await dialog.getByLabel('正文').fill('这是一次仅用于自动验收的可复用知识。')
+    await dialog.getByRole('textbox', { name: '正文' }).fill('这是一次仅用于自动验收的可复用知识。')
     await dialog.getByLabel('分类').fill('验收')
-    await dialog.getByLabel('标签').fill('隔离,回归')
+    await dialog.getByRole('combobox', { name: '标签', exact: true }).fill('隔离,回归')
     await dialog.getByRole('button', { name: '保存为待确认' }).click()
-    await page.getByRole('heading', { name: '隔离验收知识', exact: true }).waitFor({ timeout: 10_000 })
+    await dialog.getByRole('heading', { name: '隔离验收知识', exact: true }).waitFor({ timeout: 10_000 })
+    // The article capture dialog now stays open after a successful save so the
+    // user can review the parsed article. Close it explicitly before exercising
+    // the card-level edit/confirm actions below.
+    const captureDialog = page.getByRole('dialog').last()
+    await captureDialog.getByRole('button', { name: '关闭' }).click()
+    await captureDialog.waitFor({ state: 'detached', timeout: 10_000 })
     await page.getByRole('button', { name: '编辑' }).click()
     dialog = page.getByRole('dialog')
-    await dialog.getByLabel('正文').fill('这是编辑后的隔离验收知识。')
+    await dialog.getByRole('textbox', { name: '正文' }).fill('这是编辑后的隔离验收知识。')
     await dialog.getByRole('button', { name: '保存修改' }).click()
     await page.getByText('这是编辑后的隔离验收知识。').waitFor({ timeout: 10_000 })
     await page.getByRole('button', { name: '确认沉淀' }).click()
@@ -123,10 +149,45 @@ try {
     await dialog.getByRole('button', { name: '关闭' }).click()
   })
 
+  await check('Saved connector editor prefills and persists an update through desktop IPC', async () => {
+    expectedRestart = true
+    await page.evaluate(async text => window.dshDesktop.importMcpJson({ text }), connectorJson).catch(error => {
+      if (!/Execution context was destroyed/u.test(error.message)) throw error
+    })
+    await page.locator('[data-dsh-extension-entry="connectors"]').waitFor({ timeout: 60000 })
+    await page.getByRole('button', { name: '导入 MCP JSON' }).waitFor({ timeout: 20000 })
+    const item = page.locator('[data-connector-id="fixture-remote"]')
+    await item.getByRole('button', { name: '重新配置' }).click({ timeout: 20000 })
+    const dialog = page.getByRole('dialog')
+    const field = dialog.getByLabel('当前配置（JSON）')
+    const configuration = JSON.parse(await field.inputValue())
+    expectedRestart = false
+    assert.equal(configuration.url, fakeMcp.url)
+    await field.fill(JSON.stringify({ ...configuration, name: 'Fixture updated' }, null, 2))
+    if (process.env.DSH_DESKTOP_E2E_SCREENSHOT) await page.screenshot({ path: process.env.DSH_DESKTOP_E2E_SCREENSHOT })
+    expectedRestart = true
+    await dialog.getByRole('button', { name: '保存并重载' }).click()
+    await page.locator('[data-dsh-extension-entry="connectors"]').waitFor({ timeout: 60000 })
+    await page.getByRole('button', { name: '导入 MCP JSON' }).waitFor({ timeout: 20000 })
+    await page.getByText('Fixture updated', { exact: true }).waitFor({ timeout: 20000 })
+    const records = await page.evaluate(() => window.dshDesktop.listConnectors())
+    assert.equal(records.length, 1)
+    assert.equal(records[0].name, 'Fixture updated')
+    expectedRestart = false
+  })
+
   assert.deepEqual(rendererErrors, [], `renderer errors: ${rendererErrors.join('; ')}`)
+  passed = true
   console.log(`JIWEI isolated acceptance passed: ${completed} scenarios`)
+  console.log(`Expected transport disconnects during deliberate restarts: ${restartTransportDisconnects}`)
 } finally {
-  await electronApp?.close()
-  await fakeMcp.close()
-  await rm(temporary, { recursive: true, force: true })
+  try {
+    await captureE2eScreenshot(electronApp, join(artifacts, passed ? 'final.png' : 'failure.png'))
+    await writeFile(join(artifacts, 'result.json'), JSON.stringify({ suite: 'acceptance', status: passed ? 'passed' : 'failed', completed, expected: 5, locale: 'zh' }, null, 2))
+    console.log(`Fixture artifacts: ${artifacts}`)
+  } finally {
+    try { await electronApp?.close() } finally {
+      try { await fakeMcp.close() } finally { await rm(temporary, { recursive: true, force: true }) }
+    }
+  }
 }

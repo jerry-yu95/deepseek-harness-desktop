@@ -6,6 +6,7 @@ import { runOrchestrationRole, workspaceFingerprint } from "./orchestration.js";
 import { aggregateContextQuality, contextQualityScore, loadContextQualityHistory, recordContextQualityRun } from "./context-quality.js";
 import { contextQualityExpectations, runContextQualityProbe } from "./context-quality-probe.js";
 import { HARNESS_RPC_CHANNEL } from "./wire.js";
+import { registerLocalRpc } from "@harness-design/dsh-local-rpc";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { BlockAssembler, createUserMessage } from "@deepseek-ai/dsh-llm";
 //#region src/model-connection.ts
@@ -98,6 +99,7 @@ function redact(message) {
 //#region src/index.ts
 const name = "harness-orchestrator";
 const inject = [
+	"webServer",
 	"systemPrompt",
 	"tools",
 	"connection",
@@ -115,7 +117,7 @@ function apply(ctx) {
 		recordInput: false,
 		handler: executeHarnessCommand
 	}), "harness-orchestrator: slash command");
-	ctx.effect(() => ctx.connection.rpc.handle(HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
+	ctx.effect(() => registerLocalRpc(ctx, HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
 		try {
 			if (endpoint === "status") {
 				const request = parseSessionRequest(payload);
@@ -222,7 +224,7 @@ function apply(ctx) {
 				value: { error: safeError(error) }
 			};
 		}
-	}, { authority: "loopback" }), "harness-orchestrator: dashboard rpc");
+	}), "harness-orchestrator: dashboard rpc");
 	ctx.systemPrompt.context({
 		name: "harness:project-state",
 		order: 80,

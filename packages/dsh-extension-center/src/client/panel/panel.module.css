@@ -969,13 +969,65 @@ html[data-dsh-extension-active] [data-composer-seat] {
   flex: none;
 }
 
+.item[data-connector-id] {
+  flex-wrap: wrap;
+}
+
+.item[data-connector-id] .itemBody {
+  flex-basis: 24rem;
+}
+
+.item[data-connector-id] .nameRow,
+.item[data-connector-id] .itemActions {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
 /* --- local-first knowledge loop --------------------------------------------- */
 
+.articleOverlay { position: fixed; z-index: 1000; align-items: center; justify-content: center; }
+.articleDialog { width: min(920px, 100%); height: min(820px, 100%); min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; box-shadow: 0 18px 60px rgb(0 0 0 / 16%); }
+.articleHeader, .articleFooter { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.articleHeader h3 { margin: 0; font-size: 18px; }
+.articleFooter { justify-content: flex-end; flex-wrap: wrap; border-bottom: 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.articleForm { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.articleScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 24px; overflow-wrap: anywhere; }
+.articleScroll fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; grid-column: 1 / -1; }
+.articleScroll h3 { margin: 0 0 12px; font-size: 24px; }
+.articleProse { max-width: 72ch; margin: 24px auto; font-family: 'Songti SC', 'Noto Serif CJK SC', Georgia, serif; font-size: 16px; line-height: 1.95; }
+.articleProse p { white-space: pre-wrap; }
+.articleProse blockquote { margin-left: 0; padding-left: 16px; border-left: 3px solid var(--dsw-alias-border-l1); white-space: pre-wrap; }
+.articleImage { margin: 24px 0; text-align: center; }
+.articleImage img { display: block; max-width: 100%; max-height: 520px; margin: 0 auto; object-fit: contain; border-radius: 10px; }
+.articleImage figcaption { margin-top: 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; }
+.articleImagePlaceholder { min-height: 120px; display: grid; place-items: center; border: 1px dashed var(--dsw-alias-border-l1); border-radius: 10px; color: var(--dsw-alias-label-secondary); background: color-mix(in srgb, var(--dsw-alias-bg-base) 92%, var(--dsw-alias-state-business-primary)); }
+.articleSummaryPanel { max-width: 72ch; margin: 24px auto; line-height: 1.8; }
+.articleSummaryPreview { padding: 16px 18px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 96%, var(--dsw-alias-state-business-primary)); }
+.articleSummaryPreview p { white-space: pre-wrap; }
+.articleByline { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.articleTabs { display: flex; gap: 6px; flex: none; padding: 8px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.articleTabs button { padding: 8px 12px; background: transparent; color: inherit; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
+.articleTabs button[aria-selected='true'] { border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 600; }
+.articleModel { padding: 10px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); flex: none; grid-column: 1 / -1; }
+.articleModel label { display: flex; align-items: center; gap: 8px; }
+.articleModel input[type='checkbox'] { width: auto; }
+.articleModel select { max-width: 260px; }
+.articleProgress { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 20px; background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent); font-size: 13px; }
+.articleSpinner { width: 12px; height: 12px; border: 2px solid var(--dsw-alias-border-l1); border-top-color: var(--dsw-alias-state-business-primary); border-radius: 50%; animation: articleSpin 1s linear infinite; }
+.articleError, .articleExit { flex: none; margin: 0; padding: 10px 20px; color: var(--dsw-alias-label-primary); background: color-mix(in srgb, #b75b29 12%, transparent); font-size: 13px; }
+.articleExit button { margin-right: 10px; }
+@keyframes articleSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .articleSpinner { animation: none; } }
+@media (max-width: 650px) { .articleScroll { padding: 12px; } .articleModel { padding: 8px 12px; } .articleHeader, .articleFooter { padding: 10px 12px; } }
+
 .knowledgeBody {
+  min-height: 0;
+  overflow-y: auto;
   gap: 14px;
 }
 
 .knowledgeHero {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1017,6 +1069,7 @@ html[data-dsh-extension-active] [data-composer-seat] {
 }
 
 .knowledgeWorkspace {
+  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -1098,6 +1151,7 @@ html[data-dsh-extension-active] [data-composer-seat] {
 }
 
 .knowledgeCard {
+  min-width: 0;
   padding: 11px;
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
@@ -1169,10 +1223,164 @@ html[data-dsh-extension-active] [data-composer-seat] {
   margin-top: 9px;
 }
 
+.knowledgeTagPicker {
+  display: grid;
+  gap: 6px;
+}
+
+.knowledgeTagInput {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 38px;
+  padding: 5px 7px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+}
+
+.knowledgeTagInput:focus-within {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 1px;
+}
+
+.knowledgeTagInput input {
+  flex: 1 1 140px;
+  min-width: 100px;
+  padding: 4px 2px;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+}
+
+.knowledgeTagChip,
+.knowledgeTagSuggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 11%, transparent);
+  color: var(--dsw-alias-label-primary);
+  font-size: 11px;
+}
+
+.knowledgeTagChip button,
+.knowledgeTagSuggestion button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.knowledgeTagOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.knowledgeTagOptions button,
+.knowledgeTagSuggestion {
+  padding: 4px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.knowledgeTagSuggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+}
+
+.knowledgeTagWarning {
+  margin: 0;
+  color: var(--dsw-alias-state-danger-primary, #d64545);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.knowledgeTagNav {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  overflow-x: auto;
+}
+
+.knowledgeTagNav button {
+  flex: none;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.knowledgeTagNav button[data-active] {
+  border-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.knowledgeTagNav button span {
+  margin-left: 4px;
+  opacity: 0.75;
+}
+
+.knowledgeCard[data-draggable='true'] {
+  cursor: grab;
+}
+
+.knowledgeCard[data-draggable='true']:active {
+  cursor: grabbing;
+}
+
+.knowledgeCard[data-drop-target='true'] {
+  border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);
+}
+
+.knowledgeMoveMenu {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.knowledgeMoveMenu select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 7px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+}
+
 .knowledgeActions {
   justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
   margin-top: 10px;
 }
+
+.knowledgeActions > button { flex: 0 1 auto; max-width: 100%; }
+
+.knowledgeCard .articleExcerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 
 .knowledgeDialog {
   width: min(720px, calc(100vw - 36px));
@@ -1243,6 +1451,191 @@ html[data-dsh-extension-active] [data-composer-seat] {
 .knowledgeDialogBody textarea {
   resize: vertical;
   line-height: 1.55;
+}
+
+/* Knowledge dialogs own their form layout: generic label/input rules must not
+   stretch consent checkboxes or spread compact forms over the reader height. */
+.articleOverlay { inset: 0; padding: 32px 20px 20px; box-sizing: border-box; }
+.articleDialog { max-height: calc(100dvh - 52px); width: min(900px, 100%); }
+.articleDialog[data-view='capture'] { width: min(680px, 100%); height: auto; }
+.articleDialog[data-view='capture'] .articleForm { overflow: hidden; }
+.articleDialog .knowledgeDialogBody { align-content: start; align-items: start; }
+.articleDialog .articleScroll { scrollbar-gutter: stable; }
+.articleDialog .articleScroll fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.articleDialog fieldset > label:first-child,
+.articleDialog fieldset > label:has(textarea),
+.articleDialog fieldset > label:has([role='combobox']) { grid-column: 1 / -1; }
+.articleDialog[data-view='capture'] fieldset > label:has(input[name='category']) { grid-column: 1 / -1; }
+.articleDialog .articleModel { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, var(--dsw-alias-bg-base)); }
+.articleDialog .articleModel label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.articleDialog .articleModel label:first-child { flex: 1 1 240px; white-space: nowrap; }
+.articleDialog[data-view='capture'] .articleModel label { flex-basis: 100%; }
+.articleDialog .articleModel label:nth-child(2) { flex: 1 1 220px; line-height: 1.5; }
+.articleDialog .articleModel input[type='checkbox'] { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--dsw-alias-state-business-primary); }
+.articleDialog .articleModel select { min-width: 0; width: 100%; max-width: 260px; padding: 8px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-base); color: inherit; font: inherit; }
+.articleDialog .articleModel button { padding: 9px 14px; border: 0; border-radius: 8px; background: var(--dsw-alias-state-business-primary); color: white; cursor: pointer; }
+.articleDialog .articleModel button:disabled { opacity: .45; cursor: default; }
+.articleDialog .articleHeader { padding: 16px 20px; }
+.articleDialog .articleFooter { padding: 14px 20px; }
+.articleDialog .articleByline a { color: var(--dsw-alias-label-secondary); text-decoration: none; max-width: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knowledgeCard { padding: 18px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+.knowledgeGrid { align-items: stretch; gap: 16px; padding: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.knowledgeCard .knowledgeActions { margin-top: auto; padding-top: 16px; }
+.knowledgeMeta { margin-bottom: 14px; }
+.knowledgeMeta a { color: var(--dsw-alias-label-secondary); text-decoration: none; }
+.articleSummaryEmpty { margin: 28px auto; padding: 28px; max-width: 480px; border: 1px dashed var(--dsw-alias-border-l1); border-radius: 12px; text-align: center; line-height: 1.7; color: var(--dsw-alias-label-secondary); }
+@media (max-width: 650px) {
+  .articleOverlay { padding: 28px 8px 8px; }
+  .articleDialog { max-height: calc(100dvh - 36px); }
+  .articleDialog .articleScroll fieldset { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Reader geometry contract: the chrome owns its rows and only the article
+   body scrolls. Keep these declarations together so later theme overrides
+   cannot accidentally turn a reader into a page-sized form. */
+.articleDialog [hidden] { display: none; }
+.articleDialog {
+  box-sizing: border-box;
+  height: min(820px, calc(100dvh - 52px));
+  max-height: calc(100dvh - 52px);
+}
+
+.articleDialog[data-view='capture'] {
+  height: auto;
+  max-height: min(820px, calc(100dvh - 52px));
+}
+
+/* Auto-height capture forms need their intrinsic content size. The reader's
+   zero flex basis otherwise collapses the entire form to a tiny scroll slit. */
+.articleDialog[data-view='capture'] .articleForm,
+.articleDialog[data-view='capture'] .articleScroll {
+  flex-basis: auto;
+}
+
+.articleDialog .articleHeader {
+  box-sizing: border-box;
+  min-height: 56px;
+  flex: 0 0 56px;
+}
+
+.articleDialog .articleModel,
+.articleDialog .articleTabs,
+.articleDialog .articleFooter {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.articleDialog .articleTabs {
+  min-height: 48px;
+}
+
+.articleDialog .articleFooter {
+  min-height: 64px;
+}
+
+.articleDialog .articleForm,
+.articleDialog .articleScroll {
+  min-height: 0;
+}
+
+.articleDialog .articleScroll {
+  flex: 1 1 0;
+  overflow-y: auto;
+}
+
+.articleDialog .knowledgeDialogBody input:not([type='checkbox']),
+.articleDialog .knowledgeDialogBody select {
+  box-sizing: border-box;
+  min-height: 40px;
+}
+
+.articleDialog .knowledgeTagInput {
+  box-sizing: border-box;
+  min-height: 40px;
+  height: auto;
+}
+
+.articleDialog .knowledgeDialogBody .knowledgeTagInput input:not([type='checkbox']) {
+  box-sizing: border-box;
+  min-height: 28px;
+  height: auto;
+  padding: 4px 2px;
+}
+
+/* Editorial reading column, shared by the introduction, summary and editor. */
+.articleDialog .articleScroll { padding: 28px 32px 36px; }
+.articleIntro { max-width: 740px; margin: 0 auto 28px; padding-bottom: 22px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.articleIntro h1 { margin: 0 0 16px; font-size: clamp(23px, 2.6vw, 30px); line-height: 1.45; font-weight: 650; letter-spacing: -.025em; text-wrap: pretty; }
+.articleIntro .articleByline { font-size: 12px; line-height: 1.7; gap: 6px 14px; }
+.articleDialog .articleProse { max-width: 740px; margin: 0 auto; font-size: 16px; line-height: 1.95; }
+.articleProse p { margin: 0 0 1.4em; }
+.articleProse :is(h1, h2, h3, h4, h5, h6) { font-family: inherit; line-height: 1.5; font-size: 1.22em; margin: 1.8em 0 .8em; }
+.articleProse :is(ul, ol) { padding-inline-start: 1.4em; }
+.articleProse li { margin: .5em 0; }
+.articleDialog .articleImagePlaceholder { min-height: 96px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px; text-align: left; font-family: inherit; font-size: 14px; line-height: 1.6; background: color-mix(in srgb, var(--dsw-alias-label-secondary) 3%, var(--dsw-alias-bg-base)); }
+.articleImagePlaceholder svg { flex: none; opacity: .6; }
+.articleImagePlaceholder small { display: block; margin-top: 4px; font-size: 12px; }
+.articleDialog .articleSummaryPanel { max-width: 740px; margin: 0 auto; min-width: 0; }
+.articleSummaryToolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.articleSummaryToolbar > div { min-width: 0; }
+.articleSummaryToolbar button { flex: 0 0 auto; }
+.articleSectionLabel { font-size: 13px; font-weight: 650; color: var(--dsw-alias-state-business-primary); }
+.articleSummaryMeta { margin: 4px 0 0; font-size: 11px; line-height: 1.6; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
+.articleDialog .articleSummaryPreview { padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 15px; line-height: 1.85; }
+.articleSummaryPreview > p { margin: 0 0 1.25em; }
+.articleSummaryPreview > p:first-child { padding: 16px 18px; border-left: 3px solid var(--dsw-alias-state-business-primary); background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, var(--dsw-alias-bg-base)); border-radius: 0 8px 8px 0; }
+.articleSummaryPreview :is(h1, h2, h3, h4, h5, h6) { font-size: 16px; font-weight: 650; line-height: 1.5; margin: 26px 0 10px; }
+.articleSummaryPreview :is(ul, ol) { margin: 0 0 20px; padding-inline-start: 22px; }
+.articleSummaryPreview li { padding-inline-start: 4px; margin: 8px 0; }
+.articleSummaryPreview li::marker { color: var(--dsw-alias-state-business-primary); }
+.articleSummaryPreview strong { font-weight: 650; }
+.articleSummaryEditor { display: grid; min-width: 0; gap: 10px; }
+.articleSummaryEditor label, .articleSummaryEditor small { font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
+.articleDialog .articleSummaryEditor textarea { display: block; width: 100%; min-width: 0; box-sizing: border-box; min-height: 300px; resize: vertical; padding: 18px 20px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 1.85; }
+.articleDialog .articleSummaryEditor textarea:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+.articleDialog .articleSummaryEditor small { text-align: right; }
+.articleDialog .articleScroll > .knowledgeDialogBody { max-width: 740px; margin: 0 auto; padding: 0; }
+
+/* Keep taxonomy and actions on one baseline when the card has room. */
+.knowledgeCardFooter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.articleVideo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 190px; margin: 28px 0; padding: 28px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base)); color: var(--dsw-alias-label-secondary); text-align: center; font-family: inherit; font-size: 14px; }
+.articleVideo p { margin: 0; font-size: 13px; line-height: 1.7; }
+.articleVideo a { color: var(--dsw-alias-state-business-primary); font-size: 13px; }
+.summaryEditorHint { margin: 0 0 6px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.7; }
+.summaryBlock { min-width: 0; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; overflow: hidden; }
+.summaryBlockHeader { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 0; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+.summaryBlockHeader button { padding: 4px 6px; color: inherit; border: 0; background: transparent; cursor: pointer; }
+.articleDialog .articleSummaryEditor .summaryBlock textarea { min-height: 84px; max-height: 440px; border: 0; border-radius: 0; padding: 10px 14px 14px; resize: vertical; }
+.articleDialog .articleSummaryEditor .summaryBlock[data-kind='heading'] textarea { min-height: 48px; font-weight: 600; }
+.articleSummaryEditor > button { justify-self: start; }
+.knowledgeCard h4 { margin: 10px 0 12px; font-size: 16px; line-height: 1.55; }
+.knowledgeCard > small { margin-bottom: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.knowledgeCard > .articleExcerpt { font-size: 13px; line-height: 1.8; }
+.knowledgeCard .knowledgeMeta { margin: 16px 0; }
+.knowledgeHero { flex-wrap: wrap; }
+.knowledgeHero > div { flex: 1 1 260px; min-width: 0; }
+.knowledgeHero > button { flex: none; }
+.knowledgeWorkspaceHeader { flex-wrap: wrap; }
+.knowledgeTabs { flex-wrap: wrap; }
+.knowledgeTabs button { white-space: nowrap; }
+.knowledgeFilters { flex: 1 1 260px; min-width: 0; flex-wrap: wrap; }
+.knowledgeFilters input, .knowledgeFilters select { flex: 1 1 140px; width: 100%; min-width: 0; }
+.knowledgeCardTaxonomy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; flex: 1 1 190px; }
+.knowledgeCardTaxonomy .knowledgeTags { margin: 0; gap: 6px; }
+.knowledgeCardTaxonomy .knowledgeTags span { padding: 5px 9px; font-size: 11px; line-height: 1.5; }
+.knowledgeCardTaxonomy .knowledgeMoveMenu { margin: 0; max-width: 100%; }
+.knowledgeCardTaxonomy .knowledgeMoveMenu select { height: 32px; max-width: 150px; padding: 4px 9px; font-size: 11px; }
+.knowledgeCard .knowledgeCardFooter .knowledgeActions { margin: 0; padding: 0; gap: 6px; }
+.knowledgeCardFooter .knowledgeActions > button { min-height: 32px; padding: 6px 10px; font-size: 12px; }
+.knowledgeCard .knowledgeMeta { margin-top: 4px; margin-bottom: 18px; font-size: 11px; line-height: 1.6; }
+.knowledgeCard .knowledgeMeta dd { overflow-wrap: anywhere; }
+.knowledgeCard > small { color: var(--dsw-alias-label-secondary); font-size: 11px; margin-top: 4px; }
+.knowledgeCard h4 { line-height: 1.55; margin: 10px 0 8px; }
+@media (max-width: 650px) {
+  .articleDialog .articleScroll { padding: 20px 16px 28px; }
+  .articleSummaryToolbar { align-items: flex-start; gap: 10px; }
+  .articleDialog .articleSummaryEditor textarea { padding: 14px; min-height: 280px; }
+  .knowledgeCardFooter .knowledgeActions { flex: 1 1 100%; justify-content: flex-end; }
 }
 
 .knowledgePrivacy {

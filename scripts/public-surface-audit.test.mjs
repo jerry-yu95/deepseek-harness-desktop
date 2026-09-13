@@ -48,3 +48,12 @@ test('preserves historical plans and technical package metadata', async () => {
   })
   assert.equal(result.ok, true)
 })
+
+test('excludes installed dependency copies from the project public surface', async () => {
+  const result = await auditFixture({
+    'packages/example/README.md': 'Project documentation',
+    'packages/example/node_modules/vendor/README.md': 'path=/Users/vendor/build',
+    'apps/dsh-desktop/dist/mac-arm64/README.md': 'path=/Users/builder/output',
+  })
+  assert.equal(result.ok, true)
+})

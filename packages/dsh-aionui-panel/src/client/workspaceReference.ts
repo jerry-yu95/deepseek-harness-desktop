@@ -1,4 +1,7 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { PanelApi } from './api.ts'
 
@@ -73,7 +76,7 @@ export function createWorkspaceReferenceSource(ctx: ClientContext, api: PanelApi
       return result.value.hits.slice(0, 30).map(hit => ({
         name: `${hit.path}${hit.isDir ? '/' : ''}`,
         description: hit.isDir ? 'Workspace folder' : 'Workspace file',
-        icon: hit.isDir ? '▸' : '·',
+        icon: hit.isDir ? 'folder' as const : 'file' as const,
       }))
     },
     onPick({ candidate }) {

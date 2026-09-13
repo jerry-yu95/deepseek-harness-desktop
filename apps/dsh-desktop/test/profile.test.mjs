@@ -120,7 +120,7 @@ test('profile bootstrap keeps incomplete credential connectors out of the runtim
 
     const composed = spawnSync(
       process.execPath,
-      [resolveDshCliPath(), '--profile', 'desktop', '--dump-config'],
+      [resolveDshCliPath(), '--profile', 'jiwei', '--dump-config'],
       { encoding: 'utf8', env: { ...process.env, DSH_HOME: root }, timeout: 20_000 },
     )
     assert.equal(composed.status, 0, composed.stderr)
@@ -156,7 +156,7 @@ test('profile bootstrap renders imported MCP environment and HTTP header binding
     assert.doesNotMatch(patch, /YOUR_TOKEN|literal-secret/)
     const composed = spawnSync(
       process.execPath,
-      [resolveDshCliPath(), '--profile', 'desktop', '--dump-config'],
+      [resolveDshCliPath(), '--profile', 'jiwei', '--dump-config'],
       { encoding: 'utf8', env: { ...process.env, DSH_HOME: root }, timeout: 20_000 },
     )
     assert.equal(composed.status, 0, composed.stderr)
@@ -217,7 +217,7 @@ test('official DSH CLI composes the isolated desktop profile', async () => {
     await ensureDesktopProfile({ dshHome: root })
     const result = spawnSync(
       process.execPath,
-      [resolveDshCliPath(), '--profile', 'desktop', '--dump-config'],
+      [resolveDshCliPath(), '--profile', 'jiwei', '--dump-config'],
       {
         encoding: 'utf8',
         env: { ...process.env, DSH_HOME: root },

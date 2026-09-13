@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { sanitizeLogLine } from './log-store.mjs'
 
 const READY_LINE = /^dsh web:\s+(http:\/\/\S+)/u
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
@@ -11,7 +12,7 @@ export function validateLoopbackUrl(value) {
   try {
     url = new URL(value)
   } catch {
-    throw new TypeError(`invalid runtime URL: ${JSON.stringify(value)}`)
+    throw new TypeError('invalid runtime URL')
   }
   if (url.protocol !== 'http:' || !LOOPBACK_HOSTS.has(url.hostname)) {
     throw new TypeError('runtime URL must use loopback HTTP')
@@ -24,7 +25,15 @@ export function validateLoopbackUrl(value) {
 export function parseDshReadyUrl(line) {
   const match = READY_LINE.exec(String(line).trim())
   if (match === null) return undefined
-  return validateLoopbackUrl(match[1])
+  const clean = validateLoopbackUrl(match[1])
+  const source = new URL(match[1])
+  const tokens = source.searchParams.getAll('token')
+  if (tokens.length > 1 || (tokens.length === 1 && !/^[A-Za-z0-9_-]{1,256}$/u.test(tokens[0]))) {
+    throw new TypeError('invalid runtime authentication URL')
+  }
+  const bootstrap = new URL(clean)
+  if (tokens.length) bootstrap.searchParams.set('token', tokens[0])
+  return bootstrap.href
 }
 
 export function computeRestartDelay(attempt, maxAttempts = 3) {
@@ -49,7 +58,17 @@ export async function probeHttpReady(
   let lastError
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const response = await fetchImpl(url, { signal: AbortSignal.timeout(1_000) })
+      let response = await fetchImpl(url, { signal: AbortSignal.timeout(1_000), redirect: 'manual' })
+      // Node fetch has no cookie jar. Verify the official exchange and then
+      // authenticate a separate clean-root request; never accept a bare 401.
+      if (response.status === 303 && new URL(url).searchParams.has('token') && response.headers.get('location') === '/') {
+        const cookie = response.headers.get('set-cookie')?.split(';', 1)[0]
+        if (cookie && /^dsh-auth-[^=;\s]+=[A-Za-z0-9_.-]+$/u.test(cookie)) {
+          response = await fetchImpl(validateLoopbackUrl(url), {
+            signal: AbortSignal.timeout(1_000), redirect: 'manual', headers: { cookie },
+          })
+        }
+      }
       if (response.ok) return
       lastError = new Error(`runtime health probe returned HTTP ${response.status}`)
     } catch (error) {
@@ -77,6 +96,9 @@ function createLineReader(onLine) {
 }
 
 export class DshRuntimeController extends EventEmitter {
+  #bootstrapUrl
+
+  getBootstrapUrl() { return this.status.state === 'ready' ? this.#bootstrapUrl : undefined }
   constructor({
     cliPath,
     cwd,
@@ -153,6 +175,7 @@ export class DshRuntimeController extends EventEmitter {
     if (!preserveRestartAttempt) this.restartAttempt = 0
     this.manualStop = false
     this.lastDiagnostic = undefined
+    this.#bootstrapUrl = undefined
     this.#setStatus('starting')
 
     const readyPromise = new Promise((resolve, reject) => {
@@ -185,7 +208,7 @@ export class DshRuntimeController extends EventEmitter {
       this.child = this.spawnProcess(
         this.executable,
         [
-          '--expose-internals', this.cliPath, '--profile', 'desktop',
+          '--expose-internals', this.cliPath, '--profile', 'jiwei',
           '--host', '127.0.0.1', '--port', '0',
           '--no-open',
         ],
@@ -222,7 +245,7 @@ export class DshRuntimeController extends EventEmitter {
   async #handleLine(stream, line) {
     await this.logStore.append(`[${stream}] ${line}`)
     this.lastDiagnostic = diagnoseRuntimeLine(line) ?? this.lastDiagnostic
-    this.emit('line', { stream, line })
+    this.emit('line', { stream, line: sanitizeLogLine(line) })
     if (stream !== 'stdout' || this.status.state !== 'starting') return
     let url
     try {
@@ -245,8 +268,10 @@ export class DshRuntimeController extends EventEmitter {
     if (this.status.state !== 'starting') return
     this.cancelSchedule(this.startupTimer)
     this.startupTimer = undefined
-    this.#setStatus('ready', { url })
-    this.resolveReady?.(url)
+    this.#bootstrapUrl = url
+    const cleanUrl = validateLoopbackUrl(url)
+    this.#setStatus('ready', { url: cleanUrl })
+    this.resolveReady?.(cleanUrl)
     this.resolveReady = undefined
     this.rejectReady = undefined
     this.readyPromise = undefined

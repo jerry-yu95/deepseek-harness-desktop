@@ -7,7 +7,7 @@ export const DESKTOP_METADATA = Object.freeze({
   appId: 'studio.harness.design.desktop',
   productName: 'JIWEI',
   version,
-  profile: 'desktop',
+  profile: 'jiwei',
   protocol: 'dsh',
 })
 

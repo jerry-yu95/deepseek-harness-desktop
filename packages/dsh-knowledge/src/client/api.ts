@@ -1,5 +1,7 @@
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { KnowledgeItem, KnowledgeProposal, KnowledgeStatus, KnowledgeUpdate } from '../core/types.ts'
+import type { KnowledgeArticleDetail } from '../core/store.ts'
+import type { KnowledgeSummarizeRequest, KnowledgeSummarizeResponse, KnowledgeEditSummaryRequest, KnowledgeModelDirectory } from '../wire.ts'
 import {
   KNOWLEDGE_RPC_CHANNEL,
   type KnowledgeListResponse,
@@ -17,6 +19,26 @@ interface RpcErrorValue { error: string }
 export class KnowledgeClientApi {
   constructor(private readonly connection: ConnectionHandle) {}
 
+  async detail(id: string, signal?: AbortSignal): Promise<KnowledgeArticleDetail> {
+    return this.call<KnowledgeArticleDetail>('detail', { id }, signal)
+  }
+
+  async summarize(request: KnowledgeSummarizeRequest, signal?: AbortSignal): Promise<KnowledgeSummarizeResponse> {
+    return this.call<KnowledgeSummarizeResponse>('summarize', request, signal)
+  }
+
+  async editSummary(request: KnowledgeEditSummaryRequest, signal?: AbortSignal): Promise<KnowledgeItem> {
+    return (await this.call<KnowledgeTransitionResponse>('edit-summary', request, signal)).item
+  }
+
+  async moveTag(id: string, from: string | null, to: string | null, expectedUpdatedAt: string, signal?: AbortSignal): Promise<KnowledgeItem> {
+    return (await this.call<KnowledgeTransitionResponse>('move-tag', { id, from, to, expectedUpdatedAt, confirmed: true }, signal)).item
+  }
+
+  async modelRoutes(sessionId?: string, signal?: AbortSignal): Promise<KnowledgeModelDirectory> {
+    return this.call<KnowledgeModelDirectory>('model-routes', sessionId === undefined ? {} : { sessionId }, signal)
+  }
+
   async list(status?: KnowledgeStatus, signal?: AbortSignal): Promise<KnowledgeItem[]> {
     const value = await this.call<KnowledgeListResponse>('list', status === undefined ? {} : { status }, signal)
     return value.items
@@ -32,8 +54,20 @@ export class KnowledgeClientApi {
     return value.item
   }
 
-  async create(proposal: KnowledgeProposal, snapshot?: string, signal?: AbortSignal): Promise<KnowledgeItem> {
-    const request: KnowledgeCreateRequest = { proposal, ...(snapshot === undefined ? {} : { snapshot }) }
+  async trash(id: string, expectedUpdatedAt: string, signal?: AbortSignal): Promise<void> {
+    await this.call('trash', { id, expectedUpdatedAt, confirmed: true }, signal)
+  }
+
+  async listTrash(signal?: AbortSignal): Promise<KnowledgeItem[]> {
+    return (await this.call<KnowledgeListResponse>('trash-list', {}, signal)).items
+  }
+
+  async restore(id: string, signal?: AbortSignal): Promise<KnowledgeItem> {
+    return (await this.call<KnowledgeTransitionResponse>('restore', { id, confirmed: true }, signal)).item
+  }
+
+  async create(proposal: KnowledgeProposal, snapshot?: string, signal?: AbortSignal, options: Pick<KnowledgeCreateRequest, 'article' | 'articleResources' | 'requestId'> = {}): Promise<KnowledgeItem> {
+    const request: KnowledgeCreateRequest = { proposal, ...(snapshot === undefined ? {} : { snapshot }), ...options }
     const value = await this.call<KnowledgeTransitionResponse>('create', request, signal)
     return value.item
   }

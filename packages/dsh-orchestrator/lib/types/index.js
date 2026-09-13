@@ -1,3 +1,4 @@
+import { registerLocalRpc } from '@harness-design/dsh-local-rpc';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { assessTask } from "./adaptive.js";
 import { appendProgress, harnessContextSync, initHarness, loadHarness, setOrchestrationMode, transitionHarness, updateFeature, updateOrchestration } from "./core.js";
@@ -9,7 +10,7 @@ import { aggregateContextQuality } from "./context-quality.js";
 import { runContextQualityProbe } from "./context-quality-probe.js";
 import { HARNESS_RPC_CHANNEL } from "./wire.js";
 export const name = 'harness-orchestrator';
-export const inject = ['systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter'];
+export const inject = ['webServer', 'systemPrompt', 'tools', 'connection', 'agents', 'commands', 'sessionProjections', 'llm', 'tokenMeter'];
 export function apply(ctx) {
     ctx.effect(() => ctx.commands.register({
         name: 'harness',
@@ -18,7 +19,7 @@ export function apply(ctx) {
         recordInput: false,
         handler: executeHarnessCommand,
     }), 'harness-orchestrator: slash command');
-    ctx.effect(() => ctx.connection.rpc.handle(HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
+    ctx.effect(() => registerLocalRpc(ctx, HARNESS_RPC_CHANNEL, async (endpoint, payload, signal) => {
         try {
             if (endpoint === 'status') {
                 const request = parseSessionRequest(payload);
@@ -73,7 +74,7 @@ export function apply(ctx) {
         catch (error) {
             return { ok: true, value: { error: safeError(error) } };
         }
-    }, { authority: 'loopback' }), 'harness-orchestrator: dashboard rpc');
+    }), 'harness-orchestrator: dashboard rpc');
     ctx.systemPrompt.context({
         name: 'harness:project-state', order: 80,
         text: assemble => assemble.agent?.session.header.cwd === undefined ? '' : harnessContextSync(assemble.agent.session.header.cwd),

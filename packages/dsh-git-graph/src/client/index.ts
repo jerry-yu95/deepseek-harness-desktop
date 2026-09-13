@@ -1,3 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 /**
  * Git-graph surface plugin, browser half: the git branch selector chip in
  * the input selector row's context hole (`conversation.input.selector
@@ -14,7 +17,8 @@
  * @module dsh-git-graph/client
  */
 
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the header context entry).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'

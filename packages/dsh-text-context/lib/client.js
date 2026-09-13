@@ -1390,6 +1390,7 @@ window.__ModuleLoader__.load({
 		* @param doc - document.
 		*/
 		function findComposer(doc = document) {
+			for (const el of doc.querySelectorAll("[data-composer-input][contenteditable=\"true\"]")) if (isUsableComposer(el, doc)) return el;
 			const phase = doc.querySelectorAll("textarea[data-phase]");
 			for (const el of phase) if (isUsableComposer(el, doc)) return el;
 			const editables = doc.querySelectorAll("[data-pane=\"conversation\"] [contenteditable=\"true\"], [class*=\"centerCol\"] [contenteditable=\"true\"]");
@@ -1789,7 +1790,10 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.inputTriggers.registerSource(createFileReferenceSource(dictionary)), "dsh-text-context: native file reference source");
 			ctx.effect(() => installTextContextCapture({
 				uploader: api,
-				attachmentInserter: (composer, attachment) => insertFileReference(ctx, composer, attachment),
+				attachmentInserter: (composer, attachment) => insertFileReference({
+					sessions: ctx.sessions,
+					conversation: ctx.conversation
+				}, composer, attachment),
 				connectorImportSource: rememberConnectorImportSource
 			}), "dsh-text-context: capture listeners");
 			ctx.effect(() => installConnectorImportBridge(api), "dsh-text-context: connector import handoff");

@@ -5,7 +5,8 @@
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, ValueField, BooleanField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, numberField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 
@@ -174,18 +175,6 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.cookieName}
         onEdit={(text) => { props.edit('cookieName', text) }}
         onReset={() => { props.resetField('cookieName') }}
-      />
-      <BooleanField
-        id="settings-remote-fence"
-        label={t('settings.requirePairingForLan')}
-        hint={t('settings.requirePairingForLanHint')}
-        inheritLabel={t('settings.inherit')}
-        onLabel={t('settings.on')}
-        offLabel={t('settings.off')}
-        {...fieldProps}
-        {...state.requirePairingForLan}
-        onEdit={(text) => { props.edit('requirePairingForLan', text) }}
-        onReset={() => { props.resetField('requirePairingForLan') }}
       />
       <ValueField
         id="settings-remote-public-base"

@@ -1,0 +1,216 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { KnowledgeCaptureDialog } from '../src/client/panel/KnowledgeCaptureDialog.tsx'
+
+afterEach(cleanup)
+const item = { id: 'knowledge_0123456789abcdef0123456789abcdef', kind: 'fact', status: 'candidate', title: '合成文章', content: '短摘录', tags: [], confidence: 0.6, source: { kind: 'url', label: '合成来源', uri: 'https://example.com/article', capturedAt: '2026-09-08T00:00:00.000Z' }, article: { format: 'markdown', truncated: false }, createdAt: '2026-09-08T00:00:00.000Z', updatedAt: '2026-09-08T00:00:00.000Z' } as const
+function fixture() {
+  return { list: vi.fn(), importUrl: vi.fn().mockResolvedValue(item), create: vi.fn(), detail: vi.fn().mockResolvedValue({ item, body: '## 章节\n\n原文末尾 SENTINEL', bodyKind: 'article' }), modelRoutes: vi.fn().mockResolvedValue({ routes: [{ id: 'fixture-route', displayName: 'Fixture / Model' }], selectedRouteId: 'fixture-route' }), summarize: vi.fn(), update: vi.fn(), editSummary: vi.fn(), confirm: vi.fn().mockResolvedValue({ ...item, status: 'confirmed' }), dismiss: vi.fn() }
+}
+async function submit() {
+  fireEvent.click(screen.getByRole('button', { name: '导入链接' }))
+  fireEvent.change(screen.getByLabelText('公开 HTTPS 链接'), { target: { value: 'https://example.com/article' } })
+  fireEvent.click(screen.getByRole('button', { name: '开始解析' }))
+}
+describe('article import reading flow', () => {
+  it('lets an existing article generate a summary with one explicit action', async () => {
+    const api = fixture()
+    api.summarize.mockResolvedValue({ item: { ...item, summary: { text: '补充生成的摘要', model: 'model', provider: 'fixture', generatedAt: item.updatedAt, sourceTruncated: false, editedByUser: false } }, suggestedTags: [] })
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await screen.findByText(/SENTINEL/)
+    await screen.findByRole('option', { name: 'Fixture / Model' })
+    expect(api.summarize).not.toHaveBeenCalled()
+    expect(screen.getByText('点击生成，将原文发送给所选模型。')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '生成 AI 摘要' }))
+    await waitFor(() => expect(api.summarize).toHaveBeenCalledTimes(1))
+    expect(api.summarize.mock.calls[0][0].confirmed).toBe(true)
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 摘要' }))
+    expect(await screen.findByText('补充生成的摘要')).toBeTruthy()
+    expect(api.importUrl).not.toHaveBeenCalled()
+  })
+  it('renders cached article images and an explicit placeholder for unavailable images', async () => {
+    const api = fixture()
+    const withImages = { ...item, article: { format: 'markdown' as const, truncated: false, images: [{ id: 'image_0123456789abcdef0123456789abcdef', alt: '示例图', order: 0, status: 'ready' as const, mimeType: 'image/png' as const, byteLength: 68 }, { id: 'image_fedcba9876543210fedcba9876543210', alt: '失败图', order: 1, status: 'unavailable' as const }] } }
+    api.detail.mockResolvedValue({ item: withImages, body: '正文', bodyKind: 'article', images: [{ id: 'image_0123456789abcdef0123456789abcdef', alt: '示例图', order: 0, status: 'ready', mimeType: 'image/png', byteLength: 68, data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' }, { id: 'image_fedcba9876543210fedcba9876543210', alt: '失败图', order: 1, status: 'unavailable' }] })
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    expect(await screen.findByRole('img', { name: '示例图' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: '图片暂时无法读取: 失败图' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: '示例图' }).getAttribute('src')).toMatch(/^data:image\/png;base64,/u)
+  })
+  it('uses a readable heading and summary preview before enabling explicit summary editing', async () => {
+    const api = fixture()
+    const withSummary = { ...item, summary: { text: '## 结论\n\n这是可读摘要。', provider: 'fixture', model: 'model', generatedAt: item.updatedAt, sourceTruncated: false, editedByUser: false } }
+    api.detail.mockResolvedValue({ item: withSummary, body: '正文', bodyKind: 'article' })
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    expect(await screen.findByRole('heading', { level: 1, name: item.title })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 摘要' }))
+    expect(await screen.findByText('这是可读摘要。')).toBeTruthy()
+    expect(screen.queryByRole('textbox', { name: 'AI 摘要' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '编辑摘要' }))
+    expect(screen.getByRole('textbox', { name: 'AI 摘要' })).toBeTruthy()
+  })
+  it('retries detail loading without importing another candidate', async () => {
+    const api = fixture()
+    api.detail.mockRejectedValueOnce(new Error('unavailable'))
+    render(<KnowledgeCaptureDialog api={api as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await submit()
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试读取原文' }))
+    expect(await screen.findByText(/SENTINEL/)).toBeTruthy()
+    expect(api.importUrl).toHaveBeenCalledTimes(1)
+    expect(api.detail).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a tag typed without Enter when the import form is submitted', async () => {
+    const api = fixture()
+    render(<KnowledgeCaptureDialog api={api as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '导入链接' }))
+    fireEvent.change(screen.getByLabelText('公开 HTTPS 链接'), { target: { value: 'https://example.com/article' } })
+    fireEvent.change(screen.getByRole('combobox', { name: '标签' }), { target: { value: '直接保存的标签' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始解析' }))
+    await waitFor(() => expect(api.importUrl).toHaveBeenCalledWith(expect.objectContaining({ tags: ['直接保存的标签'] }), expect.any(AbortSignal)))
+  })
+
+  it('closes a read-only article immediately', async () => {
+    const api = fixture(), close = vi.fn()
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={close} onSaved={vi.fn()} />)
+    await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('retains edited notes on save failure and warns before closing', async () => {
+    const api = fixture(), close = vi.fn()
+    api.update.mockRejectedValueOnce(new Error('failure'))
+    render(<KnowledgeCaptureDialog api={api as never} onClose={close} onSaved={vi.fn()} />)
+    await submit(); await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('tab', { name: '我的笔记' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '我的笔记' }), { target: { value: '用户编辑不能丢失' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByDisplayValue('用户编辑不能丢失')).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.getByRole('button', { name: '继续阅读' })).toBeTruthy()
+    expect(close).not.toHaveBeenCalled()
+  })
+
+  it('shows immediate real work and closes after successful confirmation', async () => {
+    const api = fixture(), close = vi.fn()
+    render(<KnowledgeCaptureDialog api={api as never} onClose={close} onSaved={vi.fn()} />)
+    await submit()
+    expect(screen.getByRole('status').textContent).toContain('读取并整理')
+    expect(await screen.findByText(/SENTINEL/)).toBeTruthy()
+    expect(close).not.toHaveBeenCalled()
+    expect(api.summarize).not.toHaveBeenCalled()
+    expect(api.confirm).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '确认沉淀' }))
+    await waitFor(() => expect(api.confirm).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1))
+  })
+
+  it('keeps the reader open when confirmation fails', async () => {
+    const api = fixture(), close = vi.fn()
+    api.confirm.mockRejectedValueOnce(new Error('knowledge-revision-conflict'))
+    render(<KnowledgeCaptureDialog api={api as never} onClose={close} onSaved={vi.fn()} />)
+    await submit(); await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('button', { name: '确认沉淀' }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/SENTINEL/)).toBeTruthy()
+    expect(close).not.toHaveBeenCalled()
+  })
+  it('does not restart model and detail loading when the parent passes a fresh api object', async () => {
+    const base = fixture(), rerenderParent = vi.fn()
+    function Parent() {
+      const [, setTick] = useState(0)
+      rerenderParent.mockImplementation(() => setTick(value => value + 1))
+      return <><button type="button" onClick={() => rerenderParent()}>父级重渲染</button><KnowledgeCaptureDialog api={{ ...base } as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} /></>
+    }
+    render(<Parent />)
+    await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('button', { name: '父级重渲染' }))
+    await waitFor(() => expect(base.modelRoutes).toHaveBeenCalledTimes(1))
+    expect(base.detail).toHaveBeenCalledTimes(1)
+  })
+  it('offers cancellation while a note save is in progress and can close afterward', async () => {
+    const api = fixture(), close = vi.fn()
+    let finish!: (value: unknown) => void
+    api.update.mockImplementation((_id, _update, signal) => new Promise(resolve => {
+      signal?.addEventListener('abort', () => resolve(item), { once: true })
+      finish = resolve
+    }))
+    render(<KnowledgeCaptureDialog api={api as never} onClose={close} onSaved={vi.fn()} />)
+    await submit(); await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('tab', { name: '我的笔记' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '我的笔记' }), { target: { value: '待保存内容' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
+    await screen.findByRole('status')
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消等待并关闭' }))
+    expect(api.update.mock.calls[0][2].aborted).toBe(true)
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1))
+    finish?.(item)
+  })
+  it('starts the opted-in summary after the article preview is ready', async () => {
+    const api = fixture()
+    api.summarize.mockResolvedValue({ item: { ...item, summary: { text: '自动合成摘要', model: 'model', provider: 'fixture', generatedAt: item.updatedAt, sourceTruncated: false, editedByUser: false } }, suggestedTags: [] })
+    render(<KnowledgeCaptureDialog api={api as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await screen.findByRole('option', { name: 'Fixture / Model' })
+    fireEvent.click(screen.getByRole('checkbox'))
+    await submit()
+    await waitFor(() => expect(api.summarize).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 摘要' }))
+    expect(await screen.findByText('自动合成摘要')).toBeTruthy()
+  })
+  it('keeps original after summary failure and retries only summary', async () => {
+    const api = fixture()
+    api.summarize.mockRejectedValueOnce(new Error('knowledge-model-timeout')).mockResolvedValueOnce({ item: { ...item, summary: { text: '合成摘要', model: 'model', provider: 'fixture', generatedAt: item.updatedAt, sourceTruncated: false, editedByUser: false } }, suggestedTags: ['阅读'] })
+    render(<KnowledgeCaptureDialog api={api as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await screen.findByRole('option', { name: 'Fixture / Model' })
+    fireEvent.click(screen.getByRole('checkbox'))
+    await submit()
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/SENTINEL/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '生成 AI 摘要' }))
+    await waitFor(() => expect(api.summarize).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 摘要' }))
+    expect(await screen.findByText('合成摘要')).toBeTruthy()
+    expect(api.importUrl).toHaveBeenCalledTimes(1)
+    expect(api.create).not.toHaveBeenCalled()
+  })
+  it('shows a distinct truncation message and keeps model selection available for retry', async () => {
+    const api = fixture()
+    api.summarize.mockRejectedValueOnce(new Error('knowledge-model-output-truncated')).mockResolvedValueOnce({ item: { ...item, summary: { text: '重试后的摘要', model: 'model', provider: 'fixture', generatedAt: item.updatedAt, sourceTruncated: false, editedByUser: false } }, suggestedTags: [] })
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await screen.findByText(/SENTINEL/)
+    fireEvent.click(screen.getByRole('button', { name: '生成 AI 摘要' }))
+    expect(await screen.findByText('本次摘要输出达到上限，未保存不完整结果。请重试或更换模型；原文和已有摘要仍保留。')).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: '摘要模型' }).hasAttribute('disabled')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: '生成 AI 摘要' }))
+    await waitFor(() => expect(api.summarize).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 摘要' }))
+    expect(await screen.findByText('重试后的摘要')).toBeTruthy()
+  })
+  it('surfaces a model-directory failure instead of presenting it as an empty catalog', async () => {
+    const api = fixture()
+    api.modelRoutes.mockRejectedValueOnce(new Error('knowledge-model-directory-unavailable'))
+    render(<KnowledgeCaptureDialog api={api as never} initialItem={item as never} onClose={vi.fn()} onSaved={vi.fn()} />)
+    expect(await screen.findByText('模型列表暂时不可用，请重试；原文仍可保留。')).toBeTruthy()
+    expect(screen.getByRole('option', { name: '模型列表加载失败' })).toBeTruthy()
+    expect(screen.getByText(/SENTINEL/)).toBeTruthy()
+  })
+  it('cancels work and ignores a late article without closing another dialog', async () => {
+    const api = fixture(), close = vi.fn()
+    let complete!: (value: unknown) => void
+    api.importUrl.mockImplementation(() => new Promise(resolve => { complete = resolve }))
+    render(<KnowledgeCaptureDialog api={api as never} onClose={close} onSaved={vi.fn()} />)
+    await submit()
+    fireEvent.click(screen.getByRole('button', { name: '取消本次操作' }))
+    expect(api.importUrl.mock.calls[0][1].aborted).toBe(true)
+    complete(item)
+    await waitFor(() => expect(screen.getByText('已取消')).toBeTruthy())
+    expect(api.detail).not.toHaveBeenCalled()
+    expect(close).not.toHaveBeenCalled()
+  })
+})

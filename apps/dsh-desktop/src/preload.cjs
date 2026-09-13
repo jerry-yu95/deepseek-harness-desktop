@@ -19,6 +19,10 @@ const api = Object.freeze({
   installOfficialSkill: (token) => ipcRenderer.invoke('extensions:official-skill-install', token),
   listConnectors: () => ipcRenderer.invoke('extensions:connector-list'),
   saveConnector: (input) => ipcRenderer.invoke('extensions:connector-save', input),
+  getConnectorConfiguration: (id) => ipcRenderer.invoke('extensions:connector-edit-draft', id),
+  authorizeRemoteConnector: (id) => ipcRenderer.invoke('extensions:connector-remote-authorize', id),
+  cancelRemoteConnectorAuthorization: (id) => ipcRenderer.invoke('extensions:connector-remote-cancel', id),
+  updateConnectorConfiguration: (id, input) => ipcRenderer.invoke('extensions:connector-edit-save', id, input),
   removeConnector: (id) => ipcRenderer.invoke('extensions:connector-remove', id),
   setConnectorEnabled: (id, enabled) => ipcRenderer.invoke('extensions:connector-enable', id, enabled),
   disableConnector: (id) => ipcRenderer.invoke('extensions:connector-disable', id),
@@ -40,9 +44,19 @@ const api = Object.freeze({
   pickMcpClientSource: (clientId) => ipcRenderer.invoke('extensions:mcp-source-pick', clientId),
   importMcpClientSource: (input) => ipcRenderer.invoke('extensions:mcp-source-import', input),
   testModelProvider: (input) => ipcRenderer.invoke('models:provider-test', input),
+  getModelProviderDefault: (input) => ipcRenderer.invoke('models:provider-default', input),
+  revealSavedModelKey: (input) => ipcRenderer.invoke('models:reveal-saved-key', input),
   getModelImageInput: (input) => ipcRenderer.invoke('models:image-input-status', input),
   setModelImageInput: (input) => ipcRenderer.invoke('models:image-input-set', input),
   importKnowledgeUrl: (url) => ipcRenderer.invoke('knowledge:url-import', url),
+  startKnowledgeUrlImport: (input) => ipcRenderer.invoke('knowledge:import-start', input),
+  cancelKnowledgeUrlImport: (requestId) => ipcRenderer.invoke('knowledge:import-cancel', requestId),
+  onKnowledgeImportProgress(callback) {
+    if (typeof callback !== 'function') throw new TypeError('progress callback must be a function')
+    const listener = (_event, progress) => callback(progress)
+    ipcRenderer.on('knowledge:import-progress', listener)
+    return () => ipcRenderer.removeListener('knowledge:import-progress', listener)
+  },
   getUpdateStatus: () => ipcRenderer.invoke('updates:status'),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
   checkAndInstallUpdate: () => ipcRenderer.invoke('updates:check-interactive'),

@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, isAbsolute, join } from 'node:path'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const CONNECTOR_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const CONNECTOR_KINDS = new Set(['mcp', 'http'])
@@ -308,11 +310,11 @@ export class ConnectorStore {
   async check(id) {
     const connector = (await this.list()).find((item) => item.id === id)
     if (!connector) throw new Error(`connector ${id} was not found`)
-    return this.checkCandidate(connector, undefined, { registered: true })
+    return this.checkCandidate(connector, undefined, { registered: true, executeLocal: true })
   }
 
   /** Test one validated draft without persisting it or mutating the Harness profile. */
-  async checkCandidate(input, credentials, { registered = false } = {}) {
+  async checkCandidate(input, credentials, { registered = false, executeLocal = false } = {}) {
     const connector = validateConnectorInput(input)
     const candidateCredentials = credentials instanceof Map
       ? Object.fromEntries(credentials)
@@ -345,11 +347,37 @@ export class ConnectorStore {
     }
     if (connector.transport === 'stdio') {
       const ok = await commandExists(connector.command, env)
+      if (ok && executeLocal) {
+        const client = new Client({ name: 'jiwei-connector-check', version: '1' })
+        const args = [...connector.args]
+        const childEnv = { ...env, ...connector.plainEnv }
+        for (const binding of connector.secretBindings ?? []) {
+          const value = binding.template === 'Bearer ${secret}' ? `Bearer ${env[binding.credentialRef]}` : env[binding.credentialRef]
+          if (binding.location === 'arg') args[Number(binding.targetKey)] = value
+          if (binding.location === 'env') childEnv[binding.targetKey] = value
+        }
+        // Electron's Node switch belongs to the host, not user MCP commands.
+        delete childEnv.ELECTRON_RUN_AS_NODE
+        const transport = new StdioClientTransport({ command: connector.command, args, env: childEnv, cwd: connector.cwd, stderr: 'ignore' })
+        const signal = AbortSignal.timeout(CONNECTOR_PROBE_TIMEOUT_MS)
+        try {
+          await client.connect(transport, { signal })
+          const result = await client.listTools({}, { signal })
+          const ready = result.tools.length > 0
+          checks.push({ id: 'runtime', status: ready ? 'pass' : 'fail', detail: ready ? `MCP 握手成功，可注册 ${result.tools.length} 个工具` : '服务未提供工具' }, registrationCheck(connector, registered))
+          return { ok: ready, state: ready ? 'ready' : 'tools-unavailable', detail: checks.at(-2).detail, checks }
+        } catch {
+          return { ok: false, state: signal.aborted ? 'unreachable' : 'protocol-rejected', detail: '本地 MCP 启动或握手失败，请检查运行依赖和凭据', checks: [...checks, { id: 'runtime', status: 'fail', detail: '未完成 MCP 握手' }, registrationCheck(connector, registered)] }
+        } finally {
+          await client.close().catch(() => {})
+          await transport.close().catch(() => {})
+        }
+      }
       checks.push(
         { id: 'runtime', status: ok ? 'pass' : 'fail', detail: ok ? `本地命令可用：${connector.command}` : `找不到本地命令：${connector.command}` },
         registrationCheck(connector, registered),
       )
-      return { ok, state: ok ? 'ready' : 'command-not-found', detail: ok ? '配置、凭证和本地运行环境已就绪' : `找不到命令：${connector.command}`, checks }
+      return { ok: false, state: ok ? 'configured-unverified' : 'command-not-found', detail: ok ? '本地命令可用，尚未验证 MCP 握手与工具列表' : `找不到命令：${connector.command}`, checks }
     }
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), CONNECTOR_PROBE_TIMEOUT_MS)
@@ -361,7 +389,7 @@ export class ConnectorStore {
       )
       return { ok: probe.ok, state: probe.state, detail: probe.detail, checks }
     } catch (error) {
-      const detail = error.name === 'AbortError' ? '连接超时' : error.message
+      const detail = controller.signal.aborted ? '连接超时，请检查网络或服务是否可达' : '连接未完成，请检查网络、协议和授权配置'
       checks.push(
         { id: 'runtime', status: 'fail', detail },
         registrationCheck(connector, registered),
@@ -437,7 +465,7 @@ async function probeRemoteConnector(connector, env, fetchImpl, signal, uniqueRef
     if (sse !== undefined) return sse
   }
   if (response.status >= 200 && response.status < 300) {
-    const initialized = await readMcpRpcResponse(response)
+    const initialized = await readMcpRpcResponse(response, 1)
     if (initialized?.error !== undefined || initialized?.result === undefined) {
       return {
         ok: false,
@@ -448,26 +476,29 @@ async function probeRemoteConnector(connector, env, fetchImpl, signal, uniqueRef
           : '端点没有返回有效的 MCP initialize 结果',
       }
     }
-    return probeMcpTools(fetchImpl, connector.url, headers, response, signal, uniqueReferences)
+    return probeMcpTools(fetchImpl, connector.url, headers, response, signal, uniqueReferences, initialized.result.protocolVersion)
   }
   return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
 }
 
-async function probeMcpTools(fetchImpl, url, headers, initializeResponse, signal, uniqueReferences) {
+async function probeMcpTools(fetchImpl, url, headers, initializeResponse, signal, uniqueReferences, protocolVersion) {
   const sessionId = headerOf(initializeResponse, 'mcp-session-id')
   const requestHeaders = {
     accept: 'application/json, text/event-stream',
     'content-type': 'application/json',
     ...headers,
     ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+    ...(typeof protocolVersion === 'string' ? { 'mcp-protocol-version': protocolVersion } : {}),
   }
-  await fetchImpl(url, {
+  const notified = await fetchImpl(url, {
     method: 'POST',
     redirect: 'manual',
     signal,
     headers: requestHeaders,
     body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
   })
+  if (notified.status < 200 || notified.status >= 300) return classifyRemoteResponse(notified, { isMcp: true, uniqueReferences })
+  if (notified.body) void notified.body.cancel().catch(() => {})
   const response = await fetchImpl(url, {
     method: 'POST',
     redirect: 'manual',
@@ -476,9 +507,9 @@ async function probeMcpTools(fetchImpl, url, headers, initializeResponse, signal
     body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
   })
   if (response.status < 200 || response.status >= 300) return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
-  const payload = await readMcpRpcResponse(response)
+  const payload = await readMcpRpcResponse(response, 2)
   const tools = payload?.result?.tools
-  if (!Array.isArray(tools)) {
+  if (payload?.error !== undefined || !Array.isArray(tools) || tools.some(tool => typeof tool?.name !== 'string' || !tool.inputSchema || tool.inputSchema.type !== 'object')) {
     return { ok: false, state: 'tools-unavailable', runtimeStatus: 'fail', detail: 'MCP 已初始化，但 tools/list 未返回可注册的工具列表' }
   }
   if (tools.length === 0) {
@@ -498,6 +529,7 @@ async function probeMcpSse(fetchImpl, url, headers, signal, uniqueReferences) {
     return classifyRemoteResponse(response, { isMcp: true, uniqueReferences })
   }
   const type = contentTypeOf(response)
+  if (response.body) void response.body.cancel().catch(() => {})
   if (response.status >= 200 && response.status < 300 && /text\/event-stream/i.test(type)) {
     return { ok: false, state: 'mcp-sse-unverified', runtimeStatus: 'warn', detail: '端点提供 SSE 响应，但尚未验证 tools/list；不会标记为可用' }
   }
@@ -524,7 +556,7 @@ async function classifyRemoteResponse(response, { isMcp, uniqueReferences }) {
       state: needsAuth ? 'needs-authorization' : 'authorization-failed',
       runtimeStatus: 'warn',
       detail: needsAuth
-        ? '需要完成授权后才能完成握手；可以先保存再授权。'
+        ? '服务要求授权。请使用服务方提供的凭据配置；仅保存配置不能完成授权。'
         : `凭证无效或已过期（HTTP ${status}）`,
     }
   }
@@ -565,10 +597,10 @@ async function classifyRemoteResponse(response, { isMcp, uniqueReferences }) {
     }
   }
   return {
-    ok: true,
-    state: isMcp ? 'ready' : 'reachable',
-    runtimeStatus: 'pass',
-    detail: isMcp ? `MCP initialize 已响应（HTTP ${status}）` : `端点响应 HTTP ${status}`,
+    ok: !isMcp && status >= 200 && status < 300,
+    state: isMcp ? 'protocol-rejected' : 'reachable',
+    runtimeStatus: isMcp ? 'fail' : 'pass',
+    detail: isMcp ? '未验证 MCP 握手与工具列表' : `端点响应 HTTP ${status}`,
   }
 }
 
@@ -581,13 +613,46 @@ function headerOf(response, name) {
   return ''
 }
 
-async function readMcpRpcResponse(response) {
+export async function readMcpRpcResponse(response, expectedId) {
+  // A valid SSE response may remain open after the requested message arrives.
+  // Consume frames incrementally and release the stream immediately on a match.
+  if (/text\/event-stream/i.test(contentTypeOf(response)) && response.body?.getReader) {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let bytes = 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) return undefined
+        bytes += value.byteLength
+        if (bytes > 2_097_152) throw new Error('mcp-response-too-large')
+        buffer += decoder.decode(value, { stream: true })
+        let boundary
+        while ((boundary = /\r?\n\r?\n/u.exec(buffer)) !== null) {
+          const frame = buffer.slice(0, boundary.index)
+          buffer = buffer.slice(boundary.index + boundary[0].length)
+          const data = frame.split(/\r?\n/u).filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /u, '')).join('\n')
+          try {
+            const message = JSON.parse(data)
+            if (message?.id === expectedId && (message.result !== undefined || message.error !== undefined)) return message
+          } catch { /* Ignore comments and unrelated events. */ }
+        }
+      }
+    } finally {
+      void reader.cancel().catch(() => {})
+      reader.releaseLock()
+    }
+  }
   const { json, text } = await readFetchBody(response)
-  if (json !== undefined) return json
+  if (json !== undefined) return json?.id === expectedId ? json : undefined
   if (/text\/event-stream/i.test(contentTypeOf(response))) {
     for (const line of text.split(/\r?\n/gu)) {
       if (!line.startsWith('data:')) continue
-      try { return JSON.parse(line.slice(5).trim()) } catch { /* keep scanning */ }
+      try {
+        const message = JSON.parse(line.slice(5).trim())
+        if (message?.id === expectedId) return message
+      } catch { /* keep scanning */ }
     }
   }
   return undefined
@@ -602,7 +667,24 @@ function contentTypeOf(response) {
 async function readFetchBody(response) {
   let text = ''
   try {
-    if (typeof response?.clone === 'function') text = await response.clone().text()
+    if (response.body?.getReader) {
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let bytes = 0
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          bytes += value.byteLength
+          if (bytes > 2_097_152) throw new Error('mcp-response-too-large')
+          text += decoder.decode(value, { stream: true })
+        }
+        text += decoder.decode()
+      } finally {
+        void reader.cancel().catch(() => {})
+        reader.releaseLock()
+      }
+    }
     else if (typeof response?.text === 'function') text = await response.text()
     else if (typeof response?.json === 'function') return { json: await response.json(), text: '' }
   } catch {

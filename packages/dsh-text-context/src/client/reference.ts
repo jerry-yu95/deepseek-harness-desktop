@@ -2,6 +2,8 @@
 
 import type { InputTriggerSource, ReferenceInsert } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { formatAttachmentReference } from '../core/format.ts'
 import type { FileAttachmentRef } from '../wire.ts'
 import type { MessageKey } from './locales.ts'
@@ -9,22 +11,8 @@ import type { MessageKey } from './locales.ts'
 export const FILE_REFERENCE_SOURCE = 'local-file-attachment'
 
 interface NativeReferenceContext {
-  sessions: {
-    list: { getSnapshot(): { current?: string } }
-    scope(id: string): unknown
-  }
-  conversation: {
-    input: {
-      for(scope: unknown): {
-        state: { getSnapshot(): { draft: string; draftRev: number } }
-        insertReference(reference: ReferenceInsert, span: {
-          start: number
-          end: number
-          draftRev: number
-        }): boolean
-      }
-    }
-  }
+  sessions: Pick<ISessions, 'list' | 'scope'>
+  conversation: Pick<IConversation, 'input'>
 }
 
 /**

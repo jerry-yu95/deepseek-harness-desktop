@@ -8,7 +8,7 @@ test('desktop metadata is stable and identifies the embedded DSH surface', () =>
     appId: 'studio.harness.design.desktop',
     productName: 'JIWEI',
     version: '0.1.44',
-    profile: 'desktop',
+    profile: 'jiwei',
     protocol: 'dsh',
   })
 })

@@ -46,6 +46,50 @@ test('restart schedule is bounded and exponential', () => {
   assert.equal(computeRestartDelay(3), undefined)
 })
 
+test('bootstrap retains only the official token and rejects ambiguous credentials', () => {
+  assert.equal(parseDshReadyUrl('dsh web: http://127.0.0.1:43125/?token=synthetic-token&other=ignored#fragment'), 'http://127.0.0.1:43125/?token=synthetic-token')
+  assert.throws(() => parseDshReadyUrl('dsh web: http://127.0.0.1:43125/?token=a&token=b'), /authentication/)
+})
+
+test('authenticated readiness verifies exchange plus clean-root access without following redirects', async () => {
+  const requests = []
+  await probeHttpReady('http://127.0.0.1:43125/?token=synthetic-token', {
+    attempts: 1, fetchImpl: async (url, options) => {
+      requests.push({ url, options })
+      if (requests.length === 1) return new Response(null, { status: 303, headers: {
+        location: '/', 'set-cookie': 'dsh-auth-fixture=synthetic.cookie; HttpOnly; SameSite=Strict',
+      } })
+      assert.equal(options.headers.cookie, 'dsh-auth-fixture=synthetic.cookie')
+      return new Response('ready')
+    },
+  })
+  assert.equal(requests[1].url, 'http://127.0.0.1:43125/')
+  assert.ok(requests.every(({ options }) => options.redirect === 'manual'))
+  for (const status of [401, 403, 500]) {
+    await assert.rejects(probeHttpReady('http://127.0.0.1:43125/', {
+      attempts: 1, schedule: fn => fn(), fetchImpl: async () => new Response(null, { status }),
+    }), /health probe/)
+  }
+})
+
+test('bootstrap credentials stay out of status, return values and line events', async () => {
+  const child = new FakeChild()
+  const controller = new DshRuntimeController({
+    cliPath: 'fixture', cwd: process.cwd(), dshHome: '/tmp/synthetic',
+    spawnProcess: () => child, probeReady: async () => {},
+  })
+  const events = []
+  controller.on('line', line => events.push(line))
+  controller.on('status', status => events.push(status))
+  const ready = controller.start()
+  child.stdout.write('dsh web: http://127.0.0.1:43125/?token=synthetic-private-token\n')
+  assert.equal(await ready, 'http://127.0.0.1:43125/')
+  assert.ok(controller.getBootstrapUrl().includes('synthetic-private-token'))
+  assert.ok(!JSON.stringify(events).includes('synthetic-private-token'))
+  await controller.stop()
+  assert.equal(controller.getBootstrapUrl(), undefined)
+})
+
 test('runtime diagnostics turn missing packages into an actionable message', () => {
   assert.equal(
     diagnoseRuntimeLine("Cannot find package '@deepseek-ai/dsh-credentials-local' imported from /profile"),

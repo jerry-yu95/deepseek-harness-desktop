@@ -1,3 +1,4 @@
+import { registerLocalRpc } from "@harness-design/dsh-local-rpc";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
@@ -257,6 +258,7 @@ const FILE_ATTACHMENT_RPC_CHANNEL = "/dsh-text-context-files-v1";
 //#region src/index.ts
 const name = "text-context";
 const inject = [
+	"webServer",
 	"connection",
 	"tools",
 	"systemPrompt"
@@ -264,7 +266,7 @@ const inject = [
 function apply(ctx) {
 	const store = new FileAttachmentStore();
 	const connectorImports = [];
-	ctx.effect(() => ctx.connection.rpc.handle(FILE_ATTACHMENT_RPC_CHANNEL, async (endpoint, payload) => {
+	ctx.effect(() => registerLocalRpc(ctx, FILE_ATTACHMENT_RPC_CHANNEL, async (endpoint, payload) => {
 		try {
 			if (endpoint === "upload") return {
 				ok: true,
@@ -288,7 +290,7 @@ function apply(ctx) {
 				value: { error: safeError(error) }
 			};
 		}
-	}, { authority: "loopback" }), "dsh-text-context: file upload rpc");
+	}), "dsh-text-context: file upload rpc");
 	ctx.effect(() => ctx.tools.register(defineTool({
 		name: "attachment_read",
 		description: "Read a local file attachment referenced in the user message. Supports bounded UTF-8 text plus docx/xlsx/pptx text extraction. Select by file name, or omit both selectors to read the newest attachment. Use startLine/maxLines for paging.",

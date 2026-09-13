@@ -202,8 +202,9 @@ export class PetService extends Service {
     this.disposeActivity = (() => {
       const disposers = [
         this.ctx.on('session/event', (_session: Session, event: { type: string; data?: unknown }) => {
-          if (event.type !== 'activity/status') return
-          const payload = (event.data ?? {}) as ActivityStatusEventLike
+          const phases: Record<string, string> = { 'turn/start': 'thinking', 'step/start': 'thinking', 'tool/call': 'tool', 'tool/result': 'thinking', 'turn/end': 'done' }
+          if (!(event.type in phases)) return
+          const payload: ActivityStatusEventLike = { phase: phases[event.type] }
           if (payload.phase === undefined) return
           const phase = payload.phase as PetStateSnapshot['phase']
           // Guard against unknown phases from newer activity trackers.

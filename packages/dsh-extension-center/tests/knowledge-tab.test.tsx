@@ -31,6 +31,44 @@ const confirmed = {
 }
 
 describe('My Brain knowledge review', () => {
+  it.each([candidate, confirmed])('deletes and restores $status with confirmation and separate trash actions', async item => {
+    let active = [item], deleted: typeof active = []
+    const api = {
+      list: vi.fn(async () => active), listTrash: vi.fn(async () => deleted),
+      trash: vi.fn(async () => { active = []; deleted = [item] }),
+      restore: vi.fn(async () => { active = [item]; deleted = []; return item }),
+    }
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true)
+    try {
+      render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+      fireEvent.click(await screen.findByRole('button', { name: '删除' }))
+      expect(api.trash).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: '删除' }))
+      await waitFor(() => expect(screen.queryByText(item.title)).toBeNull())
+      expect(api.trash).toHaveBeenCalledWith(item.id, item.updatedAt)
+      fireEvent.click(screen.getByRole('tab', { name: /回收站/u }))
+      expect(await screen.findByText(item.title)).toBeTruthy()
+      expect(screen.queryByRole('button', { name: '编辑' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: '恢复' }))
+      await waitFor(() => expect(screen.queryByText(item.title)).toBeNull())
+      fireEvent.click(screen.getByRole('tab', { name: /全部/u }))
+      expect(await screen.findByText(item.title)).toBeTruthy()
+    } finally { confirm.mockRestore() }
+  })
+  it('bounds long article cards and loads the original only after opening details', async () => {
+    const article = { ...candidate, content: '长文'.repeat(1000) + 'LIST_SENTINEL', source: { ...candidate.source, kind: 'url' as const }, article: { format: 'markdown' as const, truncated: false } }
+    const api = { list: vi.fn().mockResolvedValue([article]), detail: vi.fn().mockResolvedValue({ item: article, body: '完整原文 BODY_SENTINEL', bodyKind: 'article' }), modelRoutes: vi.fn().mockResolvedValue({ routes: [] }) }
+    render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+    const title = await screen.findByText(article.title)
+    const card = title.closest('article')!
+    expect(card.textContent).not.toContain('LIST_SENTINEL')
+    expect(within(card).getByText('正文摘录')).toBeTruthy()
+    expect(api.detail).not.toHaveBeenCalled()
+    fireEvent.click(within(card).getByRole('button', { name: '阅读详情' }))
+    expect(await screen.findByText('完整原文 BODY_SENTINEL')).toBeTruthy()
+    expect(api.detail).toHaveBeenCalledTimes(1)
+  })
+
   it('renders My Brain as a dedicated first-level destination without extension tabs', async () => {
     const controller = new PanelController()
     controller.open('knowledge')
@@ -132,13 +170,15 @@ describe('My Brain knowledge review', () => {
       list: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([created]),
       confirm: vi.fn(), dismiss: vi.fn(), update: vi.fn(), importUrl: vi.fn(),
       create: vi.fn().mockResolvedValue(created),
+      detail: vi.fn().mockResolvedValue({ item: created, body: '只保存在本机的原文', bodyKind: 'legacy-snapshot' }),
     }
     render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
     fireEvent.click(await screen.findByRole('button', { name: '记录或导入' }))
     fireEvent.change(screen.getByLabelText('标题'), { target: { value: '手动记录' } })
     fireEvent.change(screen.getByLabelText('正文'), { target: { value: '只保存在本机的原文' } })
     fireEvent.click(screen.getByRole('button', { name: '保存为待确认' }))
-    await waitFor(() => { expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ title: '手动记录' }), '只保存在本机的原文') })
+    await waitFor(() => { expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ title: '手动记录' }), '只保存在本机的原文', expect.any(AbortSignal), { requestId: expect.any(String) }) })
+    expect(await screen.findByRole('tabpanel')).toBeTruthy()
   })
 
   it('imports an external HTTPS URL into the candidate inbox without confirming it', async () => {
@@ -146,6 +186,7 @@ describe('My Brain knowledge review', () => {
       list: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]),
       confirm: vi.fn(), dismiss: vi.fn(), create: vi.fn(), update: vi.fn(), refine: vi.fn(),
       importUrl: vi.fn().mockResolvedValue({ ...candidate, status: 'candidate' }),
+      detail: vi.fn().mockResolvedValue({ item: candidate, body: '导入原文', bodyKind: 'article' }),
     }
     render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
     fireEvent.click(await screen.findByRole('button', { name: '记录或导入' }))
@@ -153,10 +194,30 @@ describe('My Brain knowledge review', () => {
     const dialog = screen.getByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('公开 HTTPS 链接'), { target: { value: 'https://example.com/article' } })
     fireEvent.change(within(dialog).getByLabelText('分类'), { target: { value: '阅读' } })
-    fireEvent.change(within(dialog).getByLabelText('标签'), { target: { value: '输入, 复盘' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存为待确认' }))
-    await waitFor(() => { expect(api.importUrl).toHaveBeenCalledWith({ url: 'https://example.com/article', category: '阅读', tags: ['输入', '复盘'] }) })
+    fireEvent.change(within(dialog).getByLabelText(/^标签/u), { target: { value: '输入, 复盘' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '开始解析' }))
+    await waitFor(() => { expect(api.importUrl).toHaveBeenCalledWith({ url: 'https://example.com/article', category: '阅读', tags: ['输入', '复盘'], requestId: expect.any(String) }, expect.any(AbortSignal)) })
     expect(api.confirm).not.toHaveBeenCalled()
+  })
+
+  it('closes the article reader and selects confirmed after modal confirmation', async () => {
+    const pending = { ...candidate, source: { kind: 'url' as const, label: '合成文章', uri: 'https://example.com/article', capturedAt: candidate.createdAt }, article: { format: 'markdown' as const, truncated: false } }
+    const confirmedArticle = { ...pending, status: 'confirmed' as const, confirmedAt: '2026-09-08T09:00:00.000Z' }
+    const list = vi.fn().mockResolvedValueOnce([pending]).mockResolvedValueOnce([confirmedArticle])
+    const api = {
+      list, confirm: vi.fn().mockResolvedValue(confirmedArticle), dismiss: vi.fn(), update: vi.fn(), editSummary: vi.fn(),
+      importUrl: vi.fn(), create: vi.fn(), detail: vi.fn().mockResolvedValue({ item: pending, body: '合成正文', bodyKind: 'article' }),
+      modelRoutes: vi.fn().mockResolvedValue({ routes: [] }), summarize: vi.fn(),
+    }
+    render(<KnowledgeTab api={api as never} refreshKey={0} notify={vi.fn()} />)
+    const card = await screen.findByText(pending.title)
+    fireEvent.click(within(card.closest('article')!).getByRole('button', { name: '阅读详情' }))
+    await screen.findByText('合成正文')
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '确认沉淀' }))
+    await waitFor(() => expect(api.confirm).toHaveBeenCalledWith(pending.id, expect.any(AbortSignal)))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('tab', { name: /已沉淀/u }).getAttribute('aria-selected')).toBe('true')
+    expect(await screen.findByText(pending.title)).toBeTruthy()
   })
 
   it('sends a source to the current model only after a second explicit confirmation', async () => {

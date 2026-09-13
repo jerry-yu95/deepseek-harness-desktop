@@ -1,20 +1,23 @@
+import { registerLocalRpc } from '@harness-design/dsh-local-rpc'
+import type {} from '@deepseek-ai/dsh-host-webserver'
 /** Host storage, RPC, tool, and prompt guidance for local file references. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-system-prompt'
-import { defineTool, type JsonValue } from '@deepseek-ai/dsh-tools'
+import { defineTool } from '@deepseek-ai/dsh-tools'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { randomUUID } from 'node:crypto'
 import { FileAttachmentStore } from './core/store.ts'
 import { FILE_ATTACHMENT_RPC_CHANNEL, type ConnectorImportRequest, type FileUploadRequest } from './wire.ts'
 
 export const name = 'text-context'
-export const inject = ['connection', 'tools', 'systemPrompt']
+export const inject = ['webServer', 'connection', 'tools', 'systemPrompt']
 
 export function apply(ctx: Context): void {
   const store = new FileAttachmentStore()
   const connectorImports: Array<ConnectorImportRequest & { createdAt: number }> = []
-  ctx.effect(() => ctx.connection.rpc.handle(FILE_ATTACHMENT_RPC_CHANNEL, async (endpoint, payload) => {
+  ctx.effect(() => registerLocalRpc(ctx, FILE_ATTACHMENT_RPC_CHANNEL, async (endpoint, payload) => {
     try {
       if (endpoint === 'upload') {
         const attachment = await store.save(payload as FileUploadRequest)
@@ -29,7 +32,7 @@ export function apply(ctx: Context): void {
     } catch (error) {
       return { ok: true, value: { error: safeError(error) } }
     }
-  }, { authority: 'loopback' }), 'dsh-text-context: file upload rpc')
+  }), 'dsh-text-context: file upload rpc')
 
   ctx.effect(() => ctx.tools.register(defineTool({
     name: 'attachment_read',

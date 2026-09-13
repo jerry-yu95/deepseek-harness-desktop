@@ -7,12 +7,13 @@ export declare function createOfficialHarness(summary: string | readonly string[
 }>;
 export declare function appendUserText(session: ReturnType<Context["sessions"]["create"]>, text: string): {
     type: "user/message";
-    seq: number;
+    seq: import("@deepseek-ai/dsh-session").SessionSeq;
     time: number;
     data: import("@deepseek-ai/dsh-llm").UserMessage;
     ignorable?: true;
 } & {
-    sourceEventSeqs?: number[];
-    surfaceOp?: import("@deepseek-ai/dsh-session").SurfaceOp;
+    surfaceOp: import("@deepseek-ai/dsh-session").SurfaceOp;
+} & {
+    sourceEventSeqs?: import("@deepseek-ai/dsh-session").SessionSeq[];
 };
 //# sourceMappingURL=official-harness.d.ts.map

@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import type { UseProjection } from '@deepseek-ai/dsh-client-runtime/client'
+import type { UseProjection } from '@deepseek-ai/dsh-api-session-controller/client'
 import { ContextUsageLine, formatContextTokens, type ContextUsageLineProps } from '../src/client/ContextUsageLine.tsx'
 
 afterEach(cleanup)

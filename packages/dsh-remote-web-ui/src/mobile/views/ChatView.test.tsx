@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /** ChatView: collapsible message folds, toolbar chips, and the bottom sheets. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { SessionModels } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MuxClient, type EventSourceLike } from '../mux.ts'
+import type { SessionModels } from '../../mobile-contract.ts'
 import { ChatView, hasTurnEndedAfter } from './ChatView.tsx'
 import { type SessionView } from './App.tsx'
 import type { HistoryPage } from '../api.ts'
@@ -33,6 +34,28 @@ const session: SessionView = {
   running: false,
   blank: false,
 }
+
+it('replaces reconnect presentations and retires them when the V3 message commits', async () => {
+  vi.mocked(loadHistory).mockResolvedValue(historyPage([]))
+  vi.mocked(models).mockRejectedValue(new Error('fixture has no model directory'))
+  const source: EventSourceLike = { onmessage: null, onerror: null, close() {} }
+  const mux = new MuxClient('/m/api/events.mux', { sourceFactory: () => source })
+  const view = render(<ChatView session={session} mux={mux} onBack={() => {}} />)
+  await waitFor(() => expect(loadHistory).toHaveBeenCalled())
+  const emit = (payload: unknown) => act(() => source.onmessage?.({ data: JSON.stringify({ type: 'server-request', payload }) }))
+  const value = { attemptId: 'fixture', startedAfterSeq: 1, turn: 1, step: 1, text: 'Synthetic partial', reasoning: '' }
+  emit({ type: 'session/assistant', sessionId: 's-1', value })
+  expect(await screen.findByText('Synthetic partial')).toBeTruthy()
+  emit({ type: 'session/assistant', sessionId: 's-1', value: { ...value, text: 'Synthetic complete' } })
+  expect(screen.queryByText('Synthetic partial')).toBeNull()
+  emit({ type: 'session/event', sessionId: 's-1', event: { type: 'assistant/message', seq: 2, time: 2000, data: {
+    turn: 1, step: 1, stream: [], message: { id: 'durable', role: 'assistant', content: [{ type: 'text', text: 'Synthetic complete' }] },
+  } } })
+  emit({ type: 'session/assistant', sessionId: 's-1', value: null })
+  expect(screen.getAllByText('Synthetic complete')).toHaveLength(1)
+  view.unmount()
+  mux.stop()
+})
 
 /** Assemble one history entry wrapping a WireEvent (host history-page shape). */
 function makeEntry(type: string, data: unknown, seq: number): { event: WireEvent } {

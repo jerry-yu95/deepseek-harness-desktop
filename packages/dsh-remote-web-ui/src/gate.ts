@@ -1,5 +1,8 @@
 /**
- * The `api/gate` listener: application-level access control layered on top
+ * Legacy `api/gate` policy helpers (retained for existing external consumers).
+ * Official 0.1.5 no longer emits that event and this plugin does not register
+ * it. Current authentication lives in Connection (/api) and mobile-api (/m/api).
+ * Historical behavior: application-level access control layered on top
  * of the transport fence (the fence is Host/Origin based and explicitly not
  * an authentication layer — packages/client/connection documents this
  * event as the sanctioned seam for pairing/revocation).

@@ -137,9 +137,6 @@ export function estimateMessageTokens(message: Message, spec: EstimatorSpec): nu
 export function estimateHeaderTokens(header: EpochHeader | undefined, spec: EstimatorSpec): number {
   if (header === undefined) return 0
   let tokens = 0
-  if (header.system !== undefined) {
-    tokens += Math.ceil(header.system.length / spec.charsPerToken) + spec.roleOverhead
-  }
   if (header.tools !== undefined && header.tools.length > 0) {
     tokens += Math.ceil(JSON.stringify(header.tools).length / spec.charsPerToken) + spec.blockOverhead
   }

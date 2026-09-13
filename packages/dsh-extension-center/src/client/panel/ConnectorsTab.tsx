@@ -17,6 +17,7 @@ import {
   type ConnectorCheckResult,
   type ConnectorAuthorizationStatus,
   type ConnectorRecord,
+  type ConnectorEditorDraft,
   type DesktopBridge,
   type McpJsonImportInput,
   type McpJsonPreview,
@@ -30,6 +31,7 @@ import { CONNECTOR_STORE_ENTRIES, filterConnectorStore, type ConnectorStoreEntry
 import { consumeConnectorImport, selectedServerMap, subscribeConnectorImport } from '../connector-import-event.ts'
 import { errorMessage, tt } from '../helpers.ts'
 import css from './panel.module.css'
+import { ConnectorEditor } from './ConnectorEditor.tsx'
 
 type HealthMap = Record<string, ConnectorCheckResult>
 type ImportSource = NonNullable<McpJsonImportInput['source']>
@@ -130,6 +132,11 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [storeFilter, setStoreFilter] = useState<{ keyword: string; installed: 'all' | 'installed' | 'uninstalled' }>({ keyword: '', installed: 'all' })
   const [formOpen, setFormOpen] = useState(false)
+  const [editorDraft, setEditorDraft] = useState<ConnectorEditorDraft | null>(null)
+  const [remoteAuthId, setRemoteAuthId] = useState<string | null>(null)
+  useEffect(() => () => {
+    if (remoteAuthId) void bridge.cancelRemoteConnectorAuthorization?.(remoteAuthId).catch(() => {})
+  }, [remoteAuthId, bridge])
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
   const [clientSources, setClientSources] = useState<McpClientSourceSummary[] | null>(null)
   const [stagedSource, setStagedSource] = useState<McpClientSourceStage | null>(null)
@@ -599,6 +606,11 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
   }
 
   const onReconfigure = (connector: ConnectorRecord): void => {
+    if (bridge.getConnectorConfiguration && bridge.updateConnectorConfiguration) {
+      setBusy(true)
+      void bridge.getConnectorConfiguration(connector.id).then(setEditorDraft).catch(() => notify(tt('connectors.edit.failed'), true)).finally(() => setBusy(false))
+      return
+    }
     const preset = CONNECTOR_STORE_ENTRIES.find((entry) => {
       if (entry.integration === 'provider-json' && entry.providerId !== undefined) {
         return connector.source?.kind === 'provider-json' && connector.source.providerId === entry.providerId
@@ -615,6 +627,22 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
       return
     }
     openJsonImport()
+  }
+
+  const remoteAuthButton = (connector: ConnectorRecord) => {
+    if (!bridge.authorizeRemoteConnector || connector.kind !== 'mcp' || connector.transport !== 'streamable-http' || connectorAuthProvider(connector) !== undefined) return null
+    const pending = remoteAuthId === connector.id
+    return <button type="button" className={css.secondaryButton} disabled={!pending && (busy || connector.enabled === false)} onClick={() => {
+      if (pending) { void bridge.cancelRemoteConnectorAuthorization?.(connector.id); return }
+      if (!window.confirm(tt('connectors.remoteAuth.confirm'))) return
+      setRemoteAuthId(connector.id)
+      setBusy(true)
+      void bridge.authorizeRemoteConnector!(connector.id).then(result => {
+        setHealth(map => ({ ...map, [connector.id]: result }))
+        notify(result.detail, !result.ok)
+        return load()
+      }).catch(() => notify(tt('connectors.remoteAuth.failed'), true)).finally(() => { setRemoteAuthId(null); setBusy(false) })
+    }}>{tt(pending ? 'connectors.remoteAuth.cancel' : 'connectors.remoteAuth.start')}</button>
   }
 
   const onInstallOfficialSkill = async (preset: ConnectorStoreEntry): Promise<void> => {
@@ -707,7 +735,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
           <div className={css.nameRow}>
             <span className={css.name}>{preset.name}</span>
             <span className={css.badge}>{typeLabel}</span>
-            {installed && <span className={css.badge} data-success="true">{tt('connectors.catalog.installed')}</span>}
+            {installed && <span className={css.badge}>{tt('connectors.catalog.installed')}</span>}
             <span className={css.badge} data-tier={preset.tier}>{tierLabel}</span>
           </div>
           <p className={css.description}>{preset.description}</p>
@@ -719,9 +747,10 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         </div>
         {installedConnector !== undefined && preset.integration === 'provider-json' ? (
           <div className={css.actionRow}>
+            {remoteAuthButton(installedConnector)}
             {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(installedConnector) }}>{installedConnector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}
             <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(installedConnector.id) }}>{tt('connectors.retest')}</button>
-            <button type="button" className={css.secondaryButton} disabled={busy || !canImportJson || preset.providerId === undefined} onClick={() => { if (preset.providerId !== undefined) openJsonImport({ kind: 'provider-json', providerId: preset.providerId }, true) }}>{tt('connectors.catalog.reconfigure')}</button>
+            <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => onReconfigure(installedConnector)}>{tt('connectors.catalog.reconfigure')}</button>
             <button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(installedConnector.id) }}>{tt('connectors.remove')}</button>
           </div>
         ) : preset.integration === 'official-skill' ? (
@@ -928,6 +957,11 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
         </div>
       )}
 
+      {editorDraft && <ConnectorEditor key={editorDraft.revision} draft={editorDraft} bridge={bridge} onClose={() => setEditorDraft(null)} onSaved={() => {
+        setHealth(map => { const next = { ...map }; delete next[editorDraft.id]; return next })
+        setEditorDraft(null)
+        void load()
+      }} />}
       {formOpen && (
         <form className={css.studioForm} onSubmit={(event) => { void onSave(event) }}>
           <p className={css.studioSummary}>{tt('connectors.advanced.title')}</p>
@@ -1004,7 +1038,7 @@ export function ConnectorsTab({ bridge, refreshKey, notify }: ConnectorsTabProps
                 </div>)}
               </section>}
             </div>
-            <div className={css.itemActions}>{connectorAuthProvider(connector) !== undefined && bridge.authorizeConnector !== undefined && <><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onAuthAction(connector) }}>{connectorAuthAction(authStatuses[connector.id]?.state) === 'cancel' ? tt('connectors.auth.cancel') : connectorAuthAction(authStatuses[connector.id]?.state) === 'disconnect' ? tt('connectors.auth.disconnect') : authStatuses[connector.id]?.state === 'reauthorization-required' || authStatuses[connector.id]?.state === 'error' ? tt('connectors.auth.reauthorize') : tt('connectors.auth.authorize')}</button>{(authStatuses[connector.id]?.state === 'ready' || authStatuses[connector.id]?.state === 'missing-permission') && bridge.verifyConnectorAuthorization !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onVerifyAuth(connector) }}>{tt('connectors.auth.verify')}</button>}</>} {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.retest')}</button><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { onReconfigure(connector) }}>{tt('connectors.reconfigure')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
+            <div className={css.itemActions}>{remoteAuthButton(connector)}{connectorAuthProvider(connector) !== undefined && bridge.authorizeConnector !== undefined && <><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onAuthAction(connector) }}>{connectorAuthAction(authStatuses[connector.id]?.state) === 'cancel' ? tt('connectors.auth.cancel') : connectorAuthAction(authStatuses[connector.id]?.state) === 'disconnect' ? tt('connectors.auth.disconnect') : authStatuses[connector.id]?.state === 'reauthorization-required' || authStatuses[connector.id]?.state === 'error' ? tt('connectors.auth.reauthorize') : tt('connectors.auth.authorize')}</button>{(authStatuses[connector.id]?.state === 'ready' || authStatuses[connector.id]?.state === 'missing-permission') && bridge.verifyConnectorAuthorization !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onVerifyAuth(connector) }}>{tt('connectors.auth.verify')}</button>}</>} {bridge.setConnectorEnabled !== undefined && <button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onToggleEnabled(connector) }}>{connector.enabled === false ? tt('connectors.enable') : tt('connectors.disable')}</button>}<button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { void onCheck(connector.id) }}>{tt('connectors.retest')}</button><button type="button" className={css.secondaryButton} disabled={busy} onClick={() => { onReconfigure(connector) }}>{tt('connectors.reconfigure')}</button><button type="button" className={css.dangerButton} disabled={busy} onClick={() => { void onRemove(connector.id) }}>{tt('connectors.remove')}</button></div>
           </article>
         })}
       </div>}

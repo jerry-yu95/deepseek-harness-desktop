@@ -12,8 +12,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import type { MuxFrame } from '@deepseek-ai/dsh-host-apiproxy/api/events'
-import type { SessionModels } from '@deepseek-ai/dsh-host-apiproxy/api/sessions'
+import type { MuxFrame } from '../../mobile-contract.ts'
+import type { SessionModels } from '../../mobile-contract.ts'
 import { loadHistory, prompt, type SessionView } from './App.tsx'
 import { errorText, formatTime, staleHostHint } from './App.tsx'
 import { models, selectModel, sendCommand } from '../api.ts'
@@ -101,6 +101,7 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement | undefined>(undefined)
   const pendingRef = useRef(false)
+  const liveSnapshotRef = useRef(false)
   const reconcileTimerRef = useRef<number | undefined>(undefined)
 
   /** The session's permission select (absent = capability not composed). */
@@ -116,10 +117,11 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
     setLoading(true)
     setError(undefined)
     setMessages([])
+    liveSnapshotRef.current = false
     void loadHistory(session.sessionId).then(
       (page) => {
         if (cancelled) return
-        setMessages(foldEvents(page.events.map(eventOf)))
+        if (!liveSnapshotRef.current) setMessages(foldEvents(page.events.map(eventOf)))
         setHasOlder(page.hasMore)
         setLoading(false)
         // The history-tail projection baseline seeds the permission picker.
@@ -152,10 +154,29 @@ export function ChatView({ session, mux, onBack }: ChatViewProps) {
   // Live frames: fold session events for this session in as they arrive.
   useEffect(() => {
     if (mux === undefined) return
+    mux.selectSession(session.sessionId)
     return mux.onFrame((frame: MuxFrame) => {
+      if (frame.type === 'session/assistant' && frame.sessionId === session.sessionId) {
+        setMessages(previous => {
+          const durable = previous.filter(message => !message.id.startsWith('live-attempt:'))
+          const value = frame.value
+          return value === null ? durable : [...durable, {
+            id: `live-attempt:${value.attemptId}`, kind: 'assistant', text: value.text, reasoning: value.reasoning,
+            seq: value.startedAfterSeq, time: Date.now(), pending: true,
+          }]
+        })
+        return
+      }
+      if (frame.type === 'session/snapshot' && frame.sessionId === session.sessionId) {
+        liveSnapshotRef.current = true
+        setMessages(foldEvents(frame.events as WireEvent[]))
+        return
+      }
       if (frame.type === 'session/event') {
         if (frame.sessionId !== session.sessionId) return
-        setMessages(previous => foldEvents([frame.event as WireEvent], previous))
+        setMessages(previous => foldEvents([frame.event as WireEvent],
+          ['assistant/message', 'assistant/attempt', 'turn/end'].includes(frame.event.type)
+            ? previous.filter(message => !message.id.startsWith('live-attempt:')) : previous))
         return
       }
       // Live projection pushes keep the permission picker current.

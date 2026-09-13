@@ -70,6 +70,9 @@ function isUsableComposer(el: HTMLElement, doc: Document): boolean {
  * @param doc - document.
  */
 export function findComposer(doc: Document = document): HTMLElement | null {
+  for (const el of doc.querySelectorAll<HTMLElement>('[data-composer-input][contenteditable="true"]')) {
+    if (isUsableComposer(el, doc)) return el
+  }
   const phase = doc.querySelectorAll<HTMLTextAreaElement>('textarea[data-phase]')
   for (const el of phase) {
     if (isUsableComposer(el, doc)) return el

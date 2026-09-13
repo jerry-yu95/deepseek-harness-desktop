@@ -15,6 +15,7 @@
  * nodes and never disturbs React's reconciliation.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { installModelDisplay, disposeModelDisplay } from './model-display.ts'
 
 /** Column shims: element selector → attribute to stamp. */
 const COLUMN_SHIMS: ReadonlyArray<readonly [selector: string, attribute: string]> = [
@@ -41,6 +42,7 @@ function applyShims(): void {
   stamp(document.querySelector('[class*="sidebarCol"]')?.parentElement ?? null, 'data-dsh-frame=""')
   installImChannelNotice()
   installModelProviderTestActions()
+  installModelDisplay()
 }
 
 type ModelProviderTestResult = { ok: boolean; category?: string; model?: string; detail: string; latencyMs: number }
@@ -280,6 +282,6 @@ export function apply(ctx: Context): void {
     // only the same attribute values, so this never fights React.
     const observer = new MutationObserver(applyShims)
     observer.observe(document.body, { childList: true, subtree: true })
-    return () => { observer.disconnect() }
+    return () => { observer.disconnect(); disposeModelDisplay() }
   })
 }

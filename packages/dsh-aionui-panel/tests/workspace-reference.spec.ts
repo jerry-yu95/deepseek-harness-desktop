@@ -23,7 +23,7 @@ describe('workspace reference input source', () => {
       { query: 'plan', position: 'inline', signal: new AbortController().signal },
     )
     expect(search).toHaveBeenCalledWith('/workspace', 'plan')
-    expect(candidates).toEqual([{ name: 'docs/plan.md', description: 'Workspace file', icon: '·' }])
+    expect(candidates).toEqual([{ name: 'docs/plan.md', description: 'Workspace file', icon: 'file' }])
   })
 
   it('adds Explorer files as native reference occurrences instead of plain @ text', async () => {

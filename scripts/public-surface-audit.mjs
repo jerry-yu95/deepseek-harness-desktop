@@ -4,15 +4,17 @@ import { pathToFileURL } from 'node:url'
 
 import { classifyPublicSurfacePath, PUBLIC_SURFACE_RULES, publicSurfacePath } from './public-surface-policy.mjs'
 
-function walk(root, current = root) {
+function* walk(root, current = root) {
   const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
-  const files = []
   for (const entry of entries) {
     const path = join(current, entry.name)
-    if (entry.isDirectory()) files.push(...walk(root, path))
-    else if (entry.isFile()) files.push(path)
+    if (entry.isDirectory()) {
+      const relativePath = publicSurfacePath(root, path)
+      if (entry.name === 'node_modules' || entry.name === '.git'
+        || relativePath === 'apps/dsh-desktop/dist' || relativePath === '.local-evidence') continue
+      yield* walk(root, path)
+    } else if (entry.isFile()) yield path
   }
-  return files
 }
 
 export function auditRoot(root) {

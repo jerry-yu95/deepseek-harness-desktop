@@ -21,9 +21,9 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
-import type { RpcRequest } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
-import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
+import type { MobileHost as ApiProxy } from './mobile-host.ts'
+import type { RpcRequest } from '@deepseek-ai/dsh-client-connection/client'
+import { RpcId } from '@deepseek-ai/dsh-client-connection'
 import type { PairingService } from './pairing.ts'
 import { readCookie } from './gate.ts'
 
@@ -141,12 +141,11 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     try {
       const response = await dispatch(apiProxy, method, parsed?.payload, rpcId)
       writeJson(res, 200, response)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+    } catch {
       writeJson(res, 200, {
         type: 'server-response',
         rpcId,
-        result: { ok: false, error: { code: 'internal', message } },
+        result: { ok: false, error: { code: 'internal', message: 'Mobile operation failed; reconnect and retry.' } },
       })
     }
   }
@@ -167,6 +166,11 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     if (deviceId === undefined || !service.touchDevice(deviceId)) {
       res.writeHead(403)
       res.end('forbidden')
+      return
+    }
+    const sessionId = new URL(req.url ?? '/', 'http://localhost').searchParams.get('sessionId')
+    if (!sessionId || sessionId.length > 200) {
+      writeJson(res, 400, { error: 'sessionId is required' })
       return
     }
     res.writeHead(200, {
@@ -199,7 +203,7 @@ export function makeMobileApiRoutes(deps: MobileApiDeps): WebRoute[] {
     res.on('close', onClose)
     req.on('close', onClose)
     try {
-      const frames = apiProxy.events.mux({ rpcId: RpcId(`mobile-mux-${Date.now().toString(36)}`), payload: {} }, controller.signal)
+      const frames = apiProxy.events.mux({ rpcId: RpcId(`mobile-mux-${Date.now().toString(36)}`), payload: { sessionId } }, controller.signal)
       for await (const frame of frames) {
         if (closed) break
         if (!service.touchDevice(deviceId)) break
@@ -239,7 +243,7 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
   if (method === 'session.list') {
     const full = await apiProxy.sessions.list(request as never)
     if (!full.result.ok) return full
-    const items = full.result.value.items as Array<{ updatedAt: number; sessionId: string }>
+    const items = [...full.result.value.items]
     const cursor = (payload as { cursor?: string } | undefined)?.cursor
     // Every call pages (the first call with no cursor IS the first page):
     // the phone must never transfer the whole session list at once.
@@ -280,7 +284,7 @@ async function dispatch(apiProxy: ApiProxy, method: string, payload: unknown, rp
   if (method === 'workspace.list') return wrap(await apiProxy.workspace.list(request as never))
   if (method === 'session.create') return wrap(await apiProxy.sessions.create(request as never))
   if (method === 'session.history') return wrap(await apiProxy.sessions.history(request as never))
-  if (method === 'session.search') return wrap(await apiProxy.sessions.search(request as never, new AbortController().signal))
+  if (method === 'session.search') return wrap(await apiProxy.sessions.search(request))
   if (method === 'session.prompt') return wrap(await apiProxy.sessions.prompt(request as never))
   if (method === 'session.models') return wrap(await apiProxy.sessions.models(request as never))
   if (method === 'session.selectModel') return wrap(await apiProxy.sessions.selectModel(request as never))

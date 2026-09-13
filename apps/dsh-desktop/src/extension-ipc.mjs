@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto'
+import { registerKnowledgeImportIpc } from './knowledge-import-ipc.mjs'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { ConnectorStore } from './extensions/connectors.mjs'
+import { connectorEditorDraft, prepareConnectorEdit } from './extensions/connector-editor.mjs'
+import { RemoteMcpAuth } from './extensions/remote-mcp-auth.mjs'
 import { discoverMcpClientSources, readMcpClientSource, readMcpSourceFile } from './extensions/mcp-client-sources.mjs'
 import { parseMcpServersJson } from './extensions/mcp-config.mjs'
 import { buildMcpConnectorImport, createProviderJsonSource, inferProviderJsonSources, previewMcpJson } from './extensions/mcp-import.mjs'
@@ -21,6 +24,7 @@ import { validateTencentMeetingSkillSource } from './extensions/providers/tencen
 import { validateWecomSkillSource } from './extensions/providers/wecom-skill.mjs'
 import { projectModelProviderTestResult, testModelProvider } from './model-provider-test.mjs'
 import { getModelImageInput, setModelImageInput } from './model-provider-capabilities.mjs'
+import { registerModelDisplayIpc } from './model-provider-display.mjs'
 
 const CHANNELS = [
   'extensions:list',
@@ -34,6 +38,10 @@ const CHANNELS = [
   'extensions:official-skill-install',
   'extensions:connector-list',
   'extensions:connector-save',
+  'extensions:connector-edit-draft',
+  'extensions:connector-edit-save',
+  'extensions:connector-remote-authorize',
+  'extensions:connector-remote-cancel',
   'extensions:connector-remove',
   'extensions:connector-enable',
   'extensions:connector-disable',
@@ -134,7 +142,7 @@ function createDefaultConnectorAuthManager({ connectorSecretStore, dshHome, open
     openExternal,
     runCommand: (spec) => runConnectorCommand({ ...spec, signal: context.activeAuth?.signal }),
     detectFeishuCli: async () => ({ userAccessToken: false }),
-    probe: async () => ({ ok: true }),
+    probe: async () => ({ ok: false }),
     activeAuth: undefined,
   }
   return { manager: new ConnectorAuthManager({
@@ -160,8 +168,10 @@ export function registerExtensionIpc({
   connectorAuthContext,
   prepareRendererForConnectorRestart,
   knowledgeUrlImporter,
+  remoteMcpAuth,
 }) {
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
+  const disposeModelDisplay = registerModelDisplayIpc({ ipcMain, getWindow, getTrustedUrl: () => controller.status?.url, dshHome })
   let skillPaths = new Map()
   const connectorEnvironment = () => ({
     ...process.env,
@@ -197,6 +207,8 @@ export function registerExtensionIpc({
     ? { manager: connectorAuthManager, context: connectorAuthContext ?? {} }
     : createDefaultConnectorAuthManager({ connectorSecretStore, dshHome, openExternal: url => shell.openExternal(url) })
   const pendingAuth = new Map()
+  const remoteAuth = remoteMcpAuth ?? (connectorSecretStore ? new RemoteMcpAuth({ secretStore: connectorSecretStore, openExternal: url => shell.openExternal(url) }) : undefined)
+  const remoteOperations = new Map()
 
   const pruneSourceSessions = () => {
     const cutoff = Date.now() - SOURCE_SESSION_TTL_MS
@@ -465,7 +477,7 @@ export function registerExtensionIpc({
     })
     await connectorSecretStore.load()
     const results = []
-    for (const item of built.connectors) results.push({ connector: item.connector, result: await connectorStore.checkCandidate(item.connector, built.credentials) })
+    for (const item of built.connectors) results.push({ connector: item.connector, result: await connectorStore.checkCandidate(item.connector, built.credentials, { executeLocal: input.allowLocalCommand === true }) })
     return { results }
   }
   ipcMain.handle('extensions:connector-list', async () => {
@@ -477,6 +489,80 @@ export function registerExtensionIpc({
     const saved = await mutateConnector(() => connectorStore.save(input), { checkIds: [input?.id] })
     await connectorAuthMetadata.migrate([saved])
     return saved
+  })
+  ipcMain.handle('extensions:connector-edit-draft', async (_event, id) => {
+    const connector = (await connectorStore.list()).find(item => item.id === id)
+    if (!connector) throw new Error('connector-edit-not-found')
+    await connectorSecretStore?.load()
+    return connectorEditorDraft(connector, ref => connectorSecretStore?.has(ref) || Boolean(process.env[ref]))
+  })
+  ipcMain.handle('extensions:connector-remote-cancel', async (_event, id) => {
+    const operation = remoteOperations.get(id)
+    if (operation) operation.cancelled = true
+    remoteAuth?.cancel(id)
+  })
+  ipcMain.handle('extensions:connector-remote-authorize', async (_event, id) => {
+    if (!remoteAuth) throw new Error('secure-storage-unavailable')
+    if (remoteOperations.has(id)) throw new Error('remote-oauth-busy')
+    const operation = { cancelled: false }
+    remoteOperations.set(id, operation)
+    try {
+      const original = (await connectorStore.list()).find(item => item.id === id)
+      if (!original || original.enabled === false) throw new Error('remote-oauth-unsupported')
+      await connectorSecretStore.load()
+      const grant = await remoteAuth.authorize(original)
+      const updated = {
+        ...original,
+        plainHeaders: Object.fromEntries(Object.entries(original.plainHeaders ?? {}).filter(([key]) => key.toLowerCase() !== 'authorization')),
+        secretBindings: [
+          ...(original.secretBindings ?? []).filter(binding => !(binding.location === 'header' && binding.targetKey.toLowerCase() === 'authorization')),
+          { location: 'header', targetKey: 'Authorization', credentialRef: grant.reference, template: 'Bearer ${secret}' },
+        ],
+      }
+      const result = await connectorStore.checkCandidate(updated, { [grant.reference]: grant.accessToken })
+      if (operation.cancelled) throw new Error('remote-oauth-cancelled')
+      if (!result.ok) return result
+      return await mutateConnector(async () => {
+        if (operation.cancelled) throw new Error('remote-oauth-cancelled')
+        const current = (await connectorStore.list()).find(item => item.id === id)
+        if (JSON.stringify(current) !== JSON.stringify(original)) throw new Error('connector-edit-stale')
+        await connectorSecretStore.load()
+        const previous = connectorSecretStore.has(grant.reference) ? connectorSecretStore.resolveMany([grant.reference])[grant.reference] : undefined
+        await connectorSecretStore.setMany({ [grant.reference]: grant.accessToken })
+        try { await connectorStore.save(updated) } catch {
+          if (previous) await connectorSecretStore.setMany({ [grant.reference]: previous })
+          else await connectorSecretStore.removeMany([grant.reference])
+          throw new Error('remote-oauth-save-failed')
+        }
+        return result
+      }, { checkIds: [id] })
+    } finally { remoteOperations.delete(id) }
+  })
+  ipcMain.handle('extensions:connector-edit-save', async (_event, id, input) => {
+    const connector = (await connectorStore.list()).find(item => item.id === id)
+    if (!connector) throw new Error('connector-edit-not-found')
+    const prepared = prepareConnectorEdit(connector, input)
+    if (prepared.credentials.size && !connectorSecretStore) throw new Error('secure-storage-unavailable')
+    await connectorSecretStore?.load()
+    return mutateConnector(async () => {
+      const current = (await connectorStore.list()).find(item => item.id === id)
+      if (!current) throw new Error('connector-edit-not-found')
+      prepareConnectorEdit(current, input)
+      const others = (await connectorStore.list()).filter(item => item.id !== id)
+      if (others.some(item => [...(item.secretEnvKeys ?? []), ...(item.secretBindings ?? []).map(binding => binding.credentialRef)].some(ref => prepared.credentials.has(ref)))) throw new Error('connector-edit-shared-credential')
+      const previous = new Map()
+      const newlyAdded = []
+      for (const ref of prepared.credentials.keys()) {
+        if (connectorSecretStore.has(ref)) previous.set(ref, (await connectorSecretStore.resolveMany([ref]))[ref])
+        else newlyAdded.push(ref)
+      }
+      if (prepared.credentials.size) await connectorSecretStore.setMany(prepared.credentials)
+      try { return await connectorStore.save(prepared.connector) } catch {
+        if (previous.size) await connectorSecretStore.setMany(previous)
+        if (newlyAdded.length) await connectorSecretStore.removeMany(newlyAdded)
+        throw new Error('connector-edit-save-failed')
+      }
+    }, { checkIds: [id] })
   })
   ipcMain.handle('extensions:connector-enable', async (_event, id, enabled) => {
     const updated = await mutateConnector(() => connectorStore.setEnabled(id, enabled), { checkIds: [id] })
@@ -661,12 +747,13 @@ export function registerExtensionIpc({
   ipcMain.handle('models:provider-test', async (_event, input) => projectModelProviderTestResult(await testModelProvider(input)))
   ipcMain.handle('models:image-input-status', (_event, input) => getModelImageInput(dshHome, input))
   ipcMain.handle('models:image-input-set', (_event, input) => setModelImageInput(dshHome, input))
-  ipcMain.handle('knowledge:url-import', (_event, input) => {
-    if (typeof knowledgeUrlImporter !== 'function') throw new Error('knowledge browser import is unavailable')
-    return knowledgeUrlImporter(input)
-  })
+  const disposeKnowledgeImports = registerKnowledgeImportIpc({ ipcMain, getWindow, importer: knowledgeUrlImporter })
 
   return () => {
+    disposeModelDisplay()
+    disposeKnowledgeImports()
+    remoteAuth?.dispose()
+    for (const operation of remoteOperations.values()) operation.cancelled = true
     connectorSessions.shutdown()
     sourceSessions.clear()
     jsonFileSessions.clear()

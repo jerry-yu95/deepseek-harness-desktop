@@ -3,6 +3,11 @@ import { request } from 'node:https'
 import { isIP } from 'node:net'
 import { Readability } from '@mozilla/readability'
 import { JSDOM } from 'jsdom'
+import { articleImageCandidates, articleText, boundArticleText, prepareArticleMedia, type ArticleImageCandidate } from './article-text.ts'
+import type { KnowledgeArticleMetadata } from './types.ts'
+import { assertActive, withDeadline } from './cancellation.ts'
+import { cacheArticleImages, type ArticleImageFetcher } from './article-images.ts'
+import type { KnowledgeArticleResource } from './types.ts'
 
 const MAX_REDIRECTS = 3
 const MAX_BYTES = 1_048_576
@@ -12,6 +17,8 @@ export interface ImportedKnowledgeUrl {
   title: string
   content: string
   snapshot: string
+  article: KnowledgeArticleMetadata
+  articleResources?: KnowledgeArticleResource[]
   source: {
     kind: 'url'
     label: string
@@ -26,14 +33,20 @@ interface PageResponse {
   body: string
 }
 
-export type KnowledgeUrlFetcher = (url: URL) => Promise<PageResponse>
+export type KnowledgeUrlFetcher = (url: URL, signal?: AbortSignal) => Promise<PageResponse>
 
 /** Fetch one public text page without allowing local-network or credential-bearing URLs. */
-export async function importKnowledgeUrl(input: string, fetchPage: KnowledgeUrlFetcher = fetchPublicPage): Promise<ImportedKnowledgeUrl> {
+export async function importKnowledgeUrl(input: string, fetchPage: KnowledgeUrlFetcher = fetchPublicPage, signal?: AbortSignal, fetchImage?: ArticleImageFetcher): Promise<ImportedKnowledgeUrl> {
+  return withDeadline(signal ?? new AbortController().signal, 45_000, active => importPage(input, fetchPage, active, fetchImage), 'knowledge-fetch-timeout')
+}
+
+async function importPage(input: string, fetchPage: KnowledgeUrlFetcher, signal: AbortSignal, fetchImage?: ArticleImageFetcher): Promise<ImportedKnowledgeUrl> {
   let current = safePublicUrl(input)
   let response: PageResponse | undefined
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-    response = await fetchPage(current)
+    assertActive(signal)
+    response = await fetchPage(current, signal)
+    assertActive(signal)
     if (response.status < 300 || response.status >= 400) break
     const location = response.headers.location
     if (location === undefined || redirects === MAX_REDIRECTS) throw new Error('knowledge URL redirected too many times')
@@ -48,14 +61,19 @@ export async function importKnowledgeUrl(input: string, fetchPage: KnowledgeUrlF
   if (Buffer.byteLength(raw, 'utf8') > MAX_BYTES) throw new Error('knowledge URL is too large')
   const html = /^text\/plain/iu.test(mimeType) ? undefined : raw
   const parsed = html === undefined ? { title: '', text: normalizeWhitespace(raw) } : extractReadableDocument(html, current)
-  const snapshot = parsed.text
+  const bounded = boundArticleText(parsed.text)
+  const snapshot = bounded.text
   if (snapshot.length === 0) throw new Error('knowledge URL did not contain readable text')
   const pageTitle = parsed.title
   const title = (pageTitle || current.hostname).slice(0, 160)
+  const candidates = 'images' in parsed ? parsed.images ?? [] : []
+  const cached = await cacheArticleImages(candidates.filter(image => (image.offset ?? 0) <= snapshot.length), signal, fetchImage)
   return {
     title,
-    content: snapshot.slice(0, 4_000),
+    content: '',
     snapshot,
+    article: { format: html === undefined ? 'text' : 'markdown', truncated: bounded.truncated, originalByteLength: bounded.originalByteLength, excerpt: snapshot.slice(0, 180), ...('author' in parsed && parsed.author ? { author: parsed.author as string } : {}), ...(cached.images.length ? { images: cached.images } : {}), ...(cached.imagesTruncated ? { imagesTruncated: true } : {}) },
+    ...(cached.resources.length ? { articleResources: cached.resources } : {}),
     source: {
       kind: 'url',
       label: pageTitle ? `${pageTitle} · ${current.hostname}` : current.hostname,
@@ -65,11 +83,14 @@ export async function importKnowledgeUrl(input: string, fetchPage: KnowledgeUrlF
   }
 }
 
-async function fetchPublicPage(url: URL): Promise<PageResponse> {
+async function fetchPublicPage(url: URL, signal?: AbortSignal): Promise<PageResponse> {
+  assertActive(signal)
   const address = await pinnedPublicAddress(url.hostname)
+  assertActive(signal)
   return new Promise((resolve, reject) => {
     const req = request(url, {
       method: 'GET',
+      signal,
       headers: {
         accept: 'text/html, application/xhtml+xml, text/plain;q=0.9',
         'accept-language': 'zh-CN,zh;q=0.9,en;q=0.7',
@@ -82,6 +103,7 @@ async function fetchPublicPage(url: URL): Promise<PageResponse> {
         else callback(null, address.address, address.family)
       },
     }, (response) => {
+      response.on('error', reject)
       const chunks: Buffer[] = []
       let total = 0
       response.on('data', (chunk: Buffer) => {
@@ -160,21 +182,24 @@ function isProxyFakeIpv4(address: string): boolean {
   return octets.length === 4 && octets[0] === 198 && (octets[1] === 18 || octets[1] === 19) && octets.every(value => Number.isInteger(value) && value >= 0 && value <= 255)
 }
 
-function extractReadableDocument(html: string, url: URL): { title: string; text: string } {
+function extractReadableDocument(html: string, url: URL): { title: string; text: string; author?: string; images?: ArticleImageCandidate[] } {
   const dom = new JSDOM(html, { url: url.toString(), contentType: 'text/html' })
   try {
     const document = dom.window.document
     if (isWeChatArticleUrl(url)) return extractWeChatArticle(document)
+    prepareArticleMedia(document.body)
     const article = new Readability(document.cloneNode(true) as Document, { charThreshold: 80, maxElemsToParse: 20_000 }).parse()
-    const text = normalizeWhitespace(article?.textContent ?? htmlToText(html))
+    const container = document.createElement('div')
+    if (article?.content) container.innerHTML = article.content
+    const text = articleText(article?.content ? container : document.body)
     const title = normalizeWhitespace(article?.title ?? extractTitle(html)).slice(0, 160)
-    return { title, text }
+    return { title, text, images: articleImageCandidates(article?.content ? container : document.body, url.toString()) }
   } finally {
     dom.window.close()
   }
 }
 
-function extractWeChatArticle(document: Document): { title: string; text: string } {
+function extractWeChatArticle(document: Document): { title: string; text: string; author?: string; images?: ArticleImageCandidate[] } {
   const source = document.querySelector('#js_content')
   if (source === null) {
     const errorText = normalizeWhitespace(document.body?.textContent ?? '')
@@ -185,11 +210,13 @@ function extractWeChatArticle(document: Document): { title: string; text: string
   }
   const content = source.cloneNode(true) as Element
   for (const element of content.querySelectorAll('script, style, noscript, svg, template')) element.remove()
+  prepareArticleMedia(content)
   const title = normalizeWhitespace(document.querySelector('#activity-name')?.textContent ?? document.querySelector('meta[property="og:title"]')?.getAttribute('content') ?? document.title).slice(0, 160)
   const author = normalizeWhitespace(document.querySelector('#js_name')?.textContent ?? document.querySelector('meta[name="author"]')?.getAttribute('content') ?? '')
-  const body = normalizeWhitespace(content.textContent ?? '')
+  const body = articleText(content)
   if (body.length === 0) throw new Error('knowledge WeChat article did not contain readable content')
-  return { title, text: author === '' ? body : `\u4f5c\u8005\uff1a${author}\n\n${body}` }
+  const prefix = author === '' ? '' : `作者：${author}\n\n`
+  return { title, ...(author ? { author } : {}), text: prefix + body, images: articleImageCandidates(content, document.location?.href).map(image => ({ ...image, offset: (image.offset ?? 0) + prefix.length })) }
 }
 
 function extractTitle(html: string): string {

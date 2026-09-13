@@ -12,7 +12,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 
@@ -29,7 +29,7 @@ export const TASK_BOARD_GUIDANCE = '本机已安装 dsh-task-board 插件（DSH 
  * web settings surface edits. Spelled here rather than imported: the browser
  * half spells the same value and must not depend on a Host package.
  */
-export const TASK_BOARD_SETTINGS_NAMESPACE = settingsNamespace('task-board')
+export const TASK_BOARD_SETTINGS_NAMESPACE = 'task-board' as const
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -83,10 +83,10 @@ export function apply(ctx: Context, config?: Config): void {
     })
   }
 
-  installSettingsSection(ctx, TASK_BOARD_SETTINGS_NAMESPACE, Config, config ?? {}, {
+  ctx.inject(['settings'], scope => scope.settings.installSection(ctx, TASK_BOARD_SETTINGS_NAMESPACE, Config, config ?? {}, {
     setSource: (source) => { current = source },
     onChange: sync,
-  })
+  }))
 
   // Initial registration from the composition entry (covers deployments with
   // no settings service, whose installSettingsSection never fires its hooks).

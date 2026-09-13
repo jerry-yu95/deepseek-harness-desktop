@@ -4,6 +4,7 @@ import { z } from 'zod'
 // @deepseek-ai/dsh-token-meter/projection).
 import type {} from '@deepseek-ai/dsh-session-projection/types'
 import type { Message, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
+import { expandAssistantStream } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { EpochHeader, SessionEvent, SurfaceEvent } from '@deepseek-ai/dsh-session'
 import { isSurfaceEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
@@ -107,6 +108,7 @@ function surfaceMessage(event: SurfaceEvent): Message {
     case 'user/message':
       return event.data
     case 'assistant/message':
+    case 'system/message':
     case 'tool/result':
       return event.data.message
   }
@@ -125,17 +127,17 @@ function applySurface(
     }
   }
   const operation = event.surfaceOp
-  if (!state.surface.some(node => node.seq === operation.start)
-    || !state.surface.some(node => node.seq === operation.end)
-    || operation.start > operation.end) {
+  if (!state.surface.some(node => node.seq === operation.startSeq)
+    || !state.surface.some(node => node.seq === operation.endSeq)
+    || operation.startSeq > operation.endSeq) {
     throw new Error(
-      'live-stats: replace at seq ' + event.seq + ' has invalid current range ' + operation.start + '-' + operation.end,
+      'live-stats: replace at seq ' + event.seq + ' has invalid current range ' + operation.startSeq + '-' + operation.endSeq,
     )
   }
   const removed = state.surface
-    .filter(node => node.seq >= operation.start && node.seq <= operation.end)
+    .filter(node => node.seq >= operation.startSeq && node.seq <= operation.endSeq)
     .reduce((total, node) => total + node.tokens, 0)
-  const retained = state.surface.filter(node => node.seq < operation.start || node.seq > operation.end)
+  const retained = state.surface.filter(node => node.seq < operation.startSeq || node.seq > operation.endSeq)
   return {
     surface: [...retained, { seq: event.seq, tokens }],
     surfaceTokens: state.surfaceTokens - removed + tokens,
@@ -317,40 +319,35 @@ export function createLiveTokenUsageProjectionDefinition(
             },
           }),
         }
-      } else if (event.type === 'assistant/chunk' && next.active !== null) {
-        const { chunk } = event.data
-        if (chunk.type === 'usage') {
-          next = { ...next, active: exactStep(next.active, chunk.usage, event.time) }
-        } else if (!next.active.exact) {
-          const active = { ...next.active }
-          if (applyOutputChunk(active, chunk, spec)) {
+      } else if ((event.type === 'assistant/message' || event.type === 'assistant/attempt') && next.active !== null) {
+        // V3 stores exact timed chunks on the settled attempt, not as log events.
+        // Replay them in order to retain throughput timing and usage accounting.
+        // Embedded streams describe complete attempts. A retry replaces the
+        // previous attempt estimate instead of counting its output twice.
+        let active: ActiveStep = {
+          turn: event.data.turn, step: event.data.step,
+          buckets: { ...zeroBuckets(), uncachedInputTokens: estimateHeaderTokens(next.header, spec) + next.surfaceTokens },
+          exact: false, blocks: [], pricedTokens: 0, pricedBlocks: 0,
+        }
+        for (const { chunk, time } of expandAssistantStream(event.data.stream)) {
+          if (chunk.type === 'usage') active = exactStep(active, chunk.usage, time)
+          else if (!active.exact && applyOutputChunk(active, chunk, spec)) {
             const tokens = active.pricedBlocks === 0 ? 0 : active.pricedTokens + spec.roleOverhead
-            next = {
-              ...next,
-              active: {
-                ...active,
-                buckets: { ...active.buckets, outputTokens: tokens },
-                /* v8 ignore next -- every mutating chunk prices at least one
-                 * non-empty block, so outputTokens is always positive here */
-                ...(tokens > 0
-                  ? {
-                    firstOutputTime: active.firstOutputTime ?? event.time,
-                    latestOutputTime: event.time,
-                  }
-                  : {}),
-              },
+            active = { ...active, buckets: { ...active.buckets, outputTokens: tokens },
+              ...(tokens > 0 ? { firstOutputTime: active.firstOutputTime ?? time, latestOutputTime: time } : {}),
             }
           }
         }
-      } else if (event.type === 'assistant/message' && next.active !== null) {
+        next = { ...next, active }
+        if (event.type === 'assistant/message') {
         next = {
           ...next,
           active: event.data.usage === undefined
             ? {
-              ...next.active,
-              ...(next.active.buckets.outputTokens > 0 ? { latestOutputTime: event.time } : {}),
+              ...active,
             }
-            : exactStep(next.active, event.data.usage, event.time),
+            : exactStep(active, event.data.usage, active.latestOutputTime ?? event.time),
+        }
         }
       } else if (event.type === 'step/end' && next.active !== null) {
         const active = next.active
@@ -394,6 +391,6 @@ export function createLiveTokenUsageProjectionDefinition(
       viewSchema: projectionSchema,
       view,
     },
-    stateVersion: 3,
+    stateVersion: 4,
   }
 }

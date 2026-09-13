@@ -218,6 +218,13 @@ export function connectorAuthAction(state: ConnectorAuthorizationStatus['state']
 }
 
 /** The typed window.dshDesktop slice this plugin depends on. */
+export interface ConnectorEditorDraft {
+  id: string
+  revision: string
+  configuration: Record<string, unknown>
+  credentials: Array<{ slot: string; label: string; configured: boolean }>
+}
+
 export interface DesktopBridge {
   listExtensions(): Promise<ExtensionInventory>
   importSkill(): Promise<{ canceled: boolean; skill?: { name: string } }>
@@ -234,6 +241,10 @@ export interface DesktopBridge {
   installOfficialSkill?: (token: string) => Promise<{ name: string; version: string; description: string }>
   listConnectors(): Promise<ConnectorRecord[]>
   saveConnector(input: ConnectorSaveInput): Promise<ConnectorRecord>
+  getConnectorConfiguration?: (id: string) => Promise<ConnectorEditorDraft>
+  authorizeRemoteConnector?: (id: string) => Promise<ConnectorCheckResult>
+  cancelRemoteConnectorAuthorization?: (id: string) => Promise<void>
+  updateConnectorConfiguration?: (id: string, input: { revision: string; configuration: Record<string, unknown>; credentials: Record<string, string> }) => Promise<ConnectorRecord>
   removeConnector(id: string): Promise<unknown>
   checkConnector(id: string): Promise<ConnectorCheckResult>
   /** Optional on newer desktop builds; returns only renderer-safe authorization metadata. */
@@ -271,8 +282,13 @@ export interface DesktopBridge {
     title: string
     content: string
     snapshot: string
+    article?: { author?: string; format: 'markdown' | 'text'; truncated: boolean; originalByteLength?: number; images?: Array<{ id: string; alt: string; order: number; status: 'ready' | 'unavailable'; mimeType?: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; byteLength?: number }> }
+    articleResources?: Array<{ id: string; alt: string; order: number; status: 'ready'; mimeType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; byteLength: number; data: string }>
     source: { kind: 'url'; label: string; uri: string; mimeType: string }
   }>
+  startKnowledgeUrlImport?: (input: { requestId: string; url: string }) => ReturnType<NonNullable<DesktopBridge['importKnowledgeUrl']>>
+  cancelKnowledgeUrlImport?: (requestId: string) => Promise<{ cancelled: boolean }>
+  onKnowledgeImportProgress?: (callback: (progress: { requestId: string; stage: 'fetching' | 'structuring' | 'verification' }) => void) => () => void
 }
 
 /** Every bridge method the plugin calls; presence-checked as a set. */

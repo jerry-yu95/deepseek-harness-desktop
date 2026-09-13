@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ConnectorsTab } from '../src/client/panel/ConnectorsTab.tsx'
@@ -6,6 +6,38 @@ import { ConnectorsTab } from '../src/client/panel/ConnectorsTab.tsx'
 afterEach(cleanup)
 
 describe('connector truth and configuration access', () => {
+  it('opens existing configuration and saves edits without echoing stored credentials', async () => {
+    const bridge = {
+      listConnectors: vi.fn().mockResolvedValue([{ id: 'fixture', name: 'Fixture', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp', source: { kind: 'json' } }]),
+      getConnectorConfiguration: vi.fn().mockResolvedValue({ id: 'fixture', revision: 'revision', configuration: { name: 'Fixture', url: 'https://example.com/mcp' }, credentials: [{ slot: '0', label: 'header: X-Service-Token', configured: true }] }),
+      updateConnectorConfiguration: vi.fn().mockResolvedValue({}),
+    }
+    render(<ConnectorsTab bridge={bridge as never} refreshKey={0} notify={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: '重新配置' }))
+    const configuration = await screen.findByLabelText('当前配置（JSON）')
+    expect((configuration as HTMLTextAreaElement).value).toContain('https://example.com/mcp')
+    const credential = screen.getByLabelText(/header: X-Service-Token/)
+    expect((credential as HTMLInputElement).value).toBe('')
+    expect((credential as HTMLInputElement).type).toBe('password')
+    fireEvent.change(configuration, { target: { value: JSON.stringify({ name: 'Updated', url: 'https://example.com/mcp' }) } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并重载' }))
+    await waitFor(() => expect(bridge.updateConnectorConfiguration).toHaveBeenCalledWith('fixture', { revision: 'revision', configuration: { name: 'Updated', url: 'https://example.com/mcp' }, credentials: { 0: '' } }))
+  })
+
+  it('shows explicit browser authorization and cancellation for a remote connector', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const bridge = {
+      listConnectors: vi.fn().mockResolvedValue([{ id: 'fixture', name: 'Fixture', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp', source: { kind: 'json' } }]),
+      authorizeRemoteConnector: vi.fn().mockReturnValue(new Promise(() => {})),
+      cancelRemoteConnectorAuthorization: vi.fn().mockResolvedValue(undefined),
+    }
+    render(<ConnectorsTab bridge={bridge as never} refreshKey={0} notify={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: '浏览器授权（OAuth）' }))
+    expect(bridge.authorizeRemoteConnector).toHaveBeenCalledWith('fixture')
+    fireEvent.click(await screen.findByRole('button', { name: '取消授权' }))
+    expect(bridge.cancelRemoteConnectorAuthorization).toHaveBeenCalledWith('fixture')
+    confirm.mockRestore()
+  })
   it('labels provider JSON as configured and lets users reopen its configuration', async () => {
     const connector = {
       id: 'tapd-mcp-http', name: 'tapd_mcp_http', description: 'Imported MCP server', kind: 'mcp', transport: 'streamable-http',

@@ -62,12 +62,11 @@ describe('live-stats estimator', () => {
     expect(() => estimateContentTokens([block], SPEC)).not.toThrow()
   })
 
-  it('prices header framing for system text and tool schemas', () => {
+  it('prices tool schemas in the V3 header while system messages belong to the surface', () => {
     expect(estimateHeaderTokens(undefined, SPEC)).toBe(0)
     expect(estimateHeaderTokens({
       config: { provider: 'mock', model: 'mock' },
-      system: 'abcd',
-    }, SPEC)).toBe(5)
+    }, SPEC)).toBe(0)
     expect(estimateHeaderTokens({
       config: { provider: 'mock', model: 'mock' },
       tools: [{ name: 'tool', description: 'd', parameters: {} }],

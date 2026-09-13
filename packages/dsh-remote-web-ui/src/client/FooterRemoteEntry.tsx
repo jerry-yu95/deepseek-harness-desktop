@@ -23,8 +23,6 @@ export function FooterRemoteEntry(props: FooterRemoteEntryProps) {
   return (
     <RemoteEntry
       wide={props.wide}
-      useWorkspaces={() => undefined as never}
-      useSessions={() => undefined as never}
       t={props.t}
     />
   )

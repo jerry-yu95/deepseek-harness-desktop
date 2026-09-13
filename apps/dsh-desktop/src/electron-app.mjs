@@ -29,6 +29,31 @@ const SOURCE_DIR = dirname(fileURLToPath(import.meta.url))
 const PRELOAD_PATH = join(SOURCE_DIR, 'preload.cjs')
 const STARTUP_PATH = join(SOURCE_DIR, 'ui', 'startup.html')
 const EXTENSIONS_PATH = join(SOURCE_DIR, 'ui', 'extensions.html')
+const KNOWLEDGE_E2E_FIXTURE = process.env.DSH_KNOWLEDGE_E2E === '1'
+
+function knowledgeE2eArticle({ signal }) {
+  const paragraphs = Array.from({ length: 420 }, (_, index) => `第 ${index + 1} 段：这是仅用于隔离 Electron 验收的合成公众号文章，正文结构和滚动内容不来自外部服务。`)
+  paragraphs.splice(3, 0, '[视频内容未解析]')
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (callback, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      callback(value)
+    }
+    const onAbort = () => finish(reject, new Error('knowledge-cancelled'))
+    const timer = setTimeout(() => finish(resolve, {
+      title: '隔离长文阅读验收',
+      author: '合成作者',
+      images: [{ src: 'https://mmbiz.qpic.cn/fixture.png', alt: '合成文章配图', order: 0, offset: paragraphs[0].length }, { src: 'https://mmbiz.qpic.cn/unavailable.png', alt: '合成失败配图', order: 1, offset: paragraphs.slice(0, 2).join('\n\n').length }],
+      text: `${paragraphs.join('\n\n')}\n\nJIWEI_KNOWLEDGE_READING_SENTINEL`,
+    }), 80)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) onAbort()
+  })
+}
 
 function runtimeHome() {
   return process.env.DSH_HOME || join(homedir(), '.dsh')
@@ -319,7 +344,19 @@ export async function startElectronApp(metadata) {
   }
 
   const pluginManager = new PluginManager({ profileDir: profile.profileDir })
-  const knowledgeUrlImporter = createKnowledgeBrowserImporter({ BrowserWindow, getParent: () => extensionWindow ?? mainWindow, dialog })
+  const knowledgeUrlImporter = createKnowledgeBrowserImporter({
+    BrowserWindow,
+    netRequest: options => electron.net.request(options),
+    getParent: () => extensionWindow ?? mainWindow,
+    dialog,
+    testFixture: KNOWLEDGE_E2E_FIXTURE ? knowledgeE2eArticle : undefined,
+    fetchImage: KNOWLEDGE_E2E_FIXTURE ? async candidate => {
+      if (candidate.src.endsWith('/unavailable.png')) throw new Error('knowledge-image-unavailable')
+      const { default: sharp } = await import('sharp')
+      const bytes = await sharp({ create: { width: 480, height: 160, channels: 3, background: '#708da0' } }).png().toBuffer()
+      return { mimeType: 'image/png', byteLength: bytes.length, data: bytes.toString('base64') }
+    } : undefined,
+  })
   const unregisterExtensionIpc = registerExtensionIpc({
     ipcMain,
     dialog,
@@ -381,7 +418,10 @@ export async function startElectronApp(metadata) {
         target.searchParams.set('dsh-extension-tab', recovery.tab)
         if (recovery.checkIds.length > 0) target.searchParams.set('dsh-extension-check', recovery.checkIds.join(','))
       }
-      void mainWindow.loadURL(target.toString()).then(() => {
+      // Official bootstrap sets an HttpOnly cookie and redirects to clean `/`.
+      // Apply desktop recovery hints only after that redirect has completed.
+      void mainWindow.loadURL(controller.getBootstrapUrl() ?? status.url).then(async () => {
+        if (target.search) await mainWindow.loadURL(target.toString())
         if (process.env.DSH_DESKTOP_SMOKE_EXIT === '1') {
           console.log(`desktop smoke ready: ${activeOrigin}`)
           app.quit()

@@ -10,9 +10,9 @@
  * EventSource reconnects automatically.
  */
 
-import type { MuxFrame } from '@deepseek-ai/dsh-host-apiproxy/api/events'
-import { muxFrameSchema } from '@deepseek-ai/dsh-host-apiproxy/api/events.schema'
-import { serverRequestSchema } from '@deepseek-ai/dsh-host-apiproxy/api/rpc.schema'
+import type { MuxFrame } from '../mobile-contract.ts'
+import { muxFrameSchema } from '../mobile-contract.ts'
+import { serverRequestSchema } from '../mobile-contract.ts'
 
 /** Injectable seams for tests. */
 export interface MuxClientOptions {
@@ -45,6 +45,7 @@ export class MuxClient {
   private source: EventSourceLike | undefined
   private stopped = false
   private readonly url: string
+  private sessionId: string | undefined
 
   /**
    * @param url - the mobile events endpoint (browser-relative).
@@ -59,7 +60,15 @@ export class MuxClient {
   start(): void {
     this.stopped = false
     if (this.source !== undefined) return
-    this.connect()
+    if (this.sessionId) this.connect()
+  }
+
+  /** Follow only the conversation the paired phone is reading. */
+  selectSession(sessionId: string): void {
+    if (this.sessionId === sessionId) return
+    this.sessionId = sessionId
+    this.closeSource()
+    if (!this.stopped) this.connect()
   }
 
   /** Close for good. */
@@ -75,7 +84,7 @@ export class MuxClient {
   }
 
   private connect(): void {
-    const source = this.sourceFactory(this.url)
+    const source = this.sourceFactory(`${this.url}?sessionId=${encodeURIComponent(this.sessionId ?? '')}`)
     this.source = source
     source.onmessage = (event) => {
       this.handleMessage(event.data)

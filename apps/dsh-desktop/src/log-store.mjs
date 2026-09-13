@@ -6,6 +6,9 @@ const BEARER_TOKEN = /(Authorization:\s*Bearer\s+)([^\s]+)/gi
 
 export function sanitizeLogLine(value) {
   return String(value)
+    // Runtime schema errors may dump complete request/connector configuration.
+    .replace(/^.*(?:cookie\s*["']?\s*:|["']?(?:[\w-]*(?:token|secret|password|authorization|api[_-]?key))["']?\s*[:=]|["']args["']\s*:).*$/gim, '[sensitive runtime detail omitted]')
+    .replace(/https?:\/\/[^\s"'<>]+/giu, '[address omitted]')
     .replace(BEARER_TOKEN, '$1[redacted]')
     .replace(SECRET_ASSIGNMENT, '$1=[redacted]')
     .replaceAll('\u0000', '')

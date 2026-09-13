@@ -1,8 +1,11 @@
+import { COMPOSER_LAYOUT_CSS } from './composer-layout.mjs'
+
 export const WINDOW_CHROME_HEIGHT = 30
 
 const WINDOW_CHROME_ID = 'dsh-desktop-window-chrome'
 
 export const WINDOW_CHROME_CSS = `
+${COMPOSER_LAYOUT_CSS}
 :root {
   --dsh-desktop-window-chrome-height: ${WINDOW_CHROME_HEIGHT}px;
 }

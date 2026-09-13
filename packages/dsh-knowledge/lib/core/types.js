@@ -19,5 +19,14 @@ const KNOWLEDGE_SOURCE_KINDS = [
 	"url",
 	"file"
 ];
+const ARTICLE_IMAGE_FAILURES = [
+	"access",
+	"format",
+	"limit",
+	"timeout",
+	"network",
+	"cache",
+	"unknown"
+];
 //#endregion
-export { KNOWLEDGE_KINDS, KNOWLEDGE_SOURCE_KINDS, KNOWLEDGE_STATUSES };
+export { ARTICLE_IMAGE_FAILURES, KNOWLEDGE_KINDS, KNOWLEDGE_SOURCE_KINDS, KNOWLEDGE_STATUSES };

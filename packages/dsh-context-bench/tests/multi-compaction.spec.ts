@@ -28,18 +28,18 @@ describe("multi-compaction retention", () => {
 
     const surface1 = session.surface.nodes;
     const correction = appendUserText(session, "Correction: release channel is stable, not beta. " + "c".repeat(600));
-    await ctx.compaction.compactRegion(surface1[0]!, correction.seq, { session, options: { provider: "fixture", model: "fixture-model" } });
+    await ctx.compaction.compactRegion(surface1[1]!, correction.seq, { session, options: { provider: "fixture", model: "fixture-model" } });
 
     const surface2 = session.surface.nodes;
     const pending = appendUserText(session, "Pending next step: publish. " + "d".repeat(600));
-    await ctx.compaction.compactRegion(surface2[0]!, pending.seq, { session, options: { provider: "fixture", model: "fixture-model" } });
+    await ctx.compaction.compactRegion(surface2[1]!, pending.seq, { session, options: { provider: "fixture", model: "fixture-model" } });
 
     const text = JSON.stringify(session.deriveMessages());
     expect(text).toContain("team-blue");
     expect(text).toContain("stable");
     expect(text).toContain("publish");
     expect(text).not.toContain("Cycle one:");
-    expect(session.events.filter(({ type }) => type === "compaction/summary")).toHaveLength(3);
+    expect(session.snapshotEvents().filter(({ type }) => type === "compaction/summary")).toHaveLength(3);
     const cycleScores = summaries.map((summary) => scoreCheckpoint(fixture, summary).metrics.criticalRecall);
     expect(cycleScores.every((score, index) => index === 0 || cycleScores[index - 1]! - score <= 5)).toBe(true);
   });

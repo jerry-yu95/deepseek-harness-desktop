@@ -3,10 +3,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { EventEmitter } from 'node:events'
 
 import { registerExtensionIpc } from '../src/extension-ipc.mjs'
 import { ConnectorSecretStore } from '../src/extensions/connector-secrets.mjs'
 import { ConnectorAuthManager } from '../src/extensions/connector-auth.mjs'
+import { createFakeMcpServer } from './helpers/fake-mcp-server.mjs'
 
 function fixture(dshHome, options = {}) {
   const handlers = new Map()
@@ -26,7 +28,7 @@ function fixture(dshHome, options = {}) {
     ipcMain,
     dialog: options.dialog ?? { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
     shell: { openPath: async () => '', openExternal: async () => {} },
-    getWindow: () => ({ isDestroyed: () => false }),
+    getWindow: options.getWindow ?? (() => ({ isDestroyed: () => false })),
     pluginManager: {
       inventory: async () => ({ plugins: [], diagnostics: [] }),
       install: async () => {},
@@ -46,21 +48,66 @@ function fixture(dshHome, options = {}) {
     connectorAuthContext: options.connectorAuthContext,
     prepareRendererForConnectorRestart: hint => rendererRecoveryHints.push(hint),
     knowledgeUrlImporter: options.knowledgeUrlImporter,
+    remoteMcpAuth: options.remoteMcpAuth,
   })
   return { handlers, calls, rendererRecoveryHints, connectorSecretStore, registration }
 }
 
+test('editor IPC preserves an existing credential and updates it without creating another connector', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-editor-ipc-'))
+  const { handlers, connectorSecretStore, registration } = fixture(root)
+  try {
+    await connectorSecretStore.setMany({ DSH_CONNECTOR_EDITOR: 'synthetic-before' })
+    await handlers.get('extensions:connector-save')(null, { id: 'editor', name: 'Editor', kind: 'mcp', transport: 'streamable-http', url: 'https://example.com/mcp', secretBindings: [{ location: 'header', targetKey: 'X-Service-Token', credentialRef: 'DSH_CONNECTOR_EDITOR', template: '${secret}' }] })
+    let draft = await handlers.get('extensions:connector-edit-draft')(null, 'editor')
+    assert.doesNotMatch(JSON.stringify(draft), /synthetic-before/)
+    assert.equal(draft.credentials[0].configured, true)
+    await handlers.get('extensions:connector-edit-save')(null, 'editor', { revision: draft.revision, configuration: { ...draft.configuration, name: 'Updated' }, credentials: {} })
+    assert.equal(connectorSecretStore.resolveMany(['DSH_CONNECTOR_EDITOR']).DSH_CONNECTOR_EDITOR, 'synthetic-before')
+    await assert.rejects(handlers.get('extensions:connector-edit-save')(null, 'editor', { ...draft, credentials: {} }), /stale/)
+    draft = await handlers.get('extensions:connector-edit-draft')(null, 'editor')
+    await handlers.get('extensions:connector-edit-save')(null, 'editor', { ...draft, credentials: { 0: 'synthetic-after' } })
+    assert.equal(connectorSecretStore.resolveMany(['DSH_CONNECTOR_EDITOR']).DSH_CONNECTOR_EDITOR, 'synthetic-after')
+    assert.equal((await handlers.get('extensions:connector-list')()).length, 1)
+    assert.doesNotMatch(await readFile(join(root, 'desktop', 'connectors.json'), 'utf8'), /synthetic-before|synthetic-after/)
+  } finally { registration(); await rm(root, { recursive: true, force: true }) }
+})
+
+test('remote authorization IPC saves only after tool discovery and returns no credential', async () => {
+  for (const mode of ['success', 'unauthorized']) {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-remote-ipc-'))
+    const server = await createFakeMcpServer(mode)
+    const { handlers, connectorSecretStore, registration } = fixture(root, { remoteMcpAuth: {
+      authorize: async () => ({ reference: 'DSH_CONNECTOR_REMOTE_TEST', accessToken: 'synthetic-remote' }),
+      cancel() {}, dispose() {},
+    } })
+    try {
+      await connectorSecretStore.load()
+      await handlers.get('extensions:connector-save')(null, { id: 'remote', name: 'Remote', kind: 'mcp', transport: 'streamable-http', url: server.url })
+      const result = await handlers.get('extensions:connector-remote-authorize')(null, 'remote')
+      assert.equal(result.ok, mode === 'success')
+      assert.doesNotMatch(JSON.stringify(result), /synthetic-remote/)
+      assert.equal(connectorSecretStore.has('DSH_CONNECTOR_REMOTE_TEST'), mode === 'success')
+      const [saved] = await handlers.get('extensions:connector-list')()
+      assert.equal(saved.secretBindings?.[0]?.template, mode === 'success' ? 'Bearer ${secret}' : undefined)
+      assert.doesNotMatch(await readFile(join(root, 'desktop', 'connectors.json'), 'utf8'), /synthetic-remote/)
+    } finally { registration(); await server.close(); await rm(root, { recursive: true, force: true }) }
+  }
+})
+
 test('extension IPC delegates supported knowledge URL imports without exposing a browser object', async () => {
   const dshHome = await mkdtemp(join(tmpdir(), 'dsh-knowledge-url-'))
   const calls = []
+  const sender = Object.assign(new EventEmitter(), { mainFrame: {}, isDestroyed: () => false, send() {} })
   const { handlers, registration } = fixture(dshHome, {
+    getWindow: () => ({ isDestroyed: () => false, webContents: sender }),
     knowledgeUrlImporter: async url => {
       calls.push(url)
       return { title: 'Article', content: 'Readable article content', snapshot: 'Readable article content', source: { kind: 'url', label: 'Article', uri: url, mimeType: 'text/html' } }
     },
   })
   try {
-    const result = await handlers.get('knowledge:url-import')(null, 'https://mp.weixin.qq.com/s/example')
+    const result = await handlers.get('knowledge:url-import')({ sender, senderFrame: sender.mainFrame }, 'https://mp.weixin.qq.com/s/example')
     assert.equal(result.title, 'Article')
     assert.deepEqual(calls, ['https://mp.weixin.qq.com/s/example'])
   } finally {
@@ -390,7 +437,8 @@ test('extension IPC tests a draft MCP configuration without saving secrets or re
     })
 
     assert.equal(result.results.length, 1)
-    assert.equal(result.results[0].result.ok, true)
+    assert.equal(result.results[0].result.ok, false)
+    assert.equal(result.results[0].result.state, 'protocol-rejected')
     assert.equal(result.results[0].result.checks.find((item) => item.id === 'registration').status, 'skipped')
     assert.deepEqual(await handlers.get('extensions:connector-list')(), [])
     assert.deepEqual(connectorSecretStore.environment(), {})

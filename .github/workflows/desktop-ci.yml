@@ -2,11 +2,15 @@ name: Desktop CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/jiwei-0.1.45-readiness]
   pull_request:
 
 permissions:
   contents: read
+
+env:
+  # Installation is explicit below; pnpm 11 must not reinstall before scripts.
+  pnpm_config_verify_deps_before_run: ignore
 
 jobs:
   test:
@@ -26,8 +30,61 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm desktop:test
-      - run: node --test apps/dsh-desktop/test/connector-lifecycle-integration.test.mjs
-      - run: pnpm --filter @linxin666/dsh-client-ui-extension-center typecheck
-      - run: pnpm --filter @linxin666/dsh-client-ui-extension-center test
+      - run: pnpm -r --no-bail build
+      - run: pnpm -r --no-bail typecheck
+      - run: pnpm -r --no-bail test
+      - run: pnpm test:scripts
+      - run: pnpm aggregate:check
       - run: git diff --check
+
+  electron:
+    # Start with the architecture exercised locally; unit checks retain all three runners.
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      DSH_E2E_ARTIFACTS_ROOT: ${{ runner.temp }}/jiwei-e2e-artifacts
+      DSH_COMPOSER_PROBE: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: build
+        run: pnpm -r --no-bail build
+      - name: Knowledge reading
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --filter @harness-design/desktop test:knowledge:e2e
+      - name: Composer Chinese
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          DSH_COMPOSER_LOCALE: zh
+        run: pnpm --filter @harness-design/desktop test:composer:e2e
+      - name: Composer English
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          DSH_COMPOSER_LOCALE: en
+        run: pnpm --filter @harness-design/desktop test:composer:e2e
+      - name: Isolated desktop acceptance
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --filter @harness-design/desktop test:acceptance
+      - name: Model configuration
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node apps/dsh-desktop/scripts/verify-model-display.mjs
+      - name: Official attachments and file preview
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node apps/dsh-desktop/scripts/verify-official-attachments.mjs
+      - name: Retain synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiwei-electron-macos-arm64-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/jiwei-e2e-artifacts/jiwei-*/*.png
+            ${{ runner.temp }}/jiwei-e2e-artifacts/jiwei-*/*.json
+          if-no-files-found: warn
+          retention-days: 7

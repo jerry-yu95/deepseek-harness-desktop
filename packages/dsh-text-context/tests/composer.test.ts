@@ -9,6 +9,13 @@ afterEach(() => {
 })
 
 describe('findComposer', () => {
+  it('recognizes the official V3 rich text input without hashed layout selectors', () => {
+    const editor = document.createElement('div')
+    editor.setAttribute('data-composer-input', 'true')
+    editor.setAttribute('contenteditable', 'true')
+    document.body.append(editor)
+    expect(findComposer()).toBe(editor)
+  })
   it('prefers a visible official textarea[data-phase]', () => {
     const ta = mountComposer({ value: 'draft' })
     expect(findComposer()).toBe(ta)

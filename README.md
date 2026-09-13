@@ -12,7 +12,12 @@
 
 [下载最新版本](https://github.com/jerry-yu95/deepseek-harness-desktop/releases/latest) · [安装指南](docs/install.md) · [更新日志](CHANGELOG.md) · [安全策略](SECURITY.md)
 
-当前版本：`0.1.44` · 内置运行时：`@deepseek-ai/dsh 0.1.1-rc.2`
+当前版本：`0.1.44` · 源码适配运行时：`@deepseek-ai/dsh 0.1.5-rc.2`（官方 next 预发布）
+
+本次源码升级不代表旧版安装包已更新。兼容范围、验证证据及会话格式回退边界见
+[官方新版兼容说明](docs/qa/2026-09-13-harness-compatibility.md)。
+
+开发中目标 `0.1.45` 尚未发布；本地验证、CI 和发布前待验事项见[当前验收报告](docs/qa/0.1.45-release-report.md)。
 
 ## 为什么是积微
 
@@ -67,7 +72,7 @@
 
 - 官方 Agent Loop、模型适配、权限与 Cordis 插件机制继续由 DeepSeek Harness 提供。
 - 标准、自适应与增强编排可切换，模型健康、Token、上下文占用、缓存命中和执行轨迹可观察。
-- 独立 `desktop` profile，不覆盖既有 DSH 配置；运行时默认仅监听回环地址。
+- 独立 `jiwei` profile（官方新版保留了 `desktop` 名称），读取旧 profile 的扩展清单作为初始配置并保留旧目录；运行时默认仅监听回环地址。
 - Windows x64、macOS Intel 与 Apple Silicon 独立打包，含日志脱敏、崩溃恢复、配置备份和更新回退。
 
 ## 架构边界

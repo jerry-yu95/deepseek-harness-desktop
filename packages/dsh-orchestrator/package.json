@@ -6,23 +6,56 @@
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
   "exports": {
-    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
-    "./core": { "types": "./lib/types/core.d.ts", "default": "./lib/core.js" },
-    "./adaptive": { "types": "./lib/types/adaptive.d.ts", "default": "./lib/adaptive.js" },
-    "./orchestration": { "types": "./lib/types/orchestration.d.ts", "default": "./lib/orchestration.js" },
-    "./model-health": { "types": "./lib/types/model-health.d.ts", "default": "./lib/model-health.js" },
-    "./model-connection": { "types": "./lib/types/model-connection.d.ts", "default": "./lib/model-connection.js" },
-    "./observability": { "types": "./lib/types/observability.d.ts", "default": "./lib/observability.js" },
-    "./context-quality": { "types": "./lib/types/context-quality.d.ts", "default": "./lib/context-quality.js" },
-    "./context-quality-probe": { "types": "./lib/types/context-quality-probe.d.ts", "default": "./lib/context-quality-probe.js" },
-    "./client": { "types": "./lib/types/client/index.d.ts", "default": "./lib/client.js" },
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./core": {
+      "types": "./lib/types/core.d.ts",
+      "default": "./lib/core.js"
+    },
+    "./adaptive": {
+      "types": "./lib/types/adaptive.d.ts",
+      "default": "./lib/adaptive.js"
+    },
+    "./orchestration": {
+      "types": "./lib/types/orchestration.d.ts",
+      "default": "./lib/orchestration.js"
+    },
+    "./model-health": {
+      "types": "./lib/types/model-health.d.ts",
+      "default": "./lib/model-health.js"
+    },
+    "./model-connection": {
+      "types": "./lib/types/model-connection.d.ts",
+      "default": "./lib/model-connection.js"
+    },
+    "./observability": {
+      "types": "./lib/types/observability.d.ts",
+      "default": "./lib/observability.js"
+    },
+    "./context-quality": {
+      "types": "./lib/types/context-quality.d.ts",
+      "default": "./lib/context-quality.js"
+    },
+    "./context-quality-probe": {
+      "types": "./lib/types/context-quality-probe.d.ts",
+      "default": "./lib/context-quality-probe.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller",
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-settings"
@@ -30,40 +63,46 @@
       "platform": "web"
     }
   },
-  "scripts": { "build": "tsc -b && tsdown", "prepare": "tsdown", "test": "vitest run", "typecheck": "tsc -b --pretty false" },
+  "scripts": {
+    "build": "tsc -b && tsdown",
+    "prepare": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -b --pretty false"
+  },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-agent": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-connection": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-commands": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-system-prompt": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-session-projection": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-token-meter": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-workflow": "^0.1.1-rc.2",
-    "react": "^18.2.0"
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-connection": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-commands": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-token-meter": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-workflow": "^0.1.5-rc.2",
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-client-store": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-api-workspace-controller": "^0.1.5-rc.2"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-agent": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-connection": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-commands": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-system-prompt": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-session-projection": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-token-meter": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-workflow": "^0.1.1-rc.2",
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-connection": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-commands": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-token-meter": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-workflow": "^0.1.5-rc.2",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
@@ -73,8 +112,25 @@
     "react-dom": "^18.2.0",
     "tsdown": "^0.22.2",
     "typescript": "~5.7.2",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "@deepseek-ai/dsh-client-store": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-api-workspace-controller": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-workspace": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.5-rc.2"
   },
-  "files": ["lib", "roles", "cordis.patch.yml", "README.md", "LICENSE"],
-  "license": "BSD-3-Clause"
+  "files": [
+    "lib",
+    "roles",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@harness-design/dsh-local-rpc": "workspace:*"
+  }
 }

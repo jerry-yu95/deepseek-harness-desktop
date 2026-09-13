@@ -5,10 +5,10 @@ import { PetService } from '../src/service.ts'
 
 function activity(phase: string, seq: number): SessionEvent {
   return {
-    type: 'activity/status',
+    type: 'turn/end',
     seq,
     time: seq,
-    data: { phase },
+    data: { turn: seq, reason: { kind: phase === 'done' ? 'completed' : 'cancelled' } },
   } as SessionEvent
 }
 

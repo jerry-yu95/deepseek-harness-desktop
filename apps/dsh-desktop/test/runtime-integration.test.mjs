@@ -23,11 +23,19 @@ test('official DSH host serves the complete desktop profile', { timeout: 60_000 
       startupTimeoutMs: 45_000,
     })
     const url = await controller.start()
-    const response = await fetch(url, { signal: AbortSignal.timeout(5_000) })
+    assert.equal((await fetch(url)).status, 401)
+    const exchange = await fetch(controller.getBootstrapUrl(), { redirect: 'manual' })
+    assert.equal(exchange.status, 303)
+    assert.equal(exchange.headers.get('location'), '/')
+    const cookie = exchange.headers.get('set-cookie').split(';', 1)[0]
+    const authenticatedFetch = (target, options = {}) => fetch(target, {
+      ...options, headers: { ...options.headers, cookie },
+    })
+    const response = await authenticatedFetch(url, { signal: AbortSignal.timeout(5_000) })
     assert.equal(response.ok, true)
     assert.match(await response.text(), /__DSH_BOOT__/)
 
-    const fileUpload = await fetch(new URL('/dsh-text-context-files-v1/upload', url), {
+    const fileUpload = await authenticatedFetch(new URL('/dsh-text-context-files-v1/upload', url), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

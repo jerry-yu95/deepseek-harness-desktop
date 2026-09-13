@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 // The npm SDK's client half is a closure-factory bundle for the GUI's
 // __ModuleLoader__ (not importable under vitest); provide the one value
 // member the apply chain needs.
-vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
+vi.mock('@deepseek-ai/dsh-client-store', () => ({
   createSnapshotStore: (init: unknown) => ({
     get: () => init,
     set: () => {},
@@ -63,8 +63,7 @@ function mount(issue: { ok: boolean; status?: number; code?: string; url?: strin
   const view = render(
     <RemoteEntry
       wide={true}
-      useSessions={neverHook}
-      useWorkspaces={(selector: (s: { recentWorkspaceId: string }) => unknown) => selector({ recentWorkspaceId: 'ws-1' })}
+      workspaceId="ws-1"
       t={t}
     />,
   )

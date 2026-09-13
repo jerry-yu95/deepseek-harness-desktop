@@ -9,8 +9,18 @@ import { BoundedLogStore, sanitizeLogLine } from '../src/log-store.mjs'
 test('log sanitization removes common credential shapes', () => {
   assert.equal(
     sanitizeLogLine('Authorization: Bearer secret-token NPM_TOKEN=abc123 DSH_CONNECTOR_TAPD_TOKEN=xyz789'),
-    'Authorization: Bearer [redacted] NPM_TOKEN=[redacted] DSH_CONNECTOR_TAPD_TOKEN=[redacted]',
+    '[sensitive runtime detail omitted]',
   )
+})
+
+test('log sanitization omits JSON secrets, cookies, command arguments and addresses', () => {
+  for (const input of [
+    '{"headers":{"X-Service-Access-Token":"fixture-sensitive"}}',
+    'Cookie: session=fixture-sensitive',
+    '{"args":["--credential","fixture-sensitive"]}',
+    'request failed https://fixture-sensitive.example.com/path',
+  ]) assert.doesNotMatch(sanitizeLogLine(input), /fixture-sensitive/)
+  assert.equal(sanitizeLogLine('runtime exited with code 1'), 'runtime exited with code 1')
 })
 
 test('bounded log store rotates files and returns a recent tail', async () => {

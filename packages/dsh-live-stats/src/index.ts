@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { resolveEstimatorConfig } from './estimator.ts'
@@ -14,7 +14,7 @@ export const inject = ['sessionProjections']
  * settings surface edits. Spelled here rather than imported so the browser
  * half can spell the same value without depending on a Host package.
  */
-export const LIVE_STATS_SETTINGS_NAMESPACE = settingsNamespace('live-stats')
+export const LIVE_STATS_SETTINGS_NAMESPACE = 'live-stats' as const
 
 /** Plugin configuration for provider-independent token estimation. */
 export interface Config extends EstimatorConfig {
@@ -79,10 +79,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     }, 'dsh-live-stats: projection dependency')
   })
 
-  installSettingsSection(ctx, LIVE_STATS_SETTINGS_NAMESPACE, Config, config ?? {}, {
+  ctx.inject(['settings'], scope => scope.settings.installSection(ctx, LIVE_STATS_SETTINGS_NAMESPACE, Config, config ?? {}, {
     setSource: (source) => { current = source },
     onChange: rebuild,
-  })
+  }))
 }
 
 export { createLiveTokenUsageProjectionDefinition } from './projection.ts'

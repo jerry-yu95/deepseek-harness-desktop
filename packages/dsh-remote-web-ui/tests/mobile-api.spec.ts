@@ -8,7 +8,7 @@ import { createServer, request as httpRequest } from 'node:http'
 import { describe, expect, it } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { ApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
+import type { MobileHost as ApiProxy } from '../src/mobile-host.ts'
 import { makeMobileApiRoutes } from '../src/mobile-api.ts'
 
 interface TestServer {

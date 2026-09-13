@@ -17,6 +17,27 @@ window.__ModuleLoader__.load({
 			constructor(connection) {
 				this.connection = connection;
 			}
+			async detail(id, signal) {
+				return this.call("detail", { id }, signal);
+			}
+			async summarize(request, signal) {
+				return this.call("summarize", request, signal);
+			}
+			async editSummary(request, signal) {
+				return (await this.call("edit-summary", request, signal)).item;
+			}
+			async moveTag(id, from, to, expectedUpdatedAt, signal) {
+				return (await this.call("move-tag", {
+					id,
+					from,
+					to,
+					expectedUpdatedAt,
+					confirmed: true
+				}, signal)).item;
+			}
+			async modelRoutes(sessionId, signal) {
+				return this.call("model-routes", sessionId === void 0 ? {} : { sessionId }, signal);
+			}
 			async list(status, signal) {
 				return (await this.call("list", status === void 0 ? {} : { status }, signal)).items;
 			}
@@ -26,10 +47,27 @@ window.__ModuleLoader__.load({
 			async dismiss(id, signal) {
 				return (await this.call("dismiss", { id }, signal)).item;
 			}
-			async create(proposal, snapshot, signal) {
+			async trash(id, expectedUpdatedAt, signal) {
+				await this.call("trash", {
+					id,
+					expectedUpdatedAt,
+					confirmed: true
+				}, signal);
+			}
+			async listTrash(signal) {
+				return (await this.call("trash-list", {}, signal)).items;
+			}
+			async restore(id, signal) {
+				return (await this.call("restore", {
+					id,
+					confirmed: true
+				}, signal)).item;
+			}
+			async create(proposal, snapshot, signal, options = {}) {
 				const request = {
 					proposal,
-					...snapshot === void 0 ? {} : { snapshot }
+					...snapshot === void 0 ? {} : { snapshot },
+					...options
 				};
 				return (await this.call("create", request, signal)).item;
 			}
@@ -225,11 +263,209 @@ window.__ModuleLoader__.load({
 			}));
 		}
 		//#endregion
+		//#region src/client/article-locales.ts
+		const articleZh = {
+			"knowledge.trash": "回收站",
+			"knowledge.delete": "删除",
+			"knowledge.restore": "恢复",
+			"knowledge.trash.hint": "删除的知识不再参与列表与知识检索。原文、摘要和图片保留，可恢复到删除前的状态。",
+			"knowledge.delete.confirm": "将「{title}」移入回收站？它将退出知识检索，原文、摘要和图片仍可恢复。",
+			"knowledge.delete.done": "已移入回收站",
+			"knowledge.restore.done": "已恢复到原来的状态",
+			"knowledge.delete.failed": "操作未完成，请刷新后重试。",
+			"article.summaryEditorHint": "逐段修改摘要，标题与要点会保留原有层次。保存前不会改变已存内容。",
+			"article.blockEditor": "分块编辑摘要",
+			"article.blockHeading": "小标题",
+			"article.blockPoint": "要点",
+			"article.blockParagraph": "段落",
+			"article.blockContent": "第 {index} 块内容",
+			"article.removeBlock": "删除第 {index} 块",
+			"article.remove": "删除",
+			"article.addParagraph": "添加段落",
+			"article.summaryLength": "摘要不能为空，且总长度不能超过 4000 字符。",
+			"article.saveSummaryFirst": "请先保存摘要改动，或取消编辑后再生成。",
+			"article.video": "文章内嵌视频",
+			"article.videoUnsupported": "暂不支持解析视频画面和声音，请前往原文观看。",
+			"article.videoSource": "前往原文观看",
+			"article.summaryEditNotice": "点击下方“保存修改”后生效",
+			"article.imageReason.access": "图片源站或网络访问受限，可通过文章来源查看。",
+			"article.imageReason.format": "图片格式或内容无法读取，文字已保留。",
+			"article.imageReason.limit": "图片超过大小、数量或等待上限，文字已保留。",
+			"article.imageReason.timeout": "图片下载超时，可稍后重新导入文章。",
+			"article.imageReason.network": "图片网络连接失败，可检查网络后重新导入。",
+			"article.imageReason.cache": "本地配图缓存不可用，可通过文章来源查看。",
+			"article.imageReason.unknown": "未取得可用配图；图片下载独立于摘要模型。",
+			"article.readerTitle": "文章阅读",
+			"article.saveClose": "保存并关闭",
+			"article.discardEdits": "放弃改动并关闭",
+			"article.cancelClose": "取消等待并关闭",
+			"article.leaveBusy": "关闭前请确认：将取消等待，已保存内容会保留。写入可能已经完成，重新打开后可查看。",
+			"article.modelsLoading": "正在加载模型列表",
+			"article.modelsFailed": "模型列表加载失败",
+			"article.chooseModel": "请选择模型",
+			"article.retryModels": "重试加载模型",
+			"article.tagsInvalid": "标签格式无效：最多 8 个、每个 32 字符；以文字或数字开头，可含空格、点、下划线和短横线，不能含连续点或使用“其他”。",
+			"article.refreshFailed": "已保存，但列表刷新失败；请稍后刷新。",
+			"article.imageLoading": "正在读取图片",
+			"article.imagesTruncated": "部分图片超过数量、大小或等待上限，原文仍可阅读。",
+			"article.retryDetail": "重试读取原文",
+			"article.start": "开始解析",
+			"article.fetching": "读取文章",
+			"article.coarse": "读取并整理",
+			"article.structuring": "整理正文",
+			"article.verification": "请在隔离窗口完成页面验证",
+			"article.summarizing": "生成 AI 摘要",
+			"article.saving": "正在保存",
+			"article.cancelled": "已取消",
+			"article.cancel": "取消本次操作",
+			"article.elapsed": "已用 {seconds} 秒",
+			"article.original": "原文",
+			"article.summary": "AI 摘要",
+			"article.note": "我的笔记",
+			"article.generate": "生成 AI 摘要",
+			"article.model": "摘要模型",
+			"article.generateNotice": "点击生成，将原文发送给所选模型。",
+			"article.consent": "使用所选模型生成摘要，将发送正文给该模型服务",
+			"article.noModel": "暂无可用模型，可先保留原文",
+			"article.noSummary": "尚未生成 AI 摘要。选择上方模型，点击“生成 AI 摘要”即可提炼文章要点。保存原文与生成摘要相互独立。",
+			"article.partialSummary": "仅基于部分原文生成",
+			"article.edited": "已人工修改",
+			"article.truncated": "原文超过保存上限，当前仅保留部分内容",
+			"article.legacy": "历史笔记 / 片段，不保证完整原文",
+			"article.oldSnapshot": "历史文本快照",
+			"article.excerpt": "正文摘录",
+			"article.open": "阅读详情",
+			"article.save": "保存修改",
+			"article.keep": "保留待确认并关闭",
+			"article.discard": "放弃本次候选",
+			"article.leave": "关闭前请确认：未保存的编辑将丢弃，已保存内容会保留。",
+			"article.stay": "继续阅读",
+			"article.error": "操作未完成，请重试。已读取的内容仍可保留。",
+			"article.timeout": "操作超时，可重试或先保留已读取内容。",
+			"article.conflict": "内容已被其他操作修改，请重新打开后再编辑。",
+			"article.modelFailed": "摘要模型暂时不可用，请重试或先保留原文。",
+			"article.modelOutputTruncated": "本次摘要输出达到上限，未保存不完整结果。请重试或更换模型；原文和已有摘要仍保留。",
+			"article.modelResponseInvalid": "摘要模型返回格式无效，请重试或先保留原文。",
+			"article.modelDirectoryFailed": "模型列表暂时不可用，请重试；原文仍可保留。",
+			"article.modelUnavailable": "当前没有可用的摘要模型，可先保留原文。",
+			"article.modelRouteUnavailable": "所选模型已不可用，请选择其他模型后重试；原文仍可保留。",
+			"article.tagsHint": "用逗号分隔，最多 8 个；超限不会自动截掉。",
+			"article.imageUnavailable": "图片暂时无法读取",
+			"article.editSummary": "编辑摘要",
+			"article.cancelEdit": "取消编辑",
+			"article.saveError": "保存失败，编辑内容已保留，请重试。"
+		};
+		const articleEn = {
+			"knowledge.trash": "Trash",
+			"knowledge.delete": "Delete",
+			"knowledge.restore": "Restore",
+			"knowledge.trash.hint": "Deleted knowledge is excluded from lists and retrieval. Original text, summaries and images are retained for restoration.",
+			"knowledge.delete.confirm": "Move “{title}” to Trash? It will leave knowledge retrieval. The original, summary and images can still be restored.",
+			"knowledge.delete.done": "Moved to Trash",
+			"knowledge.restore.done": "Restored to its previous status",
+			"knowledge.delete.failed": "Operation failed. Refresh and try again.",
+			"article.summaryEditorHint": "Edit each block while keeping headings and key points. Stored content changes only when you save.",
+			"article.blockEditor": "Edit summary blocks",
+			"article.blockHeading": "Heading",
+			"article.blockPoint": "Key point",
+			"article.blockParagraph": "Paragraph",
+			"article.blockContent": "Block {index} content",
+			"article.removeBlock": "Remove block {index}",
+			"article.remove": "Remove",
+			"article.addParagraph": "Add paragraph",
+			"article.summaryLength": "Enter a nonempty summary of at most 4000 characters.",
+			"article.saveSummaryFirst": "Save your summary changes or cancel editing before generating.",
+			"article.video": "Embedded video",
+			"article.videoUnsupported": "Video and audio cannot be analyzed yet. Watch this video in the original article.",
+			"article.videoSource": "Watch in original article",
+			"article.summaryEditNotice": "Use Save changes below to keep your edits",
+			"article.imageReason.access": "The image source or network could not be accessed. View the article source.",
+			"article.imageReason.format": "The image format or content could not be read. Text is retained.",
+			"article.imageReason.limit": "The image exceeded a size, count or time limit. Text is retained.",
+			"article.imageReason.timeout": "Image download timed out. Try importing the article again later.",
+			"article.imageReason.network": "Image connection failed. Check the network before importing again.",
+			"article.imageReason.cache": "The local image cache is unavailable. View the article source.",
+			"article.imageReason.unknown": "No usable image was captured. Image downloads are independent of the summary model.",
+			"article.readerTitle": "Read article",
+			"article.saveClose": "Save and close",
+			"article.discardEdits": "Discard edits and close",
+			"article.cancelClose": "Cancel waiting and close",
+			"article.leaveBusy": "Stop waiting? Saved content is retained. A write may already have completed; reopen to check.",
+			"article.modelsLoading": "Loading models",
+			"article.modelsFailed": "Model list failed",
+			"article.chooseModel": "Choose a model",
+			"article.retryModels": "Retry model list",
+			"article.tagsInvalid": "Invalid tags: at most 8 of 32 characters. Start with a letter or number; spaces, dots, underscores and hyphens are allowed. Consecutive dots and Other are reserved.",
+			"article.refreshFailed": "Saved, but the list could not refresh. Please refresh later.",
+			"article.imageLoading": "Loading image",
+			"article.imagesTruncated": "Some images exceeded the count, size or time limit. The original remains readable.",
+			"article.retryDetail": "Retry reading original",
+			"article.start": "Read article",
+			"article.fetching": "Reading article",
+			"article.coarse": "Reading and structuring",
+			"article.structuring": "Structuring text",
+			"article.verification": "Complete verification in the isolated window",
+			"article.summarizing": "Generating AI summary",
+			"article.saving": "Saving",
+			"article.cancelled": "Cancelled",
+			"article.cancel": "Cancel this operation",
+			"article.elapsed": "{seconds} seconds elapsed",
+			"article.original": "Original",
+			"article.summary": "AI summary",
+			"article.note": "My notes",
+			"article.generate": "Generate AI summary",
+			"article.model": "Summary model",
+			"article.generateNotice": "Generating sends the original to the selected model.",
+			"article.consent": "Summarize with the selected model; article text will be sent to that service",
+			"article.noModel": "No available model. You can keep the original.",
+			"article.noSummary": "No AI summary yet",
+			"article.partialSummary": "Based on part of the original only",
+			"article.edited": "Edited by you",
+			"article.truncated": "The original exceeds the storage limit; only part is retained",
+			"article.legacy": "Historical note / excerpt, not guaranteed to be the full original",
+			"article.oldSnapshot": "Historical text snapshot",
+			"article.excerpt": "Article excerpt",
+			"article.open": "Read details",
+			"article.save": "Save changes",
+			"article.keep": "Keep pending and close",
+			"article.discard": "Discard this candidate",
+			"article.leave": "Close? Unsaved edits will be discarded. Saved content will be retained.",
+			"article.stay": "Keep reading",
+			"article.error": "Operation failed. Retry or keep the content already captured.",
+			"article.timeout": "Operation timed out. Retry or keep the captured content.",
+			"article.conflict": "Content changed elsewhere. Reopen before editing.",
+			"article.modelFailed": "The summary model is temporarily unavailable. Retry or keep the original.",
+			"article.modelOutputTruncated": "The summary reached the output limit and was not saved. Retry or choose another model; the original and existing summary are retained.",
+			"article.modelResponseInvalid": "The summary model returned an invalid format. Retry or keep the original.",
+			"article.modelDirectoryFailed": "The model list is temporarily unavailable. Retry; the original is still available.",
+			"article.modelUnavailable": "No summary model is available right now. You can keep the original.",
+			"article.modelRouteUnavailable": "The selected model is no longer available. Choose another and retry; the original is retained.",
+			"article.tagsHint": "Comma-separated, up to 8 tags. Extra tags are not silently removed.",
+			"article.imageUnavailable": "Image unavailable",
+			"article.editSummary": "Edit summary",
+			"article.cancelEdit": "Cancel editing",
+			"article.saveError": "Save failed. Your edits are retained; please retry."
+		};
+		//#endregion
 		//#region src/client/locales.ts
 		/**
 		* Extension-center surface copy: zh is the key source, en mirrors every key.
 		*/
 		const zh = {
+			...articleZh,
+			"connectors.remoteAuth.start": "浏览器授权（OAuth）",
+			"connectors.remoteAuth.cancel": "取消授权",
+			"connectors.remoteAuth.confirm": "将打开服务方的标准 OAuth 授权页面，并替换此连接器的 Authorization 凭据。仅支持提供自动客户端注册的服务；其他认证请使用配置编辑。授权过期后需重新授权。是否继续？",
+			"connectors.remoteAuth.failed": "授权未完成或已取消。服务可能不支持标准 OAuth 自动注册，请核对服务方配置；不需要复制浏览器 Cookie。",
+			"connectors.edit.title": "查看与修改连接器配置",
+			"connectors.edit.configuration": "当前配置（JSON）",
+			"connectors.edit.hint": "保留现有连接器身份及认证请求头。凭据不会回显，留空保留原值。修改服务地址、命令或参数时必须重新填写凭据；新增认证字段请通过 JSON 导入。",
+			"connectors.edit.keep": "已配置，留空保留",
+			"connectors.edit.missing": "尚未配置",
+			"connectors.edit.save": "保存并重载",
+			"connectors.edit.stale": "配置已被其他操作修改，请关闭后重新打开。",
+			"connectors.edit.reenter": "连接目标已改变，请重新填写全部凭据，避免把原凭据发送到新目标。",
+			"connectors.edit.failed": "未能保存配置，请检查 JSON 格式及凭据。保存失败时请重新打开确认当前状态。",
 			"entry.skills.label": "技能",
 			"entry.skills.tooltip": "技能目录与 Skill Studio",
 			"entry.connectors.label": "连接器",
@@ -295,6 +531,23 @@ window.__ModuleLoader__.load({
 			"knowledge.form.url": "公开 HTTPS 链接",
 			"knowledge.form.tags": "标签",
 			"knowledge.form.tags.placeholder": "用逗号分隔，最多 8 个",
+			"knowledge.tags.placeholder": "搜索或输入新标签，回车添加",
+			"knowledge.tags.history": "历史标签",
+			"knowledge.tags.suggestions": "AI 建议标签",
+			"knowledge.tags.remove": "移除 {tag}",
+			"knowledge.tags.accept": "添加建议标签 {tag}",
+			"knowledge.tags.dismiss": "忽略建议标签 {tag}",
+			"knowledge.tags.otherHint": "“其他”是无标签文章的固定分组，不能作为普通标签保存",
+			"knowledge.tags.lengthHint": "标签最多 32 个字符",
+			"knowledge.tags.limitHint": "最多保存 8 个标签，请先移除一个",
+			"knowledge.tags.all": "全部",
+			"knowledge.tags.other": "其他",
+			"knowledge.tags.move": "移动到标签",
+			"knowledge.tags.moveOther": "移动到其他（清空标签）",
+			"knowledge.tags.moveConfirm": "移到“其他”会清空这篇文章的全部标签，确定继续吗？",
+			"knowledge.tags.moveFailed": "标签移动失败，原标签已保留",
+			"knowledge.tags.moveSuccess": "标签已更新",
+			"knowledge.tags.overflow": "标签数量不能超过 8 个",
 			"knowledge.createdToast": "已保存到知识收件箱",
 			"knowledge.updatedToast": "知识内容已更新",
 			"knowledge.source": "来源",
@@ -421,7 +674,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.testHint": "测试连接不会保存配置，也不会重启 Host。OAuth 类服务通常需要先保存再授权，因此测试不是保存的强制前置条件。",
 			"connectors.import.testPassed": "已通过 {count} 个连接测试",
 			"connectors.import.testFailed": "{count} 个连接测试未通过，请查看详细诊断",
-			"connectors.import.needsAuth": "{count} 个服务需要完成授权后才能完成握手，可以先保存再授权。",
+			"connectors.import.needsAuth": "{count} 个服务尚未完成授权。保存配置不代表连接成功；请核对服务方凭据及客户端支持的授权方式。",
 			"connectors.import.testUnavailable": "当前桌面版不支持保存前测试，请先升级应用。",
 			"connectors.import.testResults": "连接测试结果",
 			"connectors.import.testReady": "可连接",
@@ -445,7 +698,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.conflict.rename": "自动重命名",
 			"connectors.import.submit": "保存并接入",
 			"connectors.import.desktopRequired": "当前桌面版本不支持 MCP JSON 导入，请先升级应用。",
-			"connectors.imported": "已接入 {count} 个连接器",
+			"connectors.imported": "已保存 {count} 个连接器配置，请查看连接测试结果",
 			"connectors.import.conflictError": "连接器 {name} 已存在，请选择覆盖已有或自动重命名。",
 			"connectors.import.providerConflictError": "检测到多个已有的 {name} 连接器，无法安全判断要更新哪一个。请先移除重复项后重试。",
 			"connectors.advanced.title": "高级配置（开发者）",
@@ -535,6 +788,20 @@ window.__ModuleLoader__.load({
 			"connectors.auth.state.error": "授权异常"
 		};
 		const en = {
+			...articleEn,
+			"connectors.remoteAuth.start": "Browser authorization (OAuth)",
+			"connectors.remoteAuth.cancel": "Cancel authorization",
+			"connectors.remoteAuth.confirm": "Open the provider OAuth page and replace this connector Authorization credential? Requires dynamic client registration. For other authentication, edit configuration. Reauthorize when the token expires.",
+			"connectors.remoteAuth.failed": "Authorization failed or was cancelled. The provider may not support OAuth dynamic registration. Check provider configuration; do not copy browser cookies.",
+			"connectors.edit.title": "View and edit connector configuration",
+			"connectors.edit.configuration": "Current configuration (JSON)",
+			"connectors.edit.hint": "Keeps connector identity and authentication headers. Credentials are never displayed; leave blank to keep them. Re-enter credentials when changing the endpoint, command or arguments. Import JSON to add authentication fields.",
+			"connectors.edit.keep": "Configured; leave blank to keep",
+			"connectors.edit.missing": "Not configured",
+			"connectors.edit.save": "Save and reload",
+			"connectors.edit.stale": "Configuration changed elsewhere. Close and reopen the editor.",
+			"connectors.edit.reenter": "The connection target changed. Re-enter all credentials to avoid sending existing credentials to a new target.",
+			"connectors.edit.failed": "Unable to save. Check configuration and credentials, then reopen to verify the current state.",
 			"entry.skills.label": "Skills",
 			"entry.skills.tooltip": "Skill catalog and Skill Studio",
 			"entry.connectors.label": "Connectors",
@@ -600,6 +867,23 @@ window.__ModuleLoader__.load({
 			"knowledge.form.url": "Public HTTPS URL",
 			"knowledge.form.tags": "Tags",
 			"knowledge.form.tags.placeholder": "Comma separated, up to 8",
+			"knowledge.tags.placeholder": "Search or type a tag, then press Enter",
+			"knowledge.tags.history": "Historical tags",
+			"knowledge.tags.suggestions": "AI suggested tags",
+			"knowledge.tags.remove": "Remove {tag}",
+			"knowledge.tags.accept": "Add suggested tag {tag}",
+			"knowledge.tags.dismiss": "Dismiss suggested tag {tag}",
+			"knowledge.tags.otherHint": "“Other” is the fixed group for untagged articles and cannot be saved as a normal tag",
+			"knowledge.tags.lengthHint": "A tag can contain at most 32 characters",
+			"knowledge.tags.limitHint": "At most 8 tags can be saved; remove one first",
+			"knowledge.tags.all": "All",
+			"knowledge.tags.other": "Other",
+			"knowledge.tags.move": "Move to tag",
+			"knowledge.tags.moveOther": "Move to Other (clear tags)",
+			"knowledge.tags.moveConfirm": "Moving to “Other” clears every tag on this article. Continue?",
+			"knowledge.tags.moveFailed": "Tag move failed; the previous tags were kept",
+			"knowledge.tags.moveSuccess": "Tags updated",
+			"knowledge.tags.overflow": "An article cannot have more than 8 tags",
 			"knowledge.createdToast": "Saved to the knowledge inbox",
 			"knowledge.updatedToast": "Knowledge updated",
 			"knowledge.source": "Source",
@@ -726,7 +1010,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.testHint": "Testing does not save configuration or restart the Host. OAuth services usually need to be saved before authorization, so a connection test is not a required save step.",
 			"connectors.import.testPassed": "{count} connection test(s) passed",
 			"connectors.import.testFailed": "{count} connection test(s) failed. Review the diagnostics below.",
-			"connectors.import.needsAuth": "{count} service(s) need authorization before the handshake can finish. You can save first, then authorize.",
+			"connectors.import.needsAuth": "{count} service(s) still require authorization. Saving configuration does not establish a connection; check provider credentials and supported authorization methods.",
 			"connectors.import.testUnavailable": "This desktop build cannot test before saving. Upgrade the app first.",
 			"connectors.import.testResults": "Connection test results",
 			"connectors.import.testReady": "Reachable",
@@ -750,7 +1034,7 @@ window.__ModuleLoader__.load({
 			"connectors.import.conflict.rename": "Auto-rename",
 			"connectors.import.submit": "Save and connect",
 			"connectors.import.desktopRequired": "This desktop build does not support MCP JSON import. Upgrade the app first.",
-			"connectors.imported": "{count} connector(s) connected",
+			"connectors.imported": "{count} connector configuration(s) saved; review the connection test results",
 			"connectors.import.conflictError": "Connector {name} already exists. Choose Replace existing or Auto-rename.",
 			"connectors.import.providerConflictError": "Multiple existing {name} connectors were found, so the app cannot safely choose one to refresh. Remove the duplicate entries and try again.",
 			"connectors.advanced.title": "Advanced configuration (developer)",
@@ -867,7 +1151,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:<repository-root>/packages/dsh-extension-center/src/client/panel/panel.module.css.mjs
-		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:100;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}html[data-dsh-extension-active] [data-composer-seat]{display:none!important}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_importInputActions{justify-content:flex-end;margin-top:8px;display:flex}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_knowledgeBody{gap:14px}.bid-pG_knowledgeHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 62%);border-radius:14px;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px;display:flex}.bid-pG_knowledgeHero h3{margin:4px 0 7px;font-size:21px}.bid-pG_knowledgeHero p{max-width:720px;color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_knowledgeHero>span{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, transparent);color:var(--dsw-alias-state-business-primary);border-radius:999px;flex:none;padding:5px 9px;font-size:11px;font-weight:600}.bid-pG_knowledgeEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_knowledgeWorkspace{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;min-width:0;overflow:hidden}.bid-pG_knowledgeWorkspaceHeader{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;display:flex}.bid-pG_knowledgeTabs,.bid-pG_knowledgeFilters,.bid-pG_knowledgeCaptureModes{align-items:center;gap:6px;display:flex}.bid-pG_knowledgeTabs button,.bid-pG_knowledgeCaptureModes button{color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:1px solid #0000;border-radius:8px;align-items:center;gap:6px;padding:6px 9px;display:inline-flex}.bid-pG_knowledgeTabs button[data-active],.bid-pG_knowledgeCaptureModes button[data-active]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);color:var(--dsw-alias-state-business-primary)}.bid-pG_knowledgeTabs button span{background:color-mix(in srgb, currentColor 10%, transparent);text-align:center;border-radius:999px;min-width:17px;padding:1px 5px;font-size:10px}.bid-pG_knowledgeFilters input,.bid-pG_knowledgeFilters select{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-width:160px;color:var(--dsw-alias-label-primary);border-radius:8px;padding:6px 8px}.bid-pG_knowledgeGrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_knowledgeCategory{background:color-mix(in srgb, var(--dsw-alias-label-secondary) 10%, transparent);color:var(--dsw-alias-label-secondary);border-radius:999px;margin-left:5px;padding:2px 6px;font-size:10px}.bid-pG_knowledgeCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:10px;padding:11px}.bid-pG_knowledgeCardHeader,.bid-pG_knowledgeActions{justify-content:space-between;align-items:center;gap:8px;display:flex}.bid-pG_knowledgeKind,.bid-pG_knowledgeConfidence,.bid-pG_knowledgeTags span{color:var(--dsw-alias-label-secondary);font-size:10px}.bid-pG_knowledgeKind,.bid-pG_knowledgeTags span{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);border-radius:999px;padding:2px 6px}.bid-pG_knowledgeCard h4{margin:8px 0 5px;font-size:14px}.bid-pG_knowledgeCard>p{color:var(--dsw-alias-label-secondary);white-space:pre-wrap;margin:0;font-size:12px;line-height:1.6}.bid-pG_knowledgeMeta{gap:4px;margin:9px 0 0;display:grid}.bid-pG_knowledgeMeta div{grid-template-columns:42px minmax(0,1fr);gap:6px;font-size:10px;display:grid}.bid-pG_knowledgeMeta dt{color:var(--dsw-alias-label-secondary)}.bid-pG_knowledgeMeta dd{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;margin:0}.bid-pG_knowledgeTags{flex-wrap:wrap;gap:4px;margin-top:9px;display:flex}.bid-pG_knowledgeActions{justify-content:flex-end;margin-top:10px}.bid-pG_knowledgeDialog{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;width:min(720px,100vw - 36px);max-height:min(760px,100vh - 36px);overflow:auto;box-shadow:0 18px 60px #0000002e}.bid-pG_knowledgeDialog>header,.bid-pG_knowledgeDialog>footer{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;display:flex}.bid-pG_knowledgeDialog>footer{border-top:1px solid var(--dsw-alias-border-l1);border-bottom:0;justify-content:flex-end}.bid-pG_knowledgeDialog h3{margin:3px 0 0}.bid-pG_knowledgeCaptureModes{padding:10px 16px 0}.bid-pG_knowledgeDialogBody{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px 16px;display:grid}.bid-pG_knowledgeDialogBody label{color:var(--dsw-alias-label-secondary);gap:6px;font-size:12px;display:grid}.bid-pG_knowledgeDialogBody label:has(textarea),.bid-pG_knowledgePrivacy{grid-column:1/-1}.bid-pG_knowledgeDialogBody input,.bid-pG_knowledgeDialogBody textarea,.bid-pG_knowledgeDialogBody select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);width:100%;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:8px 9px}.bid-pG_knowledgeDialogBody textarea{resize:vertical;line-height:1.55}.bid-pG_knowledgePrivacy{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);color:var(--dsw-alias-label-secondary);border-radius:8px;margin:0;padding:9px 10px;font-size:11px;line-height:1.5}.bid-pG_knowledgeEmpty,.bid-pG_knowledgeSectionEmpty{text-align:center;color:var(--dsw-alias-label-secondary);margin:auto;padding:24px}.bid-pG_knowledgeEmpty strong{color:var(--dsw-alias-label-primary);margin-bottom:7px;display:block}.bid-pG_knowledgeEmpty p,.bid-pG_knowledgeSectionEmpty{font-size:12px;line-height:1.6}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid,.bid-pG_knowledgeGrid{grid-template-columns:1fr}.bid-pG_knowledgeHero,.bid-pG_knowledgeWorkspaceHeader,.bid-pG_knowledgeFilters{flex-direction:column;align-items:stretch}.bid-pG_knowledgeDialogBody{grid-template-columns:1fr}}";
+		const css = "[data-pane=conversation]{position:relative}[data-dsh-extension-view]{z-index:100;display:none;position:absolute;inset:0}html[data-dsh-extension-active] [data-dsh-extension-view]{display:block}html[data-dsh-extension-active] [data-pane=conversation]>:not([data-dsh-extension-view]){display:none}html[data-dsh-extension-active] [data-composer-seat]{display:none!important}.bid-pG_entry{width:100%;height:32px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-radius:8px;align-items:center;gap:8px;padding:0 12px;font-size:13px;display:flex}.bid-pG_entry:hover{background:var(--dsw-specific-sidebar-nav-item-hover);color:var(--dsw-alias-label-primary)}.bid-pG_entry[data-active]{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}.bid-pG_entryIcon{flex:none;justify-content:center;align-items:center;display:inline-flex}.bid-pG_entryLabel{text-overflow:ellipsis;overflow:hidden}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entry{justify-content:center;width:100%;padding:0}[data-dsh-frame][data-sidebar-collapsed] .bid-pG_entryLabel{display:none}.bid-pG_view{overflow:hidden}.bid-pG_panel{box-sizing:border-box;background:var(--dsw-alias-bg-base);min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);flex-direction:column;gap:10px;padding:14px 16px 16px;display:flex;position:relative}.bid-pG_panelHeader{flex:none;align-items:center;gap:10px;display:flex}.bid-pG_panelTitle{color:var(--dsw-alias-label-primary);white-space:nowrap;flex:1;margin:0;font-size:16px;font-weight:700}.bid-pG_headerActions{gap:8px;display:flex}.bid-pG_tabBar{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:2px;display:flex}.bid-pG_tab{color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;background:0 0;border:none;border-bottom:2px solid #0000;border-radius:6px 6px 0 0;padding:7px 14px;font-size:13px}.bid-pG_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_tab[data-active]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_panelContent{flex-direction:column;flex:1;min-height:0;display:flex;position:relative;overflow:hidden}.bid-pG_tabBody{flex-direction:column;flex:1;gap:10px;min-height:0;display:flex;overflow-y:auto}.bid-pG_learningBody{gap:16px}.bid-pG_learningHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 55%);border-radius:12px;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px;display:flex}.bid-pG_learningHero h3{color:var(--dsw-alias-label-primary);margin:5px 0 8px;font-size:20px}.bid-pG_learningHero p,.bid-pG_learningGrid p,.bid-pG_learningSteps p{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_learningHero>div{max-width:720px}.bid-pG_learningHero>a{flex:none;text-decoration:none}.bid-pG_learningEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_learningRule{border-left:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:12px;padding:12px 14px;font-size:12px;line-height:1.6;display:grid}.bid-pG_learningRule span{color:var(--dsw-alias-label-secondary)}.bid-pG_learningSteps,.bid-pG_learningGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;display:grid}.bid-pG_learningSteps article,.bid-pG_learningGrid article{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;gap:10px;padding:12px;display:flex}.bid-pG_learningSteps article>span{width:26px;height:26px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:50%;flex:none;place-items:center;font-size:11px;font-weight:700;display:grid}.bid-pG_learningSteps strong,.bid-pG_learningGrid strong{color:var(--dsw-alias-label-primary);margin-bottom:4px;font-size:13px;display:block}.bid-pG_learningGrid article{display:block}.bid-pG_toolbar{flex-wrap:wrap;flex:none;align-items:center;gap:8px;display:flex}.bid-pG_primaryButton,.bid-pG_secondaryButton,.bid-pG_dangerButton{cursor:pointer;white-space:nowrap;border-radius:7px;padding:5px 12px;font-size:13px}.bid-pG_primaryButton{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-weight:600}.bid-pG_primaryButton:hover:not(:disabled){filter:brightness(1.1)}.bid-pG_secondaryButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0;align-items:center;text-decoration:none;display:inline-flex}.bid-pG_secondaryButton:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.bid-pG_dangerButton{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:0 0}.bid-pG_dangerButton:hover:not(:disabled){color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_primaryButton:disabled,.bid-pG_secondaryButton:disabled,.bid-pG_dangerButton:disabled{opacity:.5;cursor:default}.bid-pG_studioForm{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;flex-direction:column;gap:10px;padding:12px;display:flex}.bid-pG_studioSummary{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;font-weight:600}.bid-pG_studioForm label{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:12px;display:flex}.bid-pG_studioForm input,.bid-pG_studioForm textarea,.bid-pG_studioForm select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:13px}.bid-pG_studioForm input:focus,.bid-pG_studioForm textarea:focus,.bid-pG_studioForm select:focus{outline:1px solid var(--dsw-alias-state-business-primary)}.bid-pG_formGrid,.bid-pG_formGridThree{gap:10px;display:grid}.bid-pG_formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.bid-pG_formGridThree{grid-template-columns:repeat(3,minmax(0,1fr))}.bid-pG_formFooter{justify-content:space-between;align-items:center;gap:10px;display:flex}.bid-pG_formFooter span{color:var(--dsw-alias-label-secondary);font-size:12px}.bid-pG_formFooter button{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:600}.bid-pG_formFooter button:disabled{opacity:.5;cursor:default}.bid-pG_sectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:700}.bid-pG_catalog{flex-direction:column;flex:none;gap:7px;display:flex}.bid-pG_catalogItem{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;display:flex}.bid-pG_actionRow{flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center;gap:6px;display:flex}.bid-pG_catalogBody{flex-direction:column;gap:3px;min-width:0;display:flex}.bid-pG_capabilityRow{flex-wrap:wrap;gap:4px;display:flex}.bid-pG_capabilityRow span{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);border-radius:999px;padding:1px 6px;font-size:10px}.bid-pG_providerLine{color:var(--dsw-alias-label-secondary);margin:0;font-size:11px}.bid-pG_verificationLine{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));margin:0;font-size:10px;line-height:1.45}.bid-pG_authStatus{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:11px}.bid-pG_authStatus[data-state=ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_authStatus[data-state=error],.bid-pG_authStatus[data-state=missing-permission],.bid-pG_authStatus[data-state=reauthorization-required]{color:var(--dsw-alias-state-danger-primary,#d64545)}.bid-pG_authStatus[data-state=authorizing]{color:var(--dsw-alias-state-business-primary)}.bid-pG_catalogLink{width:fit-content;color:var(--dsw-alias-state-business-primary);font-size:11px}.bid-pG_catalogPending{max-width:180px;color:var(--dsw-alias-label-secondary);text-align:right;flex:none;font-size:11px}.bid-pG_formHeader{justify-content:space-between;align-items:flex-start;gap:10px;display:flex}.bid-pG_formHint{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:12px}.bid-pG_connectorOverlay{z-index:20;box-sizing:border-box;background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, transparent);backdrop-filter:blur(6px);padding:12px;display:flex;position:absolute;inset:0}.bid-pG_connectorDialog{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;flex-direction:column;width:min(860px,100%);height:100%;min-height:0;max-height:760px;margin:auto;display:flex;overflow:hidden;box-shadow:0 16px 48px #0003}.bid-pG_sourceDialog{height:auto;max-height:min(680px,100%)}.bid-pG_sourceGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;display:grid}.bid-pG_sourceCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:11px;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_sourceCard>button{grid-column:2;width:fit-content}.bid-pG_sourceMark{width:42px;height:42px;color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-radius:10px;place-items:center;font-size:17px;font-weight:700;display:grid}.bid-pG_sourceBody{flex-direction:column;gap:5px;min-width:0;display:flex}.bid-pG_connectorDialogHeader{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 18px 14px;display:flex}.bid-pG_dialogStep{color:var(--dsw-alias-state-business-primary);margin:0 0 4px;font-size:11px;font-weight:600}.bid-pG_dialogTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:16px}.bid-pG_connectorDialogBody{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}.bid-pG_dialogField{height:100%;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:7px;font-size:12px;display:flex}.bid-pG_jsonEditor{box-sizing:border-box;resize:vertical;width:100%;min-height:280px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.bid-pG_jsonEditor:focus,.bid-pG_connectorDialog input:focus,.bid-pG_connectorDialog select:focus{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_importInputActions{justify-content:flex-end;margin-top:8px;display:flex}.bid-pG_dialogError{color:var(--dsw-alias-state-danger-primary,#f66);background:color-mix(in srgb, var(--dsw-alias-state-danger-primary,#f66) 9%, transparent);border:1px solid var(--dsw-alias-state-danger-primary,#f66);overflow-wrap:anywhere;border-radius:8px;margin-bottom:12px;padding:9px 11px;font-size:12px;line-height:1.5}.bid-pG_connectorDialogFooter{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;display:flex}.bid-pG_dialogFooterStatus{min-width:0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px}.bid-pG_dialogFooterStatus[data-ready]{color:var(--dsw-alias-state-success-primary,#1aa260)}.bid-pG_dialogFooterStatus[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);font-weight:600}.bid-pG_connectorDialogActions{flex:none;align-items:center;gap:8px;display:flex}.bid-pG_conflictField{color:var(--dsw-alias-label-secondary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;display:inline-flex}.bid-pG_conflictField select{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px;font-size:12px}.bid-pG_importPreview{flex-direction:column;gap:8px;margin:0;padding:0;display:flex}.bid-pG_importServer{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;flex-direction:column;gap:7px;padding:9px;display:flex}.bid-pG_importServerHeader{min-width:0;color:var(--dsw-alias-label-primary);align-items:center;gap:7px;font-size:13px;display:flex}.bid-pG_importServerHeader .bid-pG_description{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.bid-pG_trustBox{color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 8%, transparent);border:1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,#d98c10) 45%, transparent);border-radius:8px;align-items:flex-start;gap:9px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex}.bid-pG_trustBox input{margin-top:3px}.bid-pG_trustBox strong{color:var(--dsw-alias-label-primary);display:block}.bid-pG_inlineLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:5px;font-size:12px;display:inline-flex}.bid-pG_secretRow{color:var(--dsw-alias-label-secondary);grid-template-columns:minmax(120px,1fr) minmax(150px,2fr);align-items:center;gap:8px;padding-left:23px;font-size:12px;display:grid}.bid-pG_secretRow input{min-width:0;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-field,var(--dsw-alias-bg-base));border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:5px 7px}.bid-pG_secretRow input[aria-invalid=true]{border-color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_list{flex-direction:column;gap:8px;display:flex}.bid-pG_item{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:10px;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;display:flex}.bid-pG_itemBody{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.bid-pG_nameRow{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_name{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;overflow:hidden}.bid-pG_badge{border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap;border-radius:999px;flex:none;padding:1px 8px;font-size:11px}.bid-pG_badge[data-success]{color:var(--dsw-alias-state-success-primary,#1aa260);border-color:color-mix(in srgb, var(--dsw-alias-state-success-primary,#1aa260) 45%, transparent)}.bid-pG_description,.bid-pG_health{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:12px}.bid-pG_health[data-error]{color:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_diagnostics{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);border-radius:8px;gap:5px;margin-top:5px;padding:8px;display:grid}.bid-pG_diagnosticRow{color:var(--dsw-alias-label-secondary);grid-template-columns:8px minmax(80px,auto) minmax(0,1fr);align-items:start;gap:7px;font-size:11px;line-height:1.5;display:grid}.bid-pG_diagnosticRow strong{color:var(--dsw-alias-label-primary)}.bid-pG_diagnosticDot{background:var(--dsw-alias-state-success-primary,#1aa260);border-radius:50%;width:7px;height:7px;margin-top:5px}.bid-pG_diagnosticRow[data-status=warn] .bid-pG_diagnosticDot,.bid-pG_diagnosticRow[data-status=skipped] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-warning-primary,#d98c10)}.bid-pG_diagnosticRow[data-status=fail] .bid-pG_diagnosticDot{background:var(--dsw-alias-state-danger-primary,#f66)}.bid-pG_itemActions{flex:none;gap:8px;display:flex}.bid-pG_item[data-connector-id]{flex-wrap:wrap}.bid-pG_item[data-connector-id] .bid-pG_itemBody{flex-basis:24rem}.bid-pG_item[data-connector-id] .bid-pG_nameRow,.bid-pG_item[data-connector-id] .bid-pG_itemActions{flex-wrap:wrap;max-width:100%}.bid-pG_articleOverlay{z-index:1000;justify-content:center;align-items:center;position:fixed}.bid-pG_articleDialog{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:14px;flex-direction:column;width:min(920px,100%);height:min(820px,100%);min-height:0;display:flex;overflow:hidden;box-shadow:0 18px 60px #00000029}.bid-pG_articleHeader,.bid-pG_articleFooter{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;display:flex}.bid-pG_articleHeader h3{margin:0;font-size:18px}.bid-pG_articleFooter{border-bottom:0;border-top:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap;justify-content:flex-end}.bid-pG_articleForm{flex-direction:column;flex:1;min-height:0;display:flex}.bid-pG_articleScroll{overscroll-behavior:contain;overflow-wrap:anywhere;flex:1;min-height:0;padding:16px 24px;overflow-y:auto}.bid-pG_articleScroll fieldset{border:0;grid-column:1/-1;gap:12px;margin:0;padding:0;display:grid}.bid-pG_articleScroll h3{margin:0 0 12px;font-size:24px}.bid-pG_articleProse{max-width:72ch;margin:24px auto;font-family:Songti SC,Noto Serif CJK SC,Georgia,serif;font-size:16px;line-height:1.95}.bid-pG_articleProse p{white-space:pre-wrap}.bid-pG_articleProse blockquote{border-left:3px solid var(--dsw-alias-border-l1);white-space:pre-wrap;margin-left:0;padding-left:16px}.bid-pG_articleImage{text-align:center;margin:24px 0}.bid-pG_articleImage img{object-fit:contain;border-radius:10px;max-width:100%;max-height:520px;margin:0 auto;display:block}.bid-pG_articleImage figcaption{color:var(--dsw-alias-label-secondary);margin-top:8px;font-size:13px}.bid-pG_articleImagePlaceholder{border:1px dashed var(--dsw-alias-border-l1);min-height:120px;color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-bg-base) 92%, var(--dsw-alias-state-business-primary));border-radius:10px;place-items:center;display:grid}.bid-pG_articleSummaryPanel{max-width:72ch;margin:24px auto;line-height:1.8}.bid-pG_articleSummaryPreview{border:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb, var(--dsw-alias-bg-base) 96%, var(--dsw-alias-state-business-primary));border-radius:10px;padding:16px 18px}.bid-pG_articleSummaryPreview p{white-space:pre-wrap}.bid-pG_articleByline{color:var(--dsw-alias-label-secondary);flex-wrap:wrap;gap:12px;font-size:12px;display:flex}.bid-pG_articleTabs{border-bottom:1px solid var(--dsw-alias-border-l1);flex:none;gap:6px;padding:8px 20px;display:flex}.bid-pG_articleTabs button{color:inherit;cursor:pointer;background:0 0;border:0;border-bottom:2px solid #0000;padding:8px 12px}.bid-pG_articleTabs button[aria-selected=true]{border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:600}.bid-pG_articleModel{border-bottom:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap;flex:none;grid-column:1/-1;align-items:center;gap:8px 16px;padding:10px 20px;font-size:12px;display:flex}.bid-pG_articleModel label{align-items:center;gap:8px;display:flex}.bid-pG_articleModel input[type=checkbox]{width:auto}.bid-pG_articleModel select{max-width:260px}.bid-pG_articleProgress{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);flex-wrap:wrap;flex:none;align-items:center;gap:8px;padding:12px 20px;font-size:13px;display:flex}.bid-pG_articleSpinner{border:2px solid var(--dsw-alias-border-l1);border-top-color:var(--dsw-alias-state-business-primary);border-radius:50%;width:12px;height:12px;animation:1s linear infinite bid-pG_articleSpin}.bid-pG_articleError,.bid-pG_articleExit{color:var(--dsw-alias-label-primary);background:#b75b291f;flex:none;margin:0;padding:10px 20px;font-size:13px}.bid-pG_articleExit button{margin-right:10px}@keyframes bid-pG_articleSpin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.bid-pG_articleSpinner{animation:none}}@media (width<=650px){.bid-pG_articleScroll{padding:12px}.bid-pG_articleModel{padding:8px 12px}.bid-pG_articleHeader,.bid-pG_articleFooter{padding:10px 12px}}.bid-pG_knowledgeBody{gap:14px;min-height:0;overflow-y:auto}.bid-pG_knowledgeHero{border:1px solid var(--dsw-alias-border-l1);background:linear-gradient(135deg, color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent), var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base)) 62%);border-radius:14px;flex-shrink:0;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px;display:flex}.bid-pG_knowledgeHero h3{margin:4px 0 7px;font-size:21px}.bid-pG_knowledgeHero p{max-width:720px;color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.65}.bid-pG_knowledgeHero>span{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, transparent);color:var(--dsw-alias-state-business-primary);border-radius:999px;flex:none;padding:5px 9px;font-size:11px;font-weight:600}.bid-pG_knowledgeEyebrow{letter-spacing:.08em;font-weight:700;color:var(--dsw-alias-state-business-primary)!important;font-size:10px!important}.bid-pG_knowledgeWorkspace{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;flex-shrink:0;min-width:0;overflow:hidden}.bid-pG_knowledgeWorkspaceHeader{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;display:flex}.bid-pG_knowledgeTabs,.bid-pG_knowledgeFilters,.bid-pG_knowledgeCaptureModes{align-items:center;gap:6px;display:flex}.bid-pG_knowledgeTabs button,.bid-pG_knowledgeCaptureModes button{color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:1px solid #0000;border-radius:8px;align-items:center;gap:6px;padding:6px 9px;display:inline-flex}.bid-pG_knowledgeTabs button[data-active],.bid-pG_knowledgeCaptureModes button[data-active]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);color:var(--dsw-alias-state-business-primary)}.bid-pG_knowledgeTabs button span{background:color-mix(in srgb, currentColor 10%, transparent);text-align:center;border-radius:999px;min-width:17px;padding:1px 5px;font-size:10px}.bid-pG_knowledgeFilters input,.bid-pG_knowledgeFilters select{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-width:160px;color:var(--dsw-alias-label-primary);border-radius:8px;padding:6px 8px}.bid-pG_knowledgeGrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start;gap:10px;padding:12px;display:grid}.bid-pG_knowledgeCategory{background:color-mix(in srgb, var(--dsw-alias-label-secondary) 10%, transparent);color:var(--dsw-alias-label-secondary);border-radius:999px;margin-left:5px;padding:2px 6px;font-size:10px}.bid-pG_knowledgeCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:10px;min-width:0;padding:11px}.bid-pG_knowledgeCardHeader,.bid-pG_knowledgeActions{justify-content:space-between;align-items:center;gap:8px;display:flex}.bid-pG_knowledgeKind,.bid-pG_knowledgeConfidence,.bid-pG_knowledgeTags span{color:var(--dsw-alias-label-secondary);font-size:10px}.bid-pG_knowledgeKind,.bid-pG_knowledgeTags span{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);border-radius:999px;padding:2px 6px}.bid-pG_knowledgeCard h4{margin:8px 0 5px;font-size:14px}.bid-pG_knowledgeCard>p{color:var(--dsw-alias-label-secondary);white-space:pre-wrap;margin:0;font-size:12px;line-height:1.6}.bid-pG_knowledgeMeta{gap:4px;margin:9px 0 0;display:grid}.bid-pG_knowledgeMeta div{grid-template-columns:42px minmax(0,1fr);gap:6px;font-size:10px;display:grid}.bid-pG_knowledgeMeta dt{color:var(--dsw-alias-label-secondary)}.bid-pG_knowledgeMeta dd{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;margin:0}.bid-pG_knowledgeTags{flex-wrap:wrap;gap:4px;margin-top:9px;display:flex}.bid-pG_knowledgeTagPicker{gap:6px;display:grid}.bid-pG_knowledgeTagInput{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);border-radius:8px;flex-wrap:wrap;align-items:center;gap:5px;min-height:38px;padding:5px 7px;display:flex}.bid-pG_knowledgeTagInput:focus-within{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.bid-pG_knowledgeTagInput input{flex:140px;min-width:100px;padding:4px 2px;background:0 0!important;border:0!important;outline:0!important}.bid-pG_knowledgeTagChip,.bid-pG_knowledgeTagSuggestion{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 11%, transparent);color:var(--dsw-alias-label-primary);border-radius:999px;align-items:center;gap:4px;padding:3px 6px;font-size:11px;display:inline-flex}.bid-pG_knowledgeTagChip button,.bid-pG_knowledgeTagSuggestion button{color:inherit;cursor:pointer;background:0 0;border:0;padding:0;line-height:1}.bid-pG_knowledgeTagOptions{flex-wrap:wrap;gap:5px;display:flex}.bid-pG_knowledgeTagOptions button,.bid-pG_knowledgeTagSuggestion{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:999px;padding:4px 8px;font-size:11px}.bid-pG_knowledgeTagSuggestions{color:var(--dsw-alias-label-secondary);flex-wrap:wrap;align-items:center;gap:5px;font-size:11px;display:flex}.bid-pG_knowledgeTagWarning{color:var(--dsw-alias-state-danger-primary,#d64545);margin:0;font-size:11px;line-height:1.4}.bid-pG_knowledgeTagNav{border-bottom:1px solid var(--dsw-alias-border-l1);align-items:center;gap:5px;padding:8px 12px;display:flex;overflow-x:auto}.bid-pG_knowledgeTagNav button{background:color-mix(in srgb, var(--dsw-alias-label-secondary) 8%, transparent);color:var(--dsw-alias-label-secondary);cursor:pointer;border:1px solid #0000;border-radius:999px;flex:none;padding:5px 8px;font-size:11px}.bid-pG_knowledgeTagNav button[data-active]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);color:var(--dsw-alias-state-business-primary)}.bid-pG_knowledgeTagNav button span{opacity:.75;margin-left:4px}.bid-pG_knowledgeCard[data-draggable=true]{cursor:grab}.bid-pG_knowledgeCard[data-draggable=true]:active{cursor:grabbing}.bid-pG_knowledgeCard[data-drop-target=true]{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent)}.bid-pG_knowledgeMoveMenu{align-items:center;gap:5px;margin-top:8px;display:flex}.bid-pG_knowledgeMoveMenu select{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-width:0;max-width:100%;color:var(--dsw-alias-label-secondary);border-radius:7px;padding:4px 6px;font-size:11px}.bid-pG_knowledgeActions{flex-wrap:wrap;justify-content:flex-end;min-width:0;margin-top:10px}.bid-pG_knowledgeActions>button{flex:0 auto;max-width:100%}.bid-pG_knowledgeCard .bid-pG_articleExcerpt{-webkit-line-clamp:4;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden}.bid-pG_knowledgeDialog{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:14px;width:min(720px,100vw - 36px);max-height:min(760px,100vh - 36px);overflow:auto;box-shadow:0 18px 60px #0000002e}.bid-pG_knowledgeDialog>header,.bid-pG_knowledgeDialog>footer{border-bottom:1px solid var(--dsw-alias-border-l1);justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;display:flex}.bid-pG_knowledgeDialog>footer{border-top:1px solid var(--dsw-alias-border-l1);border-bottom:0;justify-content:flex-end}.bid-pG_knowledgeDialog h3{margin:3px 0 0}.bid-pG_knowledgeCaptureModes{padding:10px 16px 0}.bid-pG_knowledgeDialogBody{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px 16px;display:grid}.bid-pG_knowledgeDialogBody label{color:var(--dsw-alias-label-secondary);gap:6px;font-size:12px;display:grid}.bid-pG_knowledgeDialogBody label:has(textarea),.bid-pG_knowledgePrivacy{grid-column:1/-1}.bid-pG_knowledgeDialogBody input,.bid-pG_knowledgeDialogBody textarea,.bid-pG_knowledgeDialogBody select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);width:100%;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:8px 9px}.bid-pG_knowledgeDialogBody textarea{resize:vertical;line-height:1.55}.bid-pG_articleOverlay{box-sizing:border-box;padding:32px 20px 20px;inset:0}.bid-pG_articleDialog{width:min(900px,100%);max-height:calc(100dvh - 52px)}.bid-pG_articleDialog[data-view=capture]{width:min(680px,100%);height:auto}.bid-pG_articleDialog[data-view=capture] .bid-pG_articleForm{overflow:hidden}.bid-pG_articleDialog .bid-pG_knowledgeDialogBody{align-content:start;align-items:start}.bid-pG_articleDialog .bid-pG_articleScroll{scrollbar-gutter:stable}.bid-pG_articleDialog .bid-pG_articleScroll fieldset{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.bid-pG_articleDialog fieldset>label:first-child,.bid-pG_articleDialog fieldset>label:has(textarea),.bid-pG_articleDialog fieldset>label:has([role=combobox]),.bid-pG_articleDialog[data-view=capture] fieldset>label:has(input[name=category]){grid-column:1/-1}.bid-pG_articleDialog .bid-pG_articleModel{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, var(--dsw-alias-bg-base));align-items:center;gap:12px;padding:14px 20px;display:flex}.bid-pG_articleDialog .bid-pG_articleModel label{align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_articleDialog .bid-pG_articleModel label:first-child{white-space:nowrap;flex:240px}.bid-pG_articleDialog[data-view=capture] .bid-pG_articleModel label{flex-basis:100%}.bid-pG_articleDialog .bid-pG_articleModel label:nth-child(2){flex:220px;line-height:1.5}.bid-pG_articleDialog .bid-pG_articleModel input[type=checkbox]{width:16px;height:16px;accent-color:var(--dsw-alias-state-business-primary);flex:0 0 16px;margin:0;padding:0}.bid-pG_articleDialog .bid-pG_articleModel select{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);width:100%;min-width:0;max-width:260px;color:inherit;font:inherit;border-radius:8px;padding:8px}.bid-pG_articleDialog .bid-pG_articleModel button{background:var(--dsw-alias-state-business-primary);color:#fff;cursor:pointer;border:0;border-radius:8px;padding:9px 14px}.bid-pG_articleDialog .bid-pG_articleModel button:disabled{opacity:.45;cursor:default}.bid-pG_articleDialog .bid-pG_articleHeader{padding:16px 20px}.bid-pG_articleDialog .bid-pG_articleFooter{padding:14px 20px}.bid-pG_articleDialog .bid-pG_articleByline a{color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;max-width:36ch;text-decoration:none;overflow:hidden}.bid-pG_knowledgeCard{box-sizing:border-box;flex-direction:column;height:100%;padding:18px;display:flex}.bid-pG_knowledgeGrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));align-items:stretch;gap:16px;padding:16px}.bid-pG_knowledgeCard .bid-pG_knowledgeActions{margin-top:auto;padding-top:16px}.bid-pG_knowledgeMeta{margin-bottom:14px}.bid-pG_knowledgeMeta a{color:var(--dsw-alias-label-secondary);text-decoration:none}.bid-pG_articleSummaryEmpty{border:1px dashed var(--dsw-alias-border-l1);text-align:center;max-width:480px;color:var(--dsw-alias-label-secondary);border-radius:12px;margin:28px auto;padding:28px;line-height:1.7}@media (width<=650px){.bid-pG_articleOverlay{padding:28px 8px 8px}.bid-pG_articleDialog{max-height:calc(100dvh - 36px)}.bid-pG_articleDialog .bid-pG_articleScroll fieldset{grid-template-columns:minmax(0,1fr)}}.bid-pG_articleDialog [hidden]{display:none}.bid-pG_articleDialog{box-sizing:border-box;height:min(820px,100dvh - 52px);max-height:calc(100dvh - 52px)}.bid-pG_articleDialog[data-view=capture]{height:auto;max-height:min(820px,100dvh - 52px)}.bid-pG_articleDialog[data-view=capture] .bid-pG_articleForm,.bid-pG_articleDialog[data-view=capture] .bid-pG_articleScroll{flex-basis:auto}.bid-pG_articleDialog .bid-pG_articleHeader{box-sizing:border-box;flex:0 0 56px;min-height:56px}.bid-pG_articleDialog .bid-pG_articleModel,.bid-pG_articleDialog .bid-pG_articleTabs,.bid-pG_articleDialog .bid-pG_articleFooter{box-sizing:border-box;flex:none}.bid-pG_articleDialog .bid-pG_articleTabs{min-height:48px}.bid-pG_articleDialog .bid-pG_articleFooter{min-height:64px}.bid-pG_articleDialog .bid-pG_articleForm,.bid-pG_articleDialog .bid-pG_articleScroll{min-height:0}.bid-pG_articleDialog .bid-pG_articleScroll{flex:1 1 0;overflow-y:auto}.bid-pG_articleDialog .bid-pG_knowledgeDialogBody input:not([type=checkbox]),.bid-pG_articleDialog .bid-pG_knowledgeDialogBody select{box-sizing:border-box;min-height:40px}.bid-pG_articleDialog .bid-pG_knowledgeTagInput{box-sizing:border-box;height:auto;min-height:40px}.bid-pG_articleDialog .bid-pG_knowledgeDialogBody .bid-pG_knowledgeTagInput input:not([type=checkbox]){box-sizing:border-box;height:auto;min-height:28px;padding:4px 2px}.bid-pG_articleDialog .bid-pG_articleScroll{padding:28px 32px 36px}.bid-pG_articleIntro{border-bottom:1px solid var(--dsw-alias-border-l1);max-width:740px;margin:0 auto 28px;padding-bottom:22px}.bid-pG_articleIntro h1{letter-spacing:-.025em;text-wrap:pretty;margin:0 0 16px;font-size:clamp(23px,2.6vw,30px);font-weight:650;line-height:1.45}.bid-pG_articleIntro .bid-pG_articleByline{gap:6px 14px;font-size:12px;line-height:1.7}.bid-pG_articleDialog .bid-pG_articleProse{max-width:740px;margin:0 auto;font-size:16px;line-height:1.95}.bid-pG_articleProse p{margin:0 0 1.4em}.bid-pG_articleProse :is(h1,h2,h3,h4,h5,h6){margin:1.8em 0 .8em;font-family:inherit;font-size:1.22em;line-height:1.5}.bid-pG_articleProse :is(ul,ol){padding-inline-start:1.4em}.bid-pG_articleProse li{margin:.5em 0}.bid-pG_articleDialog .bid-pG_articleImagePlaceholder{box-sizing:border-box;text-align:left;background:color-mix(in srgb, var(--dsw-alias-label-secondary) 3%, var(--dsw-alias-bg-base));justify-content:center;align-items:center;gap:14px;min-height:96px;padding:18px;font-family:inherit;font-size:14px;line-height:1.6;display:flex}.bid-pG_articleImagePlaceholder svg{opacity:.6;flex:none}.bid-pG_articleImagePlaceholder small{margin-top:4px;font-size:12px;display:block}.bid-pG_articleDialog .bid-pG_articleSummaryPanel{min-width:0;max-width:740px;margin:0 auto}.bid-pG_articleSummaryToolbar{justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px;display:flex}.bid-pG_articleSummaryToolbar>div{min-width:0}.bid-pG_articleSummaryToolbar button{flex:none}.bid-pG_articleSectionLabel{color:var(--dsw-alias-state-business-primary);font-size:13px;font-weight:650}.bid-pG_articleSummaryMeta{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:4px 0 0;font-size:11px;line-height:1.6}.bid-pG_articleDialog .bid-pG_articleSummaryPreview{background:0 0;border:0;border-radius:0;padding:0;font-size:15px;line-height:1.85}.bid-pG_articleSummaryPreview>p{margin:0 0 1.25em}.bid-pG_articleSummaryPreview>p:first-child{border-left:3px solid var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, var(--dsw-alias-bg-base));border-radius:0 8px 8px 0;padding:16px 18px}.bid-pG_articleSummaryPreview :is(h1,h2,h3,h4,h5,h6){margin:26px 0 10px;font-size:16px;font-weight:650;line-height:1.5}.bid-pG_articleSummaryPreview :is(ul,ol){margin:0 0 20px;padding-inline-start:22px}.bid-pG_articleSummaryPreview li{margin:8px 0;padding-inline-start:4px}.bid-pG_articleSummaryPreview li::marker{color:var(--dsw-alias-state-business-primary)}.bid-pG_articleSummaryPreview strong{font-weight:650}.bid-pG_articleSummaryEditor{gap:10px;min-width:0;display:grid}.bid-pG_articleSummaryEditor label,.bid-pG_articleSummaryEditor small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.6}.bid-pG_articleDialog .bid-pG_articleSummaryEditor textarea{box-sizing:border-box;resize:vertical;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);width:100%;min-width:0;min-height:300px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:10px;padding:18px 20px;font-size:15px;line-height:1.85;display:block}.bid-pG_articleDialog .bid-pG_articleSummaryEditor textarea:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.bid-pG_articleDialog .bid-pG_articleSummaryEditor small{text-align:right}.bid-pG_articleDialog .bid-pG_articleScroll>.bid-pG_knowledgeDialogBody{max-width:740px;margin:0 auto;padding:0}.bid-pG_knowledgeCardFooter{border-top:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 20px;margin-top:auto;padding-top:16px;display:flex}.bid-pG_articleVideo{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));min-height:190px;color:var(--dsw-alias-label-secondary);text-align:center;border-radius:12px;flex-direction:column;justify-content:center;align-items:center;gap:12px;margin:28px 0;padding:28px;font-family:inherit;font-size:14px;display:flex}.bid-pG_articleVideo p{margin:0;font-size:13px;line-height:1.7}.bid-pG_articleVideo a{color:var(--dsw-alias-state-business-primary);font-size:13px}.bid-pG_summaryEditorHint{color:var(--dsw-alias-label-secondary);margin:0 0 6px;font-size:12px;line-height:1.7}.bid-pG_summaryBlock{border:1px solid var(--dsw-alias-border-l1);border-radius:10px;min-width:0;overflow:hidden}.bid-pG_summaryBlockHeader{color:var(--dsw-alias-label-secondary);justify-content:space-between;align-items:center;padding:8px 14px 0;font-size:11px;display:flex}.bid-pG_summaryBlockHeader button{color:inherit;cursor:pointer;background:0 0;border:0;padding:4px 6px}.bid-pG_articleDialog .bid-pG_articleSummaryEditor .bid-pG_summaryBlock textarea{resize:vertical;border:0;border-radius:0;min-height:84px;max-height:440px;padding:10px 14px 14px}.bid-pG_articleDialog .bid-pG_articleSummaryEditor .bid-pG_summaryBlock[data-kind=heading] textarea{min-height:48px;font-weight:600}.bid-pG_articleSummaryEditor>button{justify-self:start}.bid-pG_knowledgeCard h4{margin:10px 0 12px;font-size:16px;line-height:1.55}.bid-pG_knowledgeCard>small{color:var(--dsw-alias-label-secondary);margin-bottom:4px;font-size:11px}.bid-pG_knowledgeCard>.bid-pG_articleExcerpt{font-size:13px;line-height:1.8}.bid-pG_knowledgeCard .bid-pG_knowledgeMeta{margin:16px 0}.bid-pG_knowledgeHero{flex-wrap:wrap}.bid-pG_knowledgeHero>div{flex:260px;min-width:0}.bid-pG_knowledgeHero>button{flex:none}.bid-pG_knowledgeWorkspaceHeader,.bid-pG_knowledgeTabs{flex-wrap:wrap}.bid-pG_knowledgeTabs button{white-space:nowrap}.bid-pG_knowledgeFilters{flex-wrap:wrap;flex:260px;min-width:0}.bid-pG_knowledgeFilters input,.bid-pG_knowledgeFilters select{flex:140px;width:100%;min-width:0}.bid-pG_knowledgeCardTaxonomy{flex-wrap:wrap;flex:190px;align-items:center;gap:8px;min-width:0;display:flex}.bid-pG_knowledgeCardTaxonomy .bid-pG_knowledgeTags{gap:6px;margin:0}.bid-pG_knowledgeCardTaxonomy .bid-pG_knowledgeTags span{padding:5px 9px;font-size:11px;line-height:1.5}.bid-pG_knowledgeCardTaxonomy .bid-pG_knowledgeMoveMenu{max-width:100%;margin:0}.bid-pG_knowledgeCardTaxonomy .bid-pG_knowledgeMoveMenu select{max-width:150px;height:32px;padding:4px 9px;font-size:11px}.bid-pG_knowledgeCard .bid-pG_knowledgeCardFooter .bid-pG_knowledgeActions{gap:6px;margin:0;padding:0}.bid-pG_knowledgeCardFooter .bid-pG_knowledgeActions>button{min-height:32px;padding:6px 10px;font-size:12px}.bid-pG_knowledgeCard .bid-pG_knowledgeMeta{margin-top:4px;margin-bottom:18px;font-size:11px;line-height:1.6}.bid-pG_knowledgeCard .bid-pG_knowledgeMeta dd{overflow-wrap:anywhere}.bid-pG_knowledgeCard>small{color:var(--dsw-alias-label-secondary);margin-top:4px;font-size:11px}.bid-pG_knowledgeCard h4{margin:10px 0 8px;line-height:1.55}@media (width<=650px){.bid-pG_articleDialog .bid-pG_articleScroll{padding:20px 16px 28px}.bid-pG_articleSummaryToolbar{align-items:flex-start;gap:10px}.bid-pG_articleDialog .bid-pG_articleSummaryEditor textarea{min-height:280px;padding:14px}.bid-pG_knowledgeCardFooter .bid-pG_knowledgeActions{flex:100%;justify-content:flex-end}}.bid-pG_knowledgePrivacy{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);color:var(--dsw-alias-label-secondary);border-radius:8px;margin:0;padding:9px 10px;font-size:11px;line-height:1.5}.bid-pG_knowledgeEmpty,.bid-pG_knowledgeSectionEmpty{text-align:center;color:var(--dsw-alias-label-secondary);margin:auto;padding:24px}.bid-pG_knowledgeEmpty strong{color:var(--dsw-alias-label-primary);margin-bottom:7px;display:block}.bid-pG_knowledgeEmpty p,.bid-pG_knowledgeSectionEmpty{font-size:12px;line-height:1.6}.bid-pG_notice{text-align:center;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));border-radius:12px;max-width:460px;margin:auto;padding:18px}.bid-pG_notice h3{color:var(--dsw-alias-label-primary);margin:0 0 8px;font-size:14px}.bid-pG_notice p{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.6}.bid-pG_empty{text-align:center;color:var(--dsw-alias-label-secondary);margin:0;padding:18px;font-size:13px}.bid-pG_toast{z-index:50;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-elevated,var(--dsw-alias-bg-base));max-height:40%;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;border-radius:8px;padding:8px 12px;font-size:13px;position:absolute;bottom:16px;left:16px;right:16px;overflow-y:auto;box-shadow:0 8px 24px #00000029}.bid-pG_toast[data-error]{color:var(--dsw-alias-state-danger-primary,#f66);border-color:var(--dsw-alias-state-danger-primary,#f66)}@media (width<=760px){.bid-pG_connectorOverlay{padding:8px}.bid-pG_connectorDialogHeader,.bid-pG_connectorDialogBody,.bid-pG_connectorDialogFooter{padding-left:12px;padding-right:12px}.bid-pG_connectorDialogFooter,.bid-pG_connectorDialogActions{flex-direction:column;align-items:stretch}.bid-pG_connectorDialogActions,.bid-pG_connectorDialogActions>button,.bid-pG_conflictField,.bid-pG_conflictField select{width:100%}.bid-pG_secretRow{grid-template-columns:1fr;padding-left:0}.bid-pG_sourceGrid{grid-template-columns:1fr}.bid-pG_learningHero,.bid-pG_learningRule{flex-direction:column;display:flex}.bid-pG_learningSteps,.bid-pG_learningGrid,.bid-pG_knowledgeGrid{grid-template-columns:1fr}.bid-pG_knowledgeHero,.bid-pG_knowledgeWorkspaceHeader,.bid-pG_knowledgeFilters{flex-direction:column;align-items:stretch}.bid-pG_knowledgeDialogBody{grid-template-columns:1fr}}";
 		const tagId = "@linxin666/dsh-client-ui-extension-center/panel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -878,6 +1162,33 @@ window.__ModuleLoader__.load({
 		}
 		var panel_module_css_default = {
 			"actionRow": "bid-pG_actionRow",
+			"articleByline": "bid-pG_articleByline",
+			"articleDialog": "bid-pG_articleDialog",
+			"articleError": "bid-pG_articleError",
+			"articleExcerpt": "bid-pG_articleExcerpt",
+			"articleExit": "bid-pG_articleExit",
+			"articleFooter": "bid-pG_articleFooter",
+			"articleForm": "bid-pG_articleForm",
+			"articleHeader": "bid-pG_articleHeader",
+			"articleImage": "bid-pG_articleImage",
+			"articleImagePlaceholder": "bid-pG_articleImagePlaceholder",
+			"articleIntro": "bid-pG_articleIntro",
+			"articleModel": "bid-pG_articleModel",
+			"articleOverlay": "bid-pG_articleOverlay",
+			"articleProgress": "bid-pG_articleProgress",
+			"articleProse": "bid-pG_articleProse",
+			"articleScroll": "bid-pG_articleScroll",
+			"articleSectionLabel": "bid-pG_articleSectionLabel",
+			"articleSpin": "bid-pG_articleSpin",
+			"articleSpinner": "bid-pG_articleSpinner",
+			"articleSummaryEditor": "bid-pG_articleSummaryEditor",
+			"articleSummaryEmpty": "bid-pG_articleSummaryEmpty",
+			"articleSummaryMeta": "bid-pG_articleSummaryMeta",
+			"articleSummaryPanel": "bid-pG_articleSummaryPanel",
+			"articleSummaryPreview": "bid-pG_articleSummaryPreview",
+			"articleSummaryToolbar": "bid-pG_articleSummaryToolbar",
+			"articleTabs": "bid-pG_articleTabs",
+			"articleVideo": "bid-pG_articleVideo",
 			"authStatus": "bid-pG_authStatus",
 			"badge": "bid-pG_badge",
 			"capabilityRow": "bid-pG_capabilityRow",
@@ -927,7 +1238,9 @@ window.__ModuleLoader__.load({
 			"knowledgeBody": "bid-pG_knowledgeBody",
 			"knowledgeCaptureModes": "bid-pG_knowledgeCaptureModes",
 			"knowledgeCard": "bid-pG_knowledgeCard",
+			"knowledgeCardFooter": "bid-pG_knowledgeCardFooter",
 			"knowledgeCardHeader": "bid-pG_knowledgeCardHeader",
+			"knowledgeCardTaxonomy": "bid-pG_knowledgeCardTaxonomy",
 			"knowledgeCategory": "bid-pG_knowledgeCategory",
 			"knowledgeConfidence": "bid-pG_knowledgeConfidence",
 			"knowledgeDialog": "bid-pG_knowledgeDialog",
@@ -939,9 +1252,18 @@ window.__ModuleLoader__.load({
 			"knowledgeHero": "bid-pG_knowledgeHero",
 			"knowledgeKind": "bid-pG_knowledgeKind",
 			"knowledgeMeta": "bid-pG_knowledgeMeta",
+			"knowledgeMoveMenu": "bid-pG_knowledgeMoveMenu",
 			"knowledgePrivacy": "bid-pG_knowledgePrivacy",
 			"knowledgeSectionEmpty": "bid-pG_knowledgeSectionEmpty",
 			"knowledgeTabs": "bid-pG_knowledgeTabs",
+			"knowledgeTagChip": "bid-pG_knowledgeTagChip",
+			"knowledgeTagInput": "bid-pG_knowledgeTagInput",
+			"knowledgeTagNav": "bid-pG_knowledgeTagNav",
+			"knowledgeTagOptions": "bid-pG_knowledgeTagOptions",
+			"knowledgeTagPicker": "bid-pG_knowledgeTagPicker",
+			"knowledgeTagSuggestion": "bid-pG_knowledgeTagSuggestion",
+			"knowledgeTagSuggestions": "bid-pG_knowledgeTagSuggestions",
+			"knowledgeTagWarning": "bid-pG_knowledgeTagWarning",
 			"knowledgeTags": "bid-pG_knowledgeTags",
 			"knowledgeWorkspace": "bid-pG_knowledgeWorkspace",
 			"knowledgeWorkspaceHeader": "bid-pG_knowledgeWorkspaceHeader",
@@ -971,6 +1293,9 @@ window.__ModuleLoader__.load({
 			"sourceMark": "bid-pG_sourceMark",
 			"studioForm": "bid-pG_studioForm",
 			"studioSummary": "bid-pG_studioSummary",
+			"summaryBlock": "bid-pG_summaryBlock",
+			"summaryBlockHeader": "bid-pG_summaryBlockHeader",
+			"summaryEditorHint": "bid-pG_summaryEditorHint",
 			"tab": "bid-pG_tab",
 			"tabBar": "bid-pG_tabBar",
 			"tabBody": "bid-pG_tabBody",
@@ -1442,6 +1767,106 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/panel/ConnectorEditor.tsx
+		function ConnectorEditor({ draft, bridge, onClose, onSaved }) {
+			const [configuration, setConfiguration] = (0, react.useState)(JSON.stringify(draft.configuration, null, 2));
+			const [busy, setBusy] = (0, react.useState)(false);
+			const [error, setError] = (0, react.useState)("");
+			const save = async (event) => {
+				event.preventDefault();
+				const form = event.currentTarget;
+				const data = new FormData(form);
+				setBusy(true);
+				setError("");
+				try {
+					const parsed = JSON.parse(configuration);
+					if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("connector-edit-invalid");
+					const credentials = Object.fromEntries(draft.credentials.map((item) => [item.slot, String(data.get(`credential-${item.slot}`) ?? "")]));
+					await bridge.updateConnectorConfiguration(draft.id, {
+						revision: draft.revision,
+						configuration: parsed,
+						credentials
+					});
+					form.reset();
+					onSaved();
+				} catch (failure) {
+					const message = failure instanceof Error ? failure.message : "";
+					setError(tt(message.includes("connector-edit-stale") ? "connectors.edit.stale" : message.includes("connector-edit-reenter-credentials") ? "connectors.edit.reenter" : "connectors.edit.failed"));
+				} finally {
+					setBusy(false);
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: panel_module_css_default.connectorOverlay,
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-labelledby": "connector-editor-title",
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+					className: `${panel_module_css_default.connectorDialog} ${panel_module_css_default.studioForm}`,
+					onSubmit: (event) => {
+						save(event);
+					},
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+							className: panel_module_css_default.connectorDialogHeader,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+								id: "connector-editor-title",
+								children: tt("connectors.edit.title")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								disabled: busy,
+								onClick: onClose,
+								children: tt("common.close")
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.connectorDialogBody,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: panel_module_css_default.formHint,
+									children: tt("connectors.edit.hint")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("connectors.edit.configuration"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+									rows: 12,
+									value: configuration,
+									disabled: busy,
+									onChange: (event) => setConfiguration(event.target.value),
+									spellCheck: false
+								})] }),
+								draft.credentials.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [
+									item.label,
+									" — ",
+									tt(item.configured ? "connectors.edit.keep" : "connectors.edit.missing"),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										name: `credential-${item.slot}`,
+										type: "password",
+										autoComplete: "new-password",
+										disabled: busy
+									})
+								] }, item.slot)),
+								error && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									role: "alert",
+									className: panel_module_css_default.health,
+									"data-error": "true",
+									children: error
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", {
+							className: panel_module_css_default.connectorDialogFooter,
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "submit",
+								className: panel_module_css_default.primaryButton,
+								disabled: busy,
+								children: tt("connectors.edit.save")
+							})
+						})
+					]
+				})
+			});
+		}
+		//#endregion
 		//#region src/client/panel/ConnectorsTab.tsx
 		/**
 		* Connector catalog and registry. The normal path is provider template or
@@ -1533,6 +1958,11 @@ window.__ModuleLoader__.load({
 				installed: "all"
 			});
 			const [formOpen, setFormOpen] = (0, react.useState)(false);
+			const [editorDraft, setEditorDraft] = (0, react.useState)(null);
+			const [remoteAuthId, setRemoteAuthId] = (0, react.useState)(null);
+			(0, react.useEffect)(() => () => {
+				if (remoteAuthId) bridge.cancelRemoteConnectorAuthorization?.(remoteAuthId).catch(() => {});
+			}, [remoteAuthId, bridge]);
 			const [sourcePickerOpen, setSourcePickerOpen] = (0, react.useState)(false);
 			const [clientSources, setClientSources] = (0, react.useState)(null);
 			const [stagedSource, setStagedSource] = (0, react.useState)(null);
@@ -2061,6 +2491,11 @@ window.__ModuleLoader__.load({
 				}
 			};
 			const onReconfigure = (connector) => {
+				if (bridge.getConnectorConfiguration && bridge.updateConnectorConfiguration) {
+					setBusy(true);
+					bridge.getConnectorConfiguration(connector.id).then(setEditorDraft).catch(() => notify(tt("connectors.edit.failed"), true)).finally(() => setBusy(false));
+					return;
+				}
 				const preset = CONNECTOR_STORE_ENTRIES.find((entry) => {
 					if (entry.integration === "provider-json" && entry.providerId !== void 0) return connector.source?.kind === "provider-json" && connector.source.providerId === entry.providerId;
 					return connector.source?.kind === "preset" && connector.source.presetId === entry.id;
@@ -2081,6 +2516,36 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				openJsonImport();
+			};
+			const remoteAuthButton = (connector) => {
+				if (!bridge.authorizeRemoteConnector || connector.kind !== "mcp" || connector.transport !== "streamable-http" || connectorAuthProvider(connector) !== void 0) return null;
+				const pending = remoteAuthId === connector.id;
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+					type: "button",
+					className: panel_module_css_default.secondaryButton,
+					disabled: !pending && (busy || connector.enabled === false),
+					onClick: () => {
+						if (pending) {
+							bridge.cancelRemoteConnectorAuthorization?.(connector.id);
+							return;
+						}
+						if (!window.confirm(tt("connectors.remoteAuth.confirm"))) return;
+						setRemoteAuthId(connector.id);
+						setBusy(true);
+						bridge.authorizeRemoteConnector(connector.id).then((result) => {
+							setHealth((map) => ({
+								...map,
+								[connector.id]: result
+							}));
+							notify(result.detail, !result.ok);
+							return load();
+						}).catch(() => notify(tt("connectors.remoteAuth.failed"), true)).finally(() => {
+							setRemoteAuthId(null);
+							setBusy(false);
+						});
+					},
+					children: tt(pending ? "connectors.remoteAuth.cancel" : "connectors.remoteAuth.start")
+				});
 			};
 			const onInstallOfficialSkill = async (preset) => {
 				if (preset.id !== "tencent-meeting" && preset.id !== "wecom") return;
@@ -2171,7 +2636,6 @@ window.__ModuleLoader__.load({
 									}),
 									installed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: panel_module_css_default.badge,
-										"data-success": "true",
 										children: tt("connectors.catalog.installed")
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -2226,6 +2690,7 @@ window.__ModuleLoader__.load({
 					}), installedConnector !== void 0 && preset.integration === "provider-json" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: panel_module_css_default.actionRow,
 						children: [
+							remoteAuthButton(installedConnector),
 							bridge.setConnectorEnabled !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,
@@ -2247,13 +2712,8 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,
-								disabled: busy || !canImportJson || preset.providerId === void 0,
-								onClick: () => {
-									if (preset.providerId !== void 0) openJsonImport({
-										kind: "provider-json",
-										providerId: preset.providerId
-									}, true);
-								},
+								disabled: busy,
+								onClick: () => onReconfigure(installedConnector),
 								children: tt("connectors.catalog.reconfigure")
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
@@ -2770,6 +3230,20 @@ window.__ModuleLoader__.load({
 							]
 						})
 					}),
+					editorDraft && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConnectorEditor, {
+						draft: editorDraft,
+						bridge,
+						onClose: () => setEditorDraft(null),
+						onSaved: () => {
+							setHealth((map) => {
+								const next = { ...map };
+								delete next[editorDraft.id];
+								return next;
+							});
+							setEditorDraft(null);
+							load();
+						}
+					}, editorDraft.revision),
 					formOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
 						className: panel_module_css_default.studioForm,
 						onSubmit: (event) => {
@@ -3157,6 +3631,7 @@ window.__ModuleLoader__.load({
 								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									className: panel_module_css_default.itemActions,
 									children: [
+										remoteAuthButton(connector),
 										connectorAuthProvider(connector) !== void 0 && bridge.authorizeConnector !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 											type: "button",
 											className: panel_module_css_default.secondaryButton,
@@ -3293,6 +3768,1443 @@ window.__ModuleLoader__.load({
 			"preference"
 		];
 		//#endregion
+		//#region src/client/panel/knowledge-import-state.ts
+		const initialImportState = {
+			stage: "input",
+			attemptId: 0,
+			suggestedTags: []
+		};
+		const busy = (stage) => [
+			"fetching",
+			"structuring",
+			"verification",
+			"summarizing",
+			"saving"
+		].includes(stage);
+		/** A cancelled attempt cannot publish late results into a subsequent attempt. */
+		function knowledgeImportReducer(state, event) {
+			if (event.type === "start") {
+				if (busy(state.stage) || event.attemptId <= state.attemptId) return state;
+				return {
+					...initialImportState,
+					stage: "fetching",
+					attemptId: event.attemptId,
+					requestId: event.requestId
+				};
+			}
+			if (event.type === "summarize" || event.type === "save") {
+				if (busy(state.stage) || !state.detail || event.attemptId <= state.attemptId) return state;
+				return {
+					...state,
+					attemptId: event.attemptId,
+					stage: event.type === "save" ? "saving" : "summarizing",
+					error: void 0
+				};
+			}
+			if (event.attemptId !== state.attemptId) return state;
+			if (event.type === "edited") return state.detail && state.detail.item.id === event.item.id ? {
+				...state,
+				detail: {
+					...state.detail,
+					item: event.item
+				}
+			} : state;
+			if (event.type === "reset") return {
+				...initialImportState,
+				attemptId: state.attemptId
+			};
+			if (!busy(state.stage)) return state;
+			switch (event.type) {
+				case "cancel": return {
+					...state,
+					stage: "cancelled"
+				};
+				case "failed": return {
+					...state,
+					stage: "error",
+					error: event.error
+				};
+				case "progress": return [
+					"fetching",
+					"structuring",
+					"verification"
+				].includes(state.stage) ? {
+					...state,
+					stage: event.stage
+				} : state;
+				case "captured": return [
+					"fetching",
+					"structuring",
+					"verification"
+				].includes(state.stage) ? {
+					...state,
+					stage: "preview",
+					detail: event.detail
+				} : state;
+				case "summarized": return state.stage === "summarizing" && state.detail && event.item.id === state.detail.item.id ? {
+					...state,
+					stage: "preview",
+					detail: {
+						...state.detail,
+						item: event.item
+					},
+					suggestedTags: event.suggestedTags
+				} : state;
+			}
+		}
+		function normalizeKnowledgeTag(value) {
+			return value.trim().normalize("NFC");
+		}
+		function collectKnowledgeTags(items) {
+			const result = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const item of items) {
+				if (item.status === "dismissed") continue;
+				for (const raw of item.tags) {
+					const tag = normalizeKnowledgeTag(raw);
+					if (!tag || tag === "其他" || seen.has(tag)) continue;
+					seen.add(tag);
+					result.push(tag);
+				}
+			}
+			return result.sort((left, right) => left.localeCompare(right, "zh-Hans"));
+		}
+		function mergeKnowledgeTags(selected, pending) {
+			const values = [...selected, ...pending.split(/[,，]/u)];
+			const result = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const raw of values) {
+				const tag = normalizeKnowledgeTag(raw);
+				if (!tag || seen.has(tag)) continue;
+				if (tag === "其他" || tag.length > 32 || tag.includes("..") || !/^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u.test(tag)) throw new Error("invalid-tags");
+				if (result.length >= 8) throw new Error("invalid-tags");
+				seen.add(tag);
+				result.push(tag);
+			}
+			return result;
+		}
+		/** A keyboard-friendly exact-match tag editor. “其他” is a virtual group, never a saved tag. */
+		function KnowledgeTagPicker({ selected, available, suggestions = [], onChange, label, name = "tags", disabled = false, onPendingChange, pending }) {
+			const [localQuery, setQuery] = (0, react.useState)("");
+			const query = pending ?? localQuery;
+			const composing = (0, react.useRef)(false);
+			const [warning, setWarning] = (0, react.useState)("");
+			const [dismissed, setDismissed] = (0, react.useState)([]);
+			const normalizedSelected = (0, react.useMemo)(() => uniqueTags(selected), [selected]);
+			const normalizedAvailable = (0, react.useMemo)(() => uniqueTags(available).filter((tag) => !normalizedSelected.includes(tag)), [available, normalizedSelected]);
+			const normalizedSuggestions = (0, react.useMemo)(() => uniqueTags(suggestions).filter((tag) => !normalizedSelected.includes(tag) && !dismissed.includes(tag)), [
+				dismissed,
+				normalizedSelected,
+				suggestions
+			]);
+			const matches = normalizedAvailable.filter((tag) => query.trim() === "" || tag.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+			const add = (raw) => {
+				const tag = normalizeKnowledgeTag(raw);
+				if (!tag) return;
+				if (tag === "其他") {
+					setWarning(tt("knowledge.tags.otherHint"));
+					return;
+				}
+				if (tag.length > 32) {
+					setWarning(tt("knowledge.tags.lengthHint"));
+					return;
+				}
+				try {
+					mergeKnowledgeTags([], tag);
+				} catch {
+					setWarning(tt("article.tagsInvalid"));
+					return;
+				}
+				if (normalizedSelected.includes(tag)) {
+					setQuery("");
+					onPendingChange?.("");
+					setWarning("");
+					return;
+				}
+				if (normalizedSelected.length >= 8) {
+					setWarning(tt("knowledge.tags.limitHint"));
+					return;
+				}
+				onChange([...normalizedSelected, tag]);
+				setQuery("");
+				onPendingChange?.("");
+				setWarning("");
+			};
+			const handleInput = (raw) => {
+				setQuery(raw);
+				onPendingChange?.(raw);
+				setWarning("");
+				if (composing.current || !/[,，]/u.test(raw)) return;
+				try {
+					onChange(mergeKnowledgeTags(normalizedSelected, raw));
+					setQuery("");
+					onPendingChange?.("");
+				} catch {
+					setWarning(tt("article.tagsInvalid"));
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: panel_module_css_default.knowledgeTagPicker,
+				"data-disabled": disabled ? "true" : void 0,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.knowledgeTagInput,
+						children: [normalizedSelected.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: panel_module_css_default.knowledgeTagChip,
+							"data-tag-chip": true,
+							children: [tag, /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								disabled,
+								"aria-label": tt("knowledge.tags.remove", { tag }),
+								onClick: () => onChange(normalizedSelected.filter((value) => value !== tag)),
+								children: "×"
+							})]
+						}, tag)), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							role: "combobox",
+							"aria-label": label,
+							"aria-expanded": matches.length > 0,
+							"aria-controls": `${name}-options`,
+							disabled,
+							value: query,
+							placeholder: tt("knowledge.tags.placeholder"),
+							onCompositionStart: () => {
+								composing.current = true;
+							},
+							onCompositionEnd: (event) => {
+								composing.current = false;
+								handleInput(event.currentTarget.value);
+							},
+							onChange: (event) => handleInput(event.target.value),
+							onKeyDown: (event) => {
+								if (event.key === "Enter") {
+									if (event.nativeEvent.isComposing || composing.current) return;
+									event.preventDefault();
+									add(query);
+								}
+							}
+						})]
+					}),
+					matches.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						id: `${name}-options`,
+						className: panel_module_css_default.knowledgeTagOptions,
+						role: "listbox",
+						"aria-label": tt("knowledge.tags.history"),
+						children: matches.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							role: "option",
+							disabled,
+							onClick: () => add(tag),
+							children: tag
+						}, tag))
+					}),
+					normalizedSuggestions.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.knowledgeTagSuggestions,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt("knowledge.tags.suggestions") }), normalizedSuggestions.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: panel_module_css_default.knowledgeTagSuggestion,
+							children: [
+								tag,
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									disabled,
+									"aria-label": tt("knowledge.tags.accept", { tag }),
+									onClick: () => add(tag),
+									children: "+"
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									disabled,
+									"aria-label": tt("knowledge.tags.dismiss", { tag }),
+									onClick: () => setDismissed([...dismissed, tag]),
+									children: "×"
+								})
+							]
+						}, tag))]
+					}),
+					warning && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: panel_module_css_default.knowledgeTagWarning,
+						role: "alert",
+						children: warning
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+						type: "hidden",
+						name,
+						value: [...normalizedSelected, normalizeKnowledgeTag(query)].filter(Boolean).join(","),
+						readOnly: true
+					})
+				]
+			});
+		}
+		function uniqueTags(values) {
+			const result = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const raw of values) {
+				const tag = normalizeKnowledgeTag(raw);
+				if (!tag || tag === "其他" || seen.has(tag)) continue;
+				seen.add(tag);
+				result.push(tag);
+			}
+			return result;
+		}
+		//#endregion
+		//#region src/client/panel/article-text-blocks.tsx
+		function inline(text) {
+			return text.split(/(\*\*[^*\n]+\*\*)/u).map((part, index) => /^\*\*[^*\n]+\*\*$/u.test(part) ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: part.slice(2, -2) }, index) : part);
+		}
+		function readableParagraphs(text) {
+			if (text.length <= 260 || text.includes("\n")) return [text];
+			const sentences = text.match(/[^。！？!?]+[。！？!?]+[”’」』]?|[^。！？!?]+$/gu) ?? [text];
+			const groups = [];
+			let group = "";
+			for (const sentence of sentences) {
+				group += sentence;
+				if (group.length >= 150) {
+					groups.push(group);
+					group = "";
+				}
+			}
+			if (group) groups.push(group);
+			return groups;
+		}
+		function articleTextBlocks(text, key, reflow = false, sourceUrl) {
+			const lines = text.trim().replace(/\r\n?/gu, "\n").split("\n");
+			const result = [];
+			let paragraph = [];
+			const flush = () => {
+				if (!paragraph.length) return;
+				const text = paragraph.join("\n");
+				for (const part of reflow ? readableParagraphs(text) : [text]) result.push(/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: inline(part) }, `${key}-${result.length}`));
+				paragraph = [];
+			};
+			for (let index = 0; index < lines.length; index++) {
+				const line = lines[index];
+				const heading = /^(#{1,6})\s+(.+)$/u.exec(line);
+				const list = /^\s*(?:([-*])\s+|(\d+)[.)]\s+)(.+)$/u.exec(line);
+				if (!line.trim()) {
+					flush();
+					continue;
+				}
+				if (line.trim() === "[视频内容未解析]") {
+					flush();
+					result.push(/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("figure", {
+						className: panel_module_css_default.articleVideo,
+						"aria-label": tt("article.video"),
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+								"aria-hidden": "true",
+								width: "36",
+								height: "36",
+								viewBox: "0 0 36 36",
+								fill: "none",
+								stroke: "currentColor",
+								strokeWidth: "1.5",
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("circle", {
+									cx: "18",
+									cy: "18",
+									r: "16"
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", { d: "m15 11 10 7-10 7z" })]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("article.video") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("article.videoUnsupported") }),
+							sourceUrl && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+								href: sourceUrl,
+								target: "_blank",
+								rel: "noreferrer",
+								children: tt("article.videoSource")
+							})
+						]
+					}, `${key}-${result.length}`));
+				} else if (heading) {
+					flush();
+					result.push((0, react.createElement)(`h${heading[1].length}`, { key: `${key}-${result.length}` }, inline(heading[2])));
+				} else if (list) {
+					flush();
+					const ordered = Boolean(list[2]);
+					const items = [];
+					let current = list;
+					while (current && Boolean(current[2]) === ordered) {
+						items.push(/* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", { children: inline(current[3]) }, items.length));
+						current = /^\s*(?:([-*])\s+|(\d+)[.)]\s+)(.+)$/u.exec(lines[index + 1] ?? "");
+						if (current && Boolean(current[2]) === ordered) index++;
+						else break;
+					}
+					result.push((0, react.createElement)(ordered ? "ol" : "ul", {
+						key: `${key}-${result.length}`,
+						...ordered ? { start: Number(list[2]) } : {}
+					}, items));
+				} else if (/^>\s?/u.test(line)) {
+					flush();
+					const quote = [line.replace(/^>\s?/u, "")];
+					while (/^>\s?/u.test(lines[index + 1] ?? "")) quote.push(lines[++index].replace(/^>\s?/u, ""));
+					result.push(/* @__PURE__ */ (0, react_jsx_runtime.jsx)("blockquote", { children: inline(quote.join("\n")) }, `${key}-${result.length}`));
+				} else paragraph.push(line);
+			}
+			flush();
+			return result;
+		}
+		//#endregion
+		//#region src/client/panel/SummaryBlockEditor.tsx
+		function summaryEditBlocks(text) {
+			const blocks = [];
+			let paragraph = [];
+			const flush = () => {
+				if (!paragraph.length) return;
+				for (const text of readableParagraphs(paragraph.join("\n"))) blocks.push({
+					prefix: "",
+					text
+				});
+				paragraph = [];
+			};
+			for (const line of text.replace(/\r\n?/gu, "\n").split("\n")) {
+				const structured = /^(#{1,6}\s+|\s*[-*]\s+|\s*\d+[.)]\s+|>\s?)(.*)$/u.exec(line);
+				if (!line.trim()) flush();
+				else if (structured) {
+					flush();
+					blocks.push({
+						prefix: structured[1],
+						text: structured[2]
+					});
+				} else paragraph.push(line);
+			}
+			flush();
+			return blocks.length ? blocks : [{
+				prefix: "",
+				text: ""
+			}];
+		}
+		function summaryEditText(blocks) {
+			return blocks.map((block, index) => {
+				const list = /^\s*(?:[-*]|\d+[.)])\s/u.test(block.prefix);
+				const previousList = index > 0 && /^\s*(?:[-*]|\d+[.)])\s/u.test(blocks[index - 1].prefix);
+				return `${index ? list && previousList ? "\n" : "\n\n" : ""}${block.prefix}${block.text}`;
+			}).join("");
+		}
+		function BlockInput({ block, label, disabled, onChange }) {
+			const input = (0, react.useRef)(null);
+			(0, react.useLayoutEffect)(() => {
+				if (!input.current) return;
+				input.current.style.height = "auto";
+				input.current.style.height = `${Math.min(440, input.current.scrollHeight + 2)}px`;
+			}, [block.text]);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+				ref: input,
+				"aria-label": label,
+				value: block.text,
+				disabled,
+				rows: block.prefix.startsWith("#") ? 1 : 3,
+				maxLength: 4e3,
+				onChange: (event) => onChange(event.target.value)
+			});
+		}
+		function SummaryBlockEditor({ text, disabled, onChange }) {
+			const [blocks, setBlocks] = (0, react.useState)(() => summaryEditBlocks(text));
+			const [changed, setChanged] = (0, react.useState)(false);
+			const value = changed ? summaryEditText(blocks) : text;
+			const change = (next) => {
+				setBlocks(next);
+				setChanged(true);
+				onChange(summaryEditText(next));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: panel_module_css_default.articleSummaryEditor,
+				role: "group",
+				"aria-label": tt("article.blockEditor"),
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: panel_module_css_default.summaryEditorHint,
+						children: tt("article.summaryEditorHint")
+					}),
+					blocks.map((block, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: panel_module_css_default.summaryBlock,
+						"data-kind": block.prefix.startsWith("#") ? "heading" : block.prefix ? "point" : "paragraph",
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.summaryBlockHeader,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+								tt(block.prefix.startsWith("#") ? "article.blockHeading" : block.prefix ? "article.blockPoint" : "article.blockParagraph"),
+								" ",
+								index + 1
+							] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								disabled,
+								"aria-label": tt("article.removeBlock", { index: index + 1 }),
+								onClick: () => change(blocks.length === 1 ? [{
+									prefix: "",
+									text: ""
+								}] : blocks.filter((_, i) => i !== index)),
+								children: tt("article.remove")
+							})]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BlockInput, {
+							block,
+							label: index === 0 ? tt("article.summary") : tt("article.blockContent", { index: index + 1 }),
+							disabled,
+							onChange: (value) => change(blocks.map((entry, i) => i === index ? {
+								...entry,
+								text: value
+							} : entry))
+						})]
+					}, index)),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: panel_module_css_default.secondaryButton,
+						disabled: disabled || value.length >= 3998,
+						onClick: () => change([...blocks, {
+							prefix: "",
+							text: ""
+						}]),
+						children: tt("article.addParagraph")
+					}),
+					changed && (!value.trim() || value.length > 4e3) && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						role: "alert",
+						children: tt("article.summaryLength")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("small", { children: [
+						value.length,
+						" / 4000 · ",
+						tt("article.summaryEditNotice")
+					] })
+				]
+			});
+		}
+		//#endregion
+		//#region src/client/panel/KnowledgeArticleReader.tsx
+		function safeSourceUrl(value) {
+			try {
+				const url = new URL(value ?? "");
+				return url.protocol === "https:" && !url.username && !url.password ? url.toString() : void 0;
+			} catch {
+				return;
+			}
+		}
+		function formatArticleDate(value) {
+			const date = new Date(value);
+			return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("zh-CN", {
+				dateStyle: "medium",
+				timeStyle: "short"
+			}).format(date);
+		}
+		/** Restricted text and validated cache resources; never execute source HTML. */
+		function ArticleBlocks({ text, images = [], reflow = false, sourceUrl }) {
+			const blocks = (value, key) => articleTextBlocks(value, key, reflow, safeSourceUrl(sourceUrl));
+			let cursor = 0;
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [images.flatMap((image) => {
+				const offset = Math.max(cursor, Math.min(text.length, image.offset ?? text.length));
+				const before = blocks(text.slice(cursor, offset), image.id);
+				cursor = offset;
+				return [...before, /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ArticleImage, { image }, image.id)];
+			}), blocks(text.slice(cursor), "tail")] });
+		}
+		function ArticleImage({ image }) {
+			const [failed, setFailed] = (0, react.useState)(false);
+			const [loaded, setLoaded] = (0, react.useState)(false);
+			const ready = !failed && image.status === "ready" && "data" in image && [
+				"image/png",
+				"image/jpeg",
+				"image/gif",
+				"image/webp"
+			].includes(image.mimeType ?? "");
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("figure", {
+				className: panel_module_css_default.articleImage,
+				children: ready ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
+						src: `data:${image.mimeType};base64,${image.data}`,
+						alt: image.alt || tt("article.imageUnavailable"),
+						loading: "lazy",
+						onLoad: () => setLoaded(true),
+						onError: () => setFailed(true)
+					}),
+					!loaded && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						role: "status",
+						children: tt("article.imageLoading")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("figcaption", { children: image.alt })
+				] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: panel_module_css_default.articleImagePlaceholder,
+					role: "img",
+					"aria-label": `${tt("article.imageUnavailable")}${image.alt ? `: ${image.alt}` : ""}`,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+						"aria-hidden": "true",
+						width: "24",
+						height: "24",
+						viewBox: "0 0 24 24",
+						fill: "none",
+						stroke: "currentColor",
+						strokeWidth: "1.4",
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("rect", {
+								x: "3",
+								y: "3",
+								width: "18",
+								height: "18",
+								rx: "3"
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("circle", {
+								cx: "8",
+								cy: "8",
+								r: "1.5"
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", { d: "m4 17 5-5 4 4 3-3 4 4" })
+						]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [tt("article.imageUnavailable"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt(`article.imageReason.${failed ? "format" : image.failureReason ?? "unknown"}`) })] })]
+				})
+			});
+		}
+		function KnowledgeArticleReader({ detail, api, availableTags = [], suggestions = [], busy, onChanged, onBusy, onCancelAvailable, onSaveAvailable, onConfirmed, onDirty, initialTab = "original", onSummaryDirty }) {
+			const [tab, setTab] = (0, react.useState)(initialTab);
+			const [draft, setDraft] = (0, react.useState)();
+			const [pendingTags, setPendingTags] = (0, react.useState)("");
+			const [summary, setSummary] = (0, react.useState)();
+			const [summaryEditing, setSummaryEditing] = (0, react.useState)(false);
+			const [saving, setSaving] = (0, react.useState)(false);
+			const [error, setError] = (0, react.useState)(false);
+			const scroll = (0, react.useRef)(null);
+			(0, react.useEffect)(() => {
+				if (scroll.current) scroll.current.scrollTop = 0;
+			}, [tab]);
+			const saveController = (0, react.useRef)();
+			const mounted = (0, react.useRef)(true);
+			const { item } = detail;
+			const values = draft ?? {
+				title: item.title,
+				content: item.content,
+				tags: item.tags
+			};
+			const disabled = busy || saving;
+			const dirty = draft !== void 0 && (draft.title !== item.title || draft.content !== item.content || JSON.stringify(draft.tags) !== JSON.stringify(item.tags)) || pendingTags.trim() !== "" || summary !== void 0 && summary !== item.summary?.text;
+			(0, react.useEffect)(() => {
+				onDirty?.(dirty);
+			}, [dirty, onDirty]);
+			const summaryInvalid = summary !== void 0 && (!summary.trim() || summary.length > 4e3);
+			(0, react.useEffect)(() => {
+				onSummaryDirty?.(summary !== void 0 && summary !== item.summary?.text);
+			}, [
+				summary,
+				item.summary?.text,
+				onSummaryDirty
+			]);
+			const previousSummary = (0, react.useRef)(item.summary);
+			(0, react.useEffect)(() => {
+				if (item.summary && item.summary !== previousSummary.current && item.summary.generatedAt !== previousSummary.current?.generatedAt) setTab("summary");
+				previousSummary.current = item.summary;
+			}, [item.summary]);
+			(0, react.useEffect)(() => {
+				onCancelAvailable?.(() => {
+					saveController.current?.abort();
+					saveController.current = void 0;
+					setSaving(false);
+					onBusy(false);
+				});
+				return () => onCancelAvailable?.(void 0);
+			}, [onCancelAvailable]);
+			(0, react.useEffect)(() => {
+				mounted.current = true;
+				return () => {
+					mounted.current = false;
+					saveController.current?.abort();
+				};
+			}, []);
+			const change = (key, value) => setDraft({
+				...values,
+				[key]: value
+			});
+			const save = async (confirm) => {
+				if (busy || saveController.current || summaryInvalid) return false;
+				const controller = new AbortController();
+				saveController.current = controller;
+				setSaving(true);
+				onBusy(true);
+				setError(false);
+				let current = item;
+				const active = () => mounted.current && !controller.signal.aborted && saveController.current === controller;
+				try {
+					const tags = mergeKnowledgeTags(values.tags, pendingTags);
+					if (draft || pendingTags.trim() !== "") {
+						current = await api.update(current.id, {
+							kind: current.kind,
+							title: values.title,
+							content: values.content,
+							tags,
+							category: current.category,
+							project: current.project
+						}, controller.signal);
+						if (!active()) return false;
+						onChanged(current);
+						setDraft(void 0);
+						setPendingTags("");
+					}
+					if (summary !== void 0 && current.summary && summary !== current.summary.text) {
+						current = await api.editSummary({
+							id: current.id,
+							text: summary,
+							expectedUpdatedAt: current.updatedAt
+						}, controller.signal);
+						if (!active()) return false;
+						onChanged(current);
+						setSummary(void 0);
+						setSummaryEditing(false);
+					} else if (summary !== void 0) {
+						setSummary(void 0);
+						setSummaryEditing(false);
+					}
+					if (confirm && current.status === "candidate") {
+						current = await api.confirm(current.id, controller.signal);
+						if (!active()) return false;
+						if (onConfirmed) onConfirmed(current);
+						else onChanged(current);
+					}
+					return true;
+				} catch {
+					if (active()) setError(true);
+					return false;
+				} finally {
+					if (active()) {
+						setSaving(false);
+						onBusy(false);
+					}
+					if (saveController.current === controller) saveController.current = void 0;
+				}
+			};
+			const saveRef = (0, react.useRef)(save);
+			saveRef.current = save;
+			(0, react.useEffect)(() => {
+				onSaveAvailable?.(() => saveRef.current(false));
+				return () => onSaveAvailable?.(void 0);
+			}, [onSaveAvailable]);
+			const source = safeSourceUrl(item.source.uri);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: panel_module_css_default.articleTabs,
+					role: "tablist",
+					"aria-label": tt("article.open"),
+					children: [
+						"original",
+						"summary",
+						"note"
+					].map((value) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						role: "tab",
+						"aria-selected": tab === value,
+						onClick: () => setTab(value),
+						children: tt(`article.${value}`)
+					}, value))
+				}),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					ref: scroll,
+					className: panel_module_css_default.articleScroll,
+					tabIndex: 0,
+					role: "tabpanel",
+					"aria-label": tt(`article.${tab}`),
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+							className: panel_module_css_default.articleIntro,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h1", { children: item.title }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.articleByline,
+								children: [
+									item.article?.author && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: item.article.author }),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("time", {
+										dateTime: item.source.capturedAt,
+										children: formatArticleDate(item.source.capturedAt)
+									}),
+									source ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+										href: source,
+										target: "_blank",
+										rel: "noreferrer",
+										children: item.source.label
+									}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: item.source.label })
+								]
+							})]
+						}),
+						detail.bodyKind !== "article" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgePrivacy,
+							children: tt(detail.bodyKind === "legacy-excerpt" ? "article.legacy" : "article.oldSnapshot")
+						}),
+						item.article?.truncated && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgePrivacy,
+							children: tt("article.truncated")
+						}),
+						item.article?.imagesTruncated && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.knowledgePrivacy,
+							children: tt("article.imagesTruncated")
+						}),
+						tab === "original" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: panel_module_css_default.articleProse,
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ArticleBlocks, {
+								text: detail.body,
+								images: detail.images ?? item.article?.images,
+								sourceUrl: source
+							})
+						}),
+						tab === "summary" && (item.summary ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+							className: panel_module_css_default.articleSummaryPanel,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: panel_module_css_default.articleSummaryToolbar,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: panel_module_css_default.articleSectionLabel,
+										children: tt(summaryEditing ? "article.editSummary" : "article.summary")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+										className: panel_module_css_default.articleSummaryMeta,
+										children: [
+											item.summary.provider,
+											" / ",
+											item.summary.model,
+											" · ",
+											formatArticleDate(item.summary.generatedAt),
+											item.summary.editedByUser && ` · ${tt("article.edited")}`
+										]
+									})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: panel_module_css_default.secondaryButton,
+										disabled,
+										onClick: () => {
+											setSummaryEditing((value) => !value);
+											setSummary(void 0);
+										},
+										children: summaryEditing ? tt("article.cancelEdit") : tt("article.editSummary")
+									})]
+								}),
+								item.summary.sourceTruncated && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: panel_module_css_default.knowledgePrivacy,
+									children: tt("article.partialSummary")
+								}),
+								summaryEditing ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SummaryBlockEditor, {
+									text: summary ?? item.summary.text,
+									disabled,
+									onChange: setSummary
+								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: panel_module_css_default.articleSummaryPreview,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ArticleBlocks, {
+										text: summary ?? item.summary.text,
+										reflow: true
+									})
+								})
+							]
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.articleSummaryEmpty,
+							children: tt("article.noSummary")
+						})),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							hidden: tab !== "note",
+							className: panel_module_css_default.knowledgeDialogBody,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									disabled,
+									value: values.title,
+									maxLength: 160,
+									onChange: (event) => change("title", event.target.value)
+								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [
+									tt("knowledge.form.tags"),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeTagPicker, {
+										selected: values.tags,
+										pending: pendingTags,
+										available: availableTags,
+										suggestions,
+										disabled,
+										onChange: (tags) => {
+											setDraft({
+												...values,
+												tags
+											});
+											setPendingTags("");
+										},
+										onPendingChange: setPendingTags,
+										label: tt("knowledge.form.tags")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt("article.tagsHint") })
+								] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("article.note"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+									disabled,
+									value: values.content,
+									maxLength: 4e3,
+									rows: 12,
+									onChange: (event) => change("content", event.target.value)
+								})] })
+							]
+						})
+					]
+				}),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("footer", {
+					className: panel_module_css_default.articleFooter,
+					children: [
+						error && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							role: "alert",
+							children: tt("article.saveError")
+						}),
+						saving && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							role: "status",
+							children: tt("article.saving")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.secondaryButton,
+							disabled: disabled || !dirty || summaryInvalid,
+							onClick: () => void save(false),
+							children: tt("article.save")
+						}),
+						item.status === "candidate" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: panel_module_css_default.primaryButton,
+							disabled: disabled || summaryInvalid,
+							onClick: () => void save(true),
+							children: tt("knowledge.action.confirm")
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("knowledge.confirmed") })
+					]
+				})
+			] });
+		}
+		//#endregion
+		//#region src/client/panel/KnowledgeCaptureDialog.tsx
+		function KnowledgeCaptureDialog({ api, onClose, onSaved, onConfirmed, getSessionId, initialItem, initialTab, availableTags = [] }) {
+			const [state, dispatch] = (0, react.useReducer)(knowledgeImportReducer, initialImportState);
+			const [mode, setMode] = (0, react.useState)("manual");
+			const [directory, setDirectory] = (0, react.useState)({ routes: [] });
+			const [routeId, setRouteId] = (0, react.useState)("");
+			const [modelDirectoryError, setModelDirectoryError] = (0, react.useState)(false);
+			const [directoryLoading, setDirectoryLoading] = (0, react.useState)(true);
+			const [directoryAttempt, setDirectoryAttempt] = (0, react.useState)(0);
+			const [consent, setConsent] = (0, react.useState)(false);
+			const [leaving, setLeaving] = (0, react.useState)(false);
+			const [readerBusy, setReaderBusy] = (0, react.useState)(false);
+			const [exitError, setExitError] = (0, react.useState)(false);
+			const exiting = (0, react.useRef)(false);
+			const [coarse, setCoarse] = (0, react.useState)(true);
+			const [capturedItem, setCapturedItem] = (0, react.useState)(initialItem);
+			const [captureTags, setCaptureTags] = (0, react.useState)([]);
+			const [capturePendingTags, setCapturePendingTags] = (0, react.useState)("");
+			const [readerDirty, setReaderDirty] = (0, react.useState)(false);
+			const [summaryDirty, setSummaryDirty] = (0, react.useState)(false);
+			const [seconds, setSeconds] = (0, react.useState)(0);
+			const sequence = (0, react.useRef)(0), operation = (0, react.useRef)(), mounted = (0, react.useRef)(true), autoSummaryAttempt = (0, react.useRef)();
+			const apiRef = (0, react.useRef)(api), readerCancel = (0, react.useRef)();
+			const readerSave = (0, react.useRef)();
+			apiRef.current = api;
+			const dialog = (0, react.useRef)(null);
+			const busy = [
+				"fetching",
+				"structuring",
+				"verification",
+				"summarizing",
+				"saving"
+			].includes(state.stage);
+			const refresh = () => {
+				Promise.resolve(onSaved()).catch(() => {});
+			};
+			const valid = (op) => mounted.current && operation.current === op && !op.controller.signal.aborted;
+			const cancel = () => {
+				const op = operation.current;
+				if (!op) return;
+				operation.current = void 0;
+				op.controller.abort();
+				op.desktop?.cancelKnowledgeUrlImport?.(op.requestId).catch(() => {});
+				if (mounted.current) dispatch({
+					type: "cancel",
+					attemptId: op.id
+				});
+			};
+			const begin = (type) => {
+				const op = {
+					id: ++sequence.current,
+					requestId: crypto.randomUUID(),
+					controller: new AbortController()
+				};
+				operation.current = op;
+				dispatch(type === "start" ? {
+					type,
+					attemptId: op.id,
+					requestId: op.requestId
+				} : {
+					type,
+					attemptId: op.id
+				});
+				return op;
+			};
+			const fail = (op, error) => {
+				const code = error instanceof Error ? error.message : "";
+				const safe = [
+					"invalid-tags",
+					"knowledge-model-timeout",
+					"knowledge-fetch-timeout",
+					"knowledge-revision-conflict",
+					"knowledge-model-output-truncated",
+					"knowledge-model-failed",
+					"knowledge-model-response-invalid",
+					"knowledge-model-unavailable",
+					"knowledge-model-route-unavailable",
+					"knowledge-model-directory-unavailable"
+				].includes(code) ? code : "knowledge-operation-failed";
+				if (valid(op)) dispatch({
+					type: "failed",
+					attemptId: op.id,
+					error: safe
+				});
+			};
+			const loadDetail = async (item) => {
+				if (operation.current) return;
+				const op = begin("start");
+				try {
+					const detail = await apiRef.current.detail(item.id, op.controller.signal);
+					if (valid(op)) dispatch({
+						type: "captured",
+						attemptId: op.id,
+						detail
+					});
+				} catch (error) {
+					fail(op, error);
+				} finally {
+					if (operation.current === op) operation.current = void 0;
+				}
+			};
+			const summarize = async (detail, explicitlyRequested = false) => {
+				if (!consent && !explicitlyRequested || !routeId || operation.current || readerBusy || summaryDirty) return;
+				autoSummaryAttempt.current = detail.item.id;
+				const op = begin("summarize");
+				try {
+					const sessionId = getSessionId?.();
+					const result = await apiRef.current.summarize({
+						id: detail.item.id,
+						routeId,
+						...sessionId ? { sessionId } : {},
+						confirmed: true,
+						expectedUpdatedAt: detail.item.updatedAt
+					}, op.controller.signal);
+					if (valid(op)) {
+						dispatch({
+							type: "summarized",
+							attemptId: op.id,
+							...result
+						});
+						refresh();
+					}
+				} catch (error) {
+					fail(op, error);
+				} finally {
+					if (operation.current === op) operation.current = void 0;
+				}
+			};
+			(0, react.useEffect)(() => {
+				mounted.current = true;
+				const before = document.activeElement;
+				dialog.current?.querySelector("input,button")?.focus();
+				return () => {
+					mounted.current = false;
+					cancel();
+					before?.focus();
+				};
+			}, []);
+			(0, react.useEffect)(() => {
+				const controller = new AbortController();
+				setDirectoryLoading(true);
+				setModelDirectoryError(false);
+				Promise.resolve().then(() => apiRef.current.modelRoutes?.(getSessionId?.(), controller.signal) ?? { routes: [] }).then((value) => {
+					if (!controller.signal.aborted && mounted.current) {
+						setDirectory(value);
+						setRouteId((current) => value.routes.some((route) => route.id === current) ? current : value.selectedRouteId ?? "");
+					}
+				}).catch(() => {
+					if (!controller.signal.aborted && mounted.current) setModelDirectoryError(true);
+				}).finally(() => {
+					if (!controller.signal.aborted && mounted.current) setDirectoryLoading(false);
+				});
+				return () => controller.abort();
+			}, [directoryAttempt]);
+			(0, react.useEffect)(() => {
+				if (!initialItem) return;
+				loadDetail(initialItem);
+			}, [initialItem?.id]);
+			(0, react.useEffect)(() => {
+				if (!busy) return;
+				const start = Date.now();
+				setSeconds(0);
+				const timer = setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1e3)), 1e3);
+				return () => clearInterval(timer);
+			}, [busy, state.attemptId]);
+			(0, react.useEffect)(() => {
+				const detail = state.detail;
+				if (!detail || state.stage !== "preview" || !consent || !routeId || detail.item.summary || autoSummaryAttempt.current === detail.item.id) return;
+				autoSummaryAttempt.current = detail.item.id;
+				summarize(detail);
+			}, [
+				state.detail,
+				state.stage,
+				consent,
+				routeId
+			]);
+			const submit = async (event) => {
+				event.preventDefault();
+				if (operation.current || busy) return;
+				const data = new FormData(event.currentTarget);
+				const op = begin("start");
+				let unsubscribe;
+				try {
+					const category = String(data.get("category") ?? "").trim();
+					const tags = mergeKnowledgeTags(captureTags, capturePendingTags);
+					if (tags.length > 8 || tags.some((tag) => tag.length > 32 || tag === "其他")) throw new Error("invalid-tags");
+					let item;
+					if (mode === "url") {
+						const url = String(data.get("url") ?? "").trim();
+						const desktop = getDesktopBridge();
+						const parsed = new URL(url);
+						if (parsed.protocol !== "https:") throw new Error("invalid-url");
+						if (parsed.hostname === "mp.weixin.qq.com" && desktop?.startKnowledgeUrlImport && desktop.cancelKnowledgeUrlImport && desktop.onKnowledgeImportProgress) {
+							op.desktop = desktop;
+							setCoarse(false);
+							unsubscribe = desktop.onKnowledgeImportProgress((progress) => {
+								if (valid(op) && progress.requestId === op.requestId) dispatch({
+									type: "progress",
+									attemptId: op.id,
+									stage: progress.stage
+								});
+							});
+							const imported = await desktop.startKnowledgeUrlImport({
+								url,
+								requestId: op.requestId
+							});
+							if (!valid(op)) return;
+							item = await api.create({
+								kind: "fact",
+								title: imported.title,
+								content: imported.content,
+								category: category || void 0,
+								tags,
+								confidence: .6,
+								source: imported.source
+							}, imported.snapshot, op.controller.signal, {
+								article: imported.article,
+								articleResources: imported.articleResources,
+								requestId: op.requestId
+							});
+						} else {
+							setCoarse(true);
+							item = await api.importUrl({
+								url,
+								category: category || void 0,
+								tags,
+								requestId: op.requestId
+							}, op.controller.signal);
+						}
+					} else {
+						const title = String(data.get("title") ?? "").trim(), content = String(data.get("content") ?? "").trim();
+						item = await api.create({
+							kind: String(data.get("kind") ?? "fact"),
+							title,
+							content,
+							category: category || void 0,
+							tags,
+							confidence: 1,
+							source: {
+								kind: "manual",
+								label: title
+							}
+						}, content, op.controller.signal, { requestId: op.requestId });
+					}
+					refresh();
+					if (!valid(op)) return;
+					setCapturedItem(item);
+					const detail = await api.detail(item.id, op.controller.signal);
+					if (!valid(op)) return;
+					dispatch({
+						type: "captured",
+						attemptId: op.id,
+						detail
+					});
+					operation.current = void 0;
+				} catch (error) {
+					fail(op, error);
+				} finally {
+					unsubscribe?.();
+					if (operation.current === op) operation.current = void 0;
+				}
+			};
+			const close = () => {
+				if (!busy && !readerBusy && !readerDirty) {
+					onClose();
+					return;
+				}
+				setLeaving(true);
+			};
+			const saveAndClose = async () => {
+				if (exiting.current || busy || readerBusy) return;
+				exiting.current = true;
+				try {
+					if (await readerSave.current?.() && mounted.current) onClose();
+					else if (mounted.current) setLeaving(false);
+				} finally {
+					exiting.current = false;
+				}
+			};
+			const leave = async (discard) => {
+				if (exiting.current) return;
+				exiting.current = true;
+				readerCancel.current?.();
+				cancel();
+				const current = state.detail?.item ?? capturedItem;
+				try {
+					if (discard && current?.status === "candidate") await api.dismiss(current.id);
+					if (mounted.current) {
+						refresh();
+						onClose();
+					}
+				} catch {
+					if (mounted.current) {
+						setExitError(true);
+						setLeaving(false);
+					}
+				} finally {
+					exiting.current = false;
+				}
+			};
+			const modelControls = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: panel_module_css_default.articleModel,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("article.model"), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+						disabled: busy || readerBusy || directoryLoading || modelDirectoryError,
+						value: routeId,
+						onChange: (event) => setRouteId(event.target.value),
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "",
+							children: tt(directoryLoading ? "article.modelsLoading" : modelDirectoryError ? "article.modelsFailed" : directory.routes.length ? "article.chooseModel" : "article.noModel")
+						}), directory.routes.map((route) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: route.id,
+							children: route.displayName
+						}, route.id))]
+					})] }),
+					modelDirectoryError && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: panel_module_css_default.articleError,
+						role: "alert",
+						children: tt("article.modelDirectoryFailed")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						disabled: busy || readerBusy,
+						onClick: () => setDirectoryAttempt((value) => value + 1),
+						children: tt("article.retryModels")
+					})] }),
+					state.detail ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tt("article.generateNotice") }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							disabled: busy || readerBusy || !routeId || summaryDirty,
+							onClick: () => void summarize(state.detail, true),
+							children: tt("article.generate")
+						}),
+						summaryDirty && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", {
+							role: "status",
+							children: tt("article.saveSummaryFirst")
+						})
+					] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+						type: "checkbox",
+						checked: consent,
+						disabled: busy || readerBusy || !routeId,
+						onChange: (event) => setConsent(event.target.checked)
+					}), tt("article.consent")] })
+				]
+			});
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				className: `${panel_module_css_default.connectorOverlay} ${panel_module_css_default.articleOverlay}`,
+				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					ref: dialog,
+					className: panel_module_css_default.articleDialog,
+					"data-view": state.detail || initialItem ? "reader" : "capture",
+					role: "dialog",
+					"aria-modal": "true",
+					"aria-label": tt(state.detail || initialItem ? "article.readerTitle" : "knowledge.capture.title"),
+					onKeyDown: (event) => {
+						if (event.key === "Escape") {
+							event.preventDefault();
+							close();
+						}
+						if (event.key === "Tab") {
+							const nodes = [...dialog.current?.querySelectorAll("button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex=\"0\"]") ?? []].filter((node) => !node.closest("[hidden]"));
+							const first = nodes[0], last = nodes[nodes.length - 1];
+							if (event.shiftKey && document.activeElement === first) {
+								event.preventDefault();
+								last?.focus();
+							}
+							if (!event.shiftKey && document.activeElement === last) {
+								event.preventDefault();
+								first?.focus();
+							}
+						}
+					},
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+							className: panel_module_css_default.articleHeader,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", { children: tt(state.detail || initialItem ? "article.readerTitle" : "knowledge.capture.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: panel_module_css_default.secondaryButton,
+								onClick: close,
+								children: tt("common.close")
+							})]
+						}),
+						exitError && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							role: "alert",
+							children: tt("article.saveError")
+						}),
+						busy && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.articleProgress,
+							role: "status",
+							"data-stage": state.stage,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: panel_module_css_default.articleSpinner }),
+								tt(state.stage === "fetching" && coarse ? "article.coarse" : `article.${state.stage}`),
+								" · ",
+								tt("article.elapsed", { seconds }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									onClick: cancel,
+									children: tt("article.cancel")
+								})
+							]
+						}),
+						state.stage === "cancelled" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							role: "status",
+							children: tt("article.cancelled")
+						}),
+						state.stage === "error" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: panel_module_css_default.articleError,
+							role: "alert",
+							children: tt(state.error === "invalid-tags" ? "article.tagsInvalid" : state.error?.includes("timeout") ? "article.timeout" : state.error === "knowledge-revision-conflict" ? "article.conflict" : state.error === "knowledge-model-output-truncated" ? "article.modelOutputTruncated" : state.error === "knowledge-model-response-invalid" ? "article.modelResponseInvalid" : state.error === "knowledge-model-failed" ? "article.modelFailed" : state.error === "knowledge-model-route-unavailable" ? "article.modelRouteUnavailable" : state.error === "knowledge-model-directory-unavailable" ? "article.modelDirectoryFailed" : state.error === "knowledge-model-unavailable" ? "article.modelUnavailable" : "article.error")
+						}),
+						leaving && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.articleExit,
+							role: "alert",
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt(busy || readerBusy ? "article.leaveBusy" : "article.leave") }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									onClick: () => setLeaving(false),
+									children: tt("article.stay")
+								}),
+								readerDirty && !busy && !readerBusy && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									onClick: () => void saveAndClose(),
+									children: tt("article.saveClose")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									onClick: () => void leave(false),
+									children: tt(busy || readerBusy ? "article.cancelClose" : readerDirty ? "article.discardEdits" : "article.keep")
+								})
+							]
+						}),
+						state.detail ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [modelControls, /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeArticleReader, {
+							detail: state.detail,
+							initialTab,
+							onSummaryDirty: setSummaryDirty,
+							api,
+							availableTags,
+							suggestions: state.suggestedTags,
+							busy,
+							onBusy: setReaderBusy,
+							onDirty: setReaderDirty,
+							onSaveAvailable: (save) => {
+								readerSave.current = save;
+							},
+							onCancelAvailable: (cancel) => {
+								readerCancel.current = cancel;
+							},
+							onConfirmed: (item) => {
+								if (onConfirmed) onConfirmed(item);
+								else onClose();
+							},
+							onChanged: (item) => {
+								dispatch({
+									type: "edited",
+									attemptId: state.attemptId,
+									item
+								});
+								refresh();
+							}
+						}, state.detail.item.id)] }) : capturedItem ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: panel_module_css_default.articleScroll,
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								disabled: busy || leaving,
+								onClick: () => void loadDetail(capturedItem),
+								children: tt("article.retryDetail")
+							})
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+							className: panel_module_css_default.articleForm,
+							onSubmit: (event) => void submit(event),
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: panel_module_css_default.knowledgeCaptureModes,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										"data-active": mode === "manual" || void 0,
+										disabled: busy || Boolean(initialItem),
+										onClick: () => setMode("manual"),
+										children: tt("knowledge.capture.manual")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										"data-active": mode === "url" || void 0,
+										disabled: busy || Boolean(initialItem),
+										onClick: () => setMode("url"),
+										children: tt("knowledge.capture.url")
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: `${panel_module_css_default.knowledgeDialogBody} ${panel_module_css_default.articleScroll}`,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("fieldset", {
+										disabled: busy || leaving,
+										children: [
+											mode === "url" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.url"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+												name: "url",
+												type: "url",
+												required: true
+											})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+													name: "title",
+													maxLength: 160,
+													required: true
+												})] }),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.content"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+													name: "content",
+													rows: 6,
+													maxLength: 4e3,
+													required: true
+												})] }),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.kind"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+													name: "kind",
+													defaultValue: "fact",
+													children: KNOWLEDGE_KINDS.map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+														value: kind,
+														children: tt(`knowledge.kind.${kind}`)
+													}, kind))
+												})] })
+											] }),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.category"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+												name: "category",
+												maxLength: 64
+											})] }),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [
+												tt("knowledge.form.tags"),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeTagPicker, {
+													selected: captureTags,
+													available: availableTags,
+													onChange: setCaptureTags,
+													onPendingChange: setCapturePendingTags,
+													label: tt("knowledge.form.tags")
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt("article.tagsHint") })
+											] })
+										]
+									}), modelControls]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", {
+									className: panel_module_css_default.articleFooter,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "submit",
+										className: panel_module_css_default.primaryButton,
+										disabled: busy || leaving || Boolean(initialItem),
+										children: mode === "url" ? tt("article.start") : tt("knowledge.capture.submit")
+									})
+								})
+							]
+						})
+					]
+				})
+			});
+		}
+		//#endregion
 		//#region src/client/panel/KnowledgeTab.tsx
 		const KIND_KEYS = {
 			decision: "knowledge.kind.decision",
@@ -3304,23 +5216,36 @@ window.__ModuleLoader__.load({
 		/** Searchable single-workspace knowledge inbox and library. */
 		function KnowledgeTab({ api, refreshKey, notify, getSessionId = () => void 0 }) {
 			const [items, setItems] = (0, react.useState)([]);
+			const [deletedItems, setDeletedItems] = (0, react.useState)([]);
 			const [loading, setLoading] = (0, react.useState)(true);
 			const [busyId, setBusyId] = (0, react.useState)();
 			const [view, setView] = (0, react.useState)("all");
 			const [query, setQuery] = (0, react.useState)("");
 			const [category, setCategory] = (0, react.useState)("");
+			const [tagFilter, setTagFilter] = (0, react.useState)("");
 			const [captureOpen, setCaptureOpen] = (0, react.useState)(false);
+			const [reading, setReading] = (0, react.useState)();
+			const [readingTab, setReadingTab] = (0, react.useState)("original");
 			const [editing, setEditing] = (0, react.useState)(null);
 			const [refining, setRefining] = (0, react.useState)(null);
+			const [draggingId, setDraggingId] = (0, react.useState)();
+			const loadSequence = (0, react.useRef)(0);
 			const load = (0, react.useCallback)(async () => {
-				const next = await api.list();
-				setItems(next.filter((item) => item.status !== "dismissed"));
+				const sequence = ++loadSequence.current;
+				const [next, deleted] = await Promise.all([api.list(), api.listTrash?.() ?? []]);
+				if (sequence === loadSequence.current) {
+					setItems(next.filter((item) => item.status !== "dismissed"));
+					setDeletedItems(deleted);
+				}
 			}, [api]);
 			(0, react.useEffect)(() => {
 				let active = true;
 				setLoading(true);
-				api.list().then((next) => {
-					if (active) setItems(next.filter((item) => item.status !== "dismissed"));
+				Promise.all([api.list(), api.listTrash?.() ?? []]).then(([next, deleted]) => {
+					if (active) {
+						setItems(next.filter((item) => item.status !== "dismissed"));
+						setDeletedItems(deleted);
+					}
 				}).catch((error) => {
 					if (active) notify(tt("knowledge.loadError", { error: errorMessage(error) }), true);
 				}).finally(() => {
@@ -3338,16 +5263,45 @@ window.__ModuleLoader__.load({
 				candidate: items.filter((item) => item.status === "candidate").length,
 				confirmed: items.filter((item) => item.status === "confirmed").length
 			}), [items]);
-			const categories = (0, react.useMemo)(() => [...new Set(items.flatMap((item) => item.category === void 0 ? [] : [item.category]))].sort(), [items]);
+			const categories = (0, react.useMemo)(() => [...new Set((view === "trash" ? deletedItems : items).flatMap((item) => item.category === void 0 ? [] : [item.category]))].sort(), [
+				items,
+				deletedItems,
+				view
+			]);
+			const historicalTags = (0, react.useMemo)(() => collectKnowledgeTags(items), [items]);
 			const visible = (0, react.useMemo)(() => {
 				const needle = query.trim().toLocaleLowerCase();
-				return items.filter((item) => (view === "all" || item.status === view) && (category === "" || item.category === category) && (needle === "" || `${item.title}\n${item.content}\n${item.tags.join(" ")}\n${item.category ?? ""}`.toLocaleLowerCase().includes(needle)));
+				return (view === "trash" ? deletedItems : items).filter((item) => (view === "all" || view === "trash" || item.status === view) && (category === "" || item.category === category) && (tagFilter === "" || (tagFilter === "__other__" ? item.tags.length === 0 : item.tags.includes(tagFilter))) && (needle === "" || `${item.title}\n${item.content}\n${item.tags.join(" ")}\n${item.category ?? ""}`.toLocaleLowerCase().includes(needle)));
 			}, [
 				category,
 				items,
+				deletedItems,
 				query,
+				tagFilter,
 				view
 			]);
+			const removeOrRestore = async (item) => {
+				const restoring = view === "trash";
+				if (!restoring && !window.confirm(tt("knowledge.delete.confirm", { title: item.title }))) return;
+				setBusyId(item.id);
+				try {
+					if (restoring) {
+						if (!api.restore) return;
+						await api.restore(item.id);
+						setDeletedItems((current) => current.filter((value) => value.id !== item.id));
+					} else {
+						if (!api.trash) return;
+						await api.trash(item.id, item.updatedAt);
+						setItems((current) => current.filter((value) => value.id !== item.id));
+					}
+					notify(tt(restoring ? "knowledge.restore.done" : "knowledge.delete.done"));
+					await load().catch(() => notify(tt("article.refreshFailed"), true));
+				} catch (error) {
+					notify(errorMessage(error) === "knowledge-revision-conflict" ? tt("article.conflict") : tt("knowledge.delete.failed"), true);
+				} finally {
+					setBusyId(void 0);
+				}
+			};
 			const transition = async (item, action) => {
 				setBusyId(item.id);
 				try {
@@ -3359,6 +5313,34 @@ window.__ModuleLoader__.load({
 				} finally {
 					setBusyId(void 0);
 				}
+			};
+			const moveTag = async (item, to) => {
+				if (item.status !== "confirmed" || api.moveTag === void 0) return;
+				const from = tagFilter === "" || tagFilter === "__other__" || !item.tags.includes(tagFilter) ? null : tagFilter;
+				if (to !== null && from === to) return;
+				if (to === null && !window.confirm(tt("knowledge.tags.moveConfirm"))) return;
+				try {
+					const updated = await api.moveTag(item.id, from, to, item.updatedAt);
+					setItems((current) => current.map((value) => value.id === updated.id ? updated : value));
+					notify(tt("knowledge.tags.moveSuccess"));
+				} catch (error) {
+					const code = errorMessage(error);
+					notify(code === "knowledge-revision-conflict" ? tt("article.conflict") : code === "knowledge-tag-limit" ? tt("knowledge.tags.overflow") : tt("knowledge.tags.moveFailed"), true);
+				}
+			};
+			const dropOnTag = (event, to) => {
+				event.preventDefault();
+				event.stopPropagation();
+				const raw = event.dataTransfer.getData("application/x-jiwei-knowledge-tag");
+				setDraggingId(void 0);
+				if (to === "__all__") return;
+				if (!raw) return;
+				try {
+					const payload = JSON.parse(raw);
+					if (typeof payload.id !== "string") return;
+					const item = items.find((value) => value.id === payload.id);
+					if (item) moveTag(item, to);
+				} catch {}
 			};
 			if (loading) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 				className: panel_module_css_default.knowledgeEmpty,
@@ -3387,92 +5369,170 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 						className: panel_module_css_default.knowledgeWorkspace,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
-							className: panel_module_css_default.knowledgeWorkspaceHeader,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: panel_module_css_default.knowledgeTabs,
-								role: "tablist",
-								"aria-label": tt("knowledge.views"),
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
-										active: view === "all",
-										onClick: () => {
-											setView("all");
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", {
+								className: panel_module_css_default.knowledgeWorkspaceHeader,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: panel_module_css_default.knowledgeTabs,
+									role: "tablist",
+									"aria-label": tt("knowledge.views"),
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+											active: view === "all",
+											onClick: () => {
+												setView("all");
+											},
+											label: tt("knowledge.view.all"),
+											count: items.length
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+											active: view === "candidate",
+											onClick: () => {
+												setView("candidate");
+											},
+											label: tt("knowledge.pending"),
+											count: counts.candidate
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+											active: view === "confirmed",
+											onClick: () => {
+												setView("confirmed");
+											},
+											label: tt("knowledge.confirmed"),
+											count: counts.confirmed
+										}),
+										api.listTrash && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
+											active: view === "trash",
+											onClick: () => {
+												setView("trash");
+												setCategory("");
+												setTagFilter("");
+												setQuery("");
+											},
+											label: tt("knowledge.trash"),
+											count: deletedItems.length
+										})
+									]
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: panel_module_css_default.knowledgeFilters,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										type: "search",
+										value: query,
+										onChange: (event) => {
+											setQuery(event.target.value);
 										},
-										label: tt("knowledge.view.all"),
+										placeholder: tt("knowledge.search"),
+										"aria-label": tt("knowledge.search")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+										value: category,
+										onChange: (event) => {
+											setCategory(event.target.value);
+										},
+										"aria-label": tt("knowledge.category"),
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "",
+											children: tt("knowledge.category.all")
+										}), categories.map((value) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value,
+											children: value
+										}, value))]
+									})]
+								})]
+							}),
+							view !== "trash" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("nav", {
+								className: panel_module_css_default.knowledgeTagNav,
+								"aria-label": tt("knowledge.tags.history"),
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TagFilterButton, {
+										active: tagFilter === "",
+										onClick: () => setTagFilter(""),
+										onDrop: (event) => dropOnTag(event, "__all__"),
+										label: tt("knowledge.tags.all"),
 										count: items.length
 									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
-										active: view === "candidate",
-										onClick: () => {
-											setView("candidate");
-										},
-										label: tt("knowledge.pending"),
-										count: counts.candidate
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ViewButton, {
-										active: view === "confirmed",
-										onClick: () => {
-											setView("confirmed");
-										},
-										label: tt("knowledge.confirmed"),
-										count: counts.confirmed
+									historicalTags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(TagFilterButton, {
+										active: tagFilter === tag,
+										onClick: () => setTagFilter(tag),
+										onDrop: (event) => dropOnTag(event, tag),
+										label: tag,
+										count: items.filter((item) => item.tags.includes(tag)).length
+									}, tag)),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(TagFilterButton, {
+										active: tagFilter === "__other__",
+										onClick: () => setTagFilter("__other__"),
+										onDrop: (event) => dropOnTag(event, null),
+										label: tt("knowledge.tags.other"),
+										count: items.filter((item) => item.tags.length === 0).length
 									})
 								]
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: panel_module_css_default.knowledgeFilters,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									type: "search",
-									value: query,
-									onChange: (event) => {
-										setQuery(event.target.value);
+							}),
+							view === "trash" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: panel_module_css_default.knowledgePrivacy,
+								children: tt("knowledge.trash.hint")
+							}),
+							visible.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: panel_module_css_default.knowledgeEmpty,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("knowledge.filtered.empty.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("knowledge.filtered.empty") })]
+							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: panel_module_css_default.knowledgeGrid,
+								children: visible.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeCard, {
+									deleted: view === "trash",
+									onDelete: api.trash && api.restore ? () => {
+										removeOrRestore(item);
+									} : void 0,
+									item,
+									busy: busyId === item.id,
+									dragging: draggingId === item.id,
+									availableTags: historicalTags,
+									onDragStart: (event) => {
+										if (event.target.closest("input,textarea,select,button,a")) return;
+										event.dataTransfer.setData("application/x-jiwei-knowledge-tag", JSON.stringify({ id: item.id }));
+										event.dataTransfer.effectAllowed = "move";
+										setDraggingId(item.id);
 									},
-									placeholder: tt("knowledge.search"),
-									"aria-label": tt("knowledge.search")
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-									value: category,
-									onChange: (event) => {
-										setCategory(event.target.value);
+									onDragEnd: () => setDraggingId(void 0),
+									onMove: (to) => {
+										moveTag(item, to);
 									},
-									"aria-label": tt("knowledge.category"),
-									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-										value: "",
-										children: tt("knowledge.category.all")
-									}), categories.map((value) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-										value,
-										children: value
-									}, value))]
-								})]
-							})]
-						}), visible.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: panel_module_css_default.knowledgeEmpty,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: tt("knowledge.filtered.empty.title") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: tt("knowledge.filtered.empty") })]
-						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							className: panel_module_css_default.knowledgeGrid,
-							children: visible.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeCard, {
-								item,
-								busy: busyId === item.id,
-								onEdit: setEditing,
-								onRefine: setRefining,
-								onTransition: transition
-							}, item.id))
-						})]
+									onRead: (item, tab = "original") => {
+										setReadingTab(tab);
+										setReading(item);
+									},
+									onEdit: setEditing,
+									onRefine: setRefining,
+									onTransition: transition
+								}, item.id))
+							})
+						]
 					}),
-					captureOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CaptureDialog, {
+					(captureOpen || reading) && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeCaptureDialog, {
 						api,
+						initialItem: reading,
+						initialTab: reading ? readingTab : void 0,
+						availableTags: historicalTags,
+						getSessionId,
 						onClose: () => {
 							setCaptureOpen(false);
+							setReading(void 0);
+							load().catch(() => {});
 						},
-						onSaved: async () => {
+						onConfirmed: (item) => {
+							setItems((current) => current.some((value) => value.id === item.id) ? current.map((value) => value.id === item.id ? item : value) : [...current, item]);
+							setView("confirmed");
+							setQuery("");
+							setCategory("");
+							setTagFilter("");
 							setCaptureOpen(false);
-							await load();
-							notify(tt("knowledge.createdToast"));
+							setReading(void 0);
+							notify(tt("knowledge.confirmedToast"));
+							load().catch(() => notify(tt("article.refreshFailed"), true));
 						},
-						notify
+						onSaved: load
 					}),
 					editing !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(EditDialog, {
 						item: editing,
 						api,
+						availableTags: historicalTags,
 						onClose: () => {
 							setEditing(null);
 						},
@@ -3510,9 +5570,31 @@ window.__ModuleLoader__.load({
 				children: [label, /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: count })]
 			});
 		}
-		function KnowledgeCard({ item, busy, onEdit, onRefine, onTransition }) {
+		function TagFilterButton({ active, onClick, onDrop, label, count }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+				type: "button",
+				"data-active": active ? "true" : void 0,
+				"aria-pressed": active,
+				onClick,
+				onDragOver: (event) => {
+					event.preventDefault();
+					event.dataTransfer.dropEffect = "move";
+				},
+				onDrop,
+				children: [label, /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: count })]
+			});
+		}
+		function KnowledgeCard({ deleted, onDelete, item, busy, dragging, availableTags, onDragStart, onDragEnd, onMove, onRead, onEdit, onRefine, onTransition }) {
+			const article = item.article !== void 0 || item.source.kind === "url";
+			const source = safeSourceUrl(item.source.uri);
+			const movable = !deleted && item.status === "confirmed";
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("article", {
 				className: panel_module_css_default.knowledgeCard,
+				draggable: movable,
+				"data-draggable": movable ? "true" : void 0,
+				"data-dragging": dragging ? "true" : void 0,
+				onDragStart,
+				onDragEnd,
 				children: [
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: panel_module_css_default.knowledgeCardHeader,
@@ -3522,220 +5604,120 @@ window.__ModuleLoader__.load({
 						}), item.category !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: panel_module_css_default.knowledgeCategory,
 							children: item.category
-						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						})] }), !article && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: panel_module_css_default.knowledgeConfidence,
 							children: tt("knowledge.confidence", { value: Math.round(item.confidence * 100) })
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", { children: item.title }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: item.content }),
+					article && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt(item.summary ? "article.summary" : "article.excerpt") }),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: panel_module_css_default.articleExcerpt,
+						children: (item.summary?.text.split(/\n\s*\n/u)[0].replace(/^#{1,6}\s+/u, "").replace(/\*\*(.*?)\*\*/gu, "$1") ?? item.article?.excerpt ?? item.content).slice(0, 180)
+					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("dl", {
 						className: panel_module_css_default.knowledgeMeta,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("dt", { children: tt("knowledge.source") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("dd", { children: item.source.uri === void 0 ? item.source.label : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
-							href: item.source.uri,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("dt", { children: tt("knowledge.source") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("dd", { children: source === void 0 ? item.source.label : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+							href: source,
 							target: "_blank",
 							rel: "noreferrer",
 							children: item.source.label
 						}) })] }), item.project !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("dt", { children: tt("knowledge.project") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("dd", { children: item.project })] })]
 					}),
-					item.tags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: panel_module_css_default.knowledgeTags,
-						children: item.tags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tag }, tag))
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: panel_module_css_default.knowledgeActions,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("footer", {
+						className: panel_module_css_default.knowledgeCardFooter,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeCardTaxonomy,
+							children: [item.tags.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: panel_module_css_default.knowledgeTags,
+								children: item.tags.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: tag }, tag))
+							}), movable && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: panel_module_css_default.knowledgeMoveMenu,
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+									"aria-label": tt("knowledge.tags.move"),
+									defaultValue: "",
+									disabled: busy,
+									onChange: (event) => {
+										const value = event.target.value;
+										event.currentTarget.value = "";
+										if (value) onMove(value === "__other__" ? null : value);
+									},
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "",
+											children: tt("knowledge.tags.move")
+										}),
+										availableTags.filter((tag) => !item.tags.includes(tag)).map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: tag,
+											children: tag
+										}, tag)),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+											value: "__other__",
+											children: tt("knowledge.tags.moveOther")
+										})
+									]
+								})
+							})]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: panel_module_css_default.knowledgeActions,
+							children: [!deleted && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.secondaryButton,
+									onClick: () => onRead(item),
+									children: tt("article.open")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.secondaryButton,
+									disabled: busy,
+									onClick: () => {
+										article ? onRead(item, "note") : onEdit(item);
+									},
+									children: tt("knowledge.action.edit")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.secondaryButton,
+									disabled: busy,
+									onClick: () => {
+										article ? onRead(item, "summary") : onRefine(item);
+									},
+									children: tt("knowledge.action.refine")
+								}),
+								item.status === "candidate" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.secondaryButton,
+									disabled: busy,
+									onClick: () => {
+										onTransition(item, "dismiss");
+									},
+									children: tt("knowledge.action.dismiss")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: panel_module_css_default.primaryButton,
+									disabled: busy,
+									onClick: () => {
+										onTransition(item, "confirm");
+									},
+									children: tt("knowledge.action.confirm")
+								})] })
+							] }), onDelete && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: panel_module_css_default.secondaryButton,
 								disabled: busy,
-								onClick: () => {
-									onEdit(item);
-								},
-								children: tt("knowledge.action.edit")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: panel_module_css_default.secondaryButton,
-								disabled: busy,
-								onClick: () => {
-									onRefine(item);
-								},
-								children: tt("knowledge.action.refine")
-							}),
-							item.status === "candidate" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: panel_module_css_default.secondaryButton,
-								disabled: busy,
-								onClick: () => {
-									onTransition(item, "dismiss");
-								},
-								children: tt("knowledge.action.dismiss")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: panel_module_css_default.primaryButton,
-								disabled: busy,
-								onClick: () => {
-									onTransition(item, "confirm");
-								},
-								children: tt("knowledge.action.confirm")
-							})] })
-						]
+								onClick: onDelete,
+								children: tt(deleted ? "knowledge.restore" : "knowledge.delete")
+							})]
+						})]
 					})
 				]
 			});
 		}
-		function CaptureDialog({ api, onClose, onSaved, notify }) {
-			const [mode, setMode] = (0, react.useState)("manual");
+		function EditDialog({ item, api, availableTags, onClose, onSaved, notify }) {
 			const [busy, setBusy] = (0, react.useState)(false);
-			const submit = async (event) => {
-				event.preventDefault();
-				setBusy(true);
-				const data = new FormData(event.currentTarget);
-				try {
-					const category = optionalField(data, "category");
-					const tags = tagsField(data);
-					if (mode === "url") {
-						const url = requiredField(data, "url");
-						const desktop = getDesktopBridge();
-						if (isWeChatArticleUrl(url) && desktop?.importKnowledgeUrl !== void 0) {
-							const imported = await desktop.importKnowledgeUrl(url);
-							await api.create({
-								kind: "fact",
-								title: imported.title,
-								content: imported.content,
-								...category ? { category } : {},
-								...tags.length ? { tags } : {},
-								confidence: .6,
-								source: imported.source
-							}, imported.snapshot);
-						} else await api.importUrl({
-							url,
-							...category ? { category } : {},
-							...tags.length ? { tags } : {}
-						});
-					} else {
-						const title = requiredField(data, "title");
-						const content = requiredField(data, "content");
-						const proposal = {
-							kind: requiredField(data, "kind"),
-							title,
-							content,
-							...category ? { category } : {},
-							...tags.length ? { tags } : {},
-							confidence: 1,
-							source: {
-								kind: "manual",
-								label: title
-							}
-						};
-						await api.create(proposal, content);
-					}
-					await onSaved();
-				} catch (error) {
-					notify(tt("common.error", { error: errorMessage(error) }), true);
-				} finally {
-					setBusy(false);
-				}
-			};
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-				className: panel_module_css_default.connectorOverlay,
-				role: "dialog",
-				"aria-modal": "true",
-				"aria-labelledby": "knowledge-capture-title",
-				children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
-					className: panel_module_css_default.knowledgeDialog,
-					onSubmit: (event) => {
-						submit(event);
-					},
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("header", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: panel_module_css_default.knowledgeEyebrow,
-							children: tt("knowledge.capture.eyebrow")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-							id: "knowledge-capture-title",
-							children: tt("knowledge.capture.title")
-						})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: panel_module_css_default.secondaryButton,
-							onClick: onClose,
-							children: tt("common.close")
-						})] }),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: panel_module_css_default.knowledgeCaptureModes,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								"data-active": mode === "manual" ? "true" : void 0,
-								onClick: () => {
-									setMode("manual");
-								},
-								children: tt("knowledge.capture.manual")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								"data-active": mode === "url" ? "true" : void 0,
-								onClick: () => {
-									setMode("url");
-								},
-								children: tt("knowledge.capture.url")
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: panel_module_css_default.knowledgeDialogBody,
-							children: [
-								mode === "manual" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.title"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-										name: "title",
-										maxLength: 160,
-										required: true
-									})] }),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.content"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
-										name: "content",
-										rows: 10,
-										maxLength: 4e3,
-										required: true
-									})] }),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.kind"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
-										name: "kind",
-										defaultValue: "fact",
-										children: KNOWLEDGE_KINDS.map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-											value: kind,
-											children: tt(KIND_KEYS[kind])
-										}, kind))
-									})] })
-								] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.url"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									name: "url",
-									type: "url",
-									inputMode: "url",
-									placeholder: "https://",
-									required: true
-								})] }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.category"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									name: "category",
-									maxLength: 64,
-									placeholder: tt("knowledge.category.placeholder")
-								})] }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.tags"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									name: "tags",
-									placeholder: tt("knowledge.form.tags.placeholder")
-								})] }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-									className: panel_module_css_default.knowledgePrivacy,
-									children: tt("knowledge.capture.localOnly")
-								})
-							]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("footer", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "submit",
-							className: panel_module_css_default.primaryButton,
-							disabled: busy,
-							children: tt("knowledge.capture.submit")
-						}) })
-					]
-				})
-			});
-		}
-		function EditDialog({ item, api, onClose, onSaved, notify }) {
-			const [busy, setBusy] = (0, react.useState)(false);
+			const [tags, setTags] = (0, react.useState)(item.tags);
+			const [pendingTags, setPendingTags] = (0, react.useState)("");
 			const submit = async (event) => {
 				event.preventDefault();
 				setBusy(true);
@@ -3749,7 +5731,7 @@ window.__ModuleLoader__.load({
 						content: requiredField(data, "content"),
 						...project ? { project } : {},
 						...category ? { category } : {},
-						tags: tagsField(data)
+						tags: mergeKnowledgeTags(tags, pendingTags)
 					};
 					await api.update(item.id, update);
 					await onSaved();
@@ -3816,10 +5798,20 @@ window.__ModuleLoader__.load({
 									defaultValue: item.category ?? "",
 									maxLength: 64
 								})] }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [tt("knowledge.form.tags"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									name: "tags",
-									defaultValue: item.tags.join(", ")
-								})] }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [
+									tt("knowledge.form.tags"),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(KnowledgeTagPicker, {
+										selected: tags,
+										available: availableTags,
+										onChange: (value) => {
+											setTags(value);
+											setPendingTags("");
+										},
+										onPendingChange: setPendingTags,
+										label: tt("knowledge.form.tags")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: tt("article.tagsHint") })
+								] }),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 									className: panel_module_css_default.knowledgePrivacy,
 									children: tt("knowledge.edit.provenance")
@@ -3901,17 +5893,6 @@ window.__ModuleLoader__.load({
 		function optionalField(data, name) {
 			const value = data.get(name);
 			return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
-		}
-		function tagsField(data) {
-			return (optionalField(data, "tags") ?? "").split(/[,，]/u).map((value) => value.trim()).filter(Boolean).slice(0, 8);
-		}
-		function isWeChatArticleUrl(input) {
-			try {
-				const url = new URL(input);
-				return url.protocol === "https:" && url.hostname.toLowerCase().replace(/\.$/u, "") === "mp.weixin.qq.com" && (url.pathname === "/s" || url.pathname.startsWith("/s/"));
-			} catch {
-				return false;
-			}
 		}
 		//#endregion
 		//#region src/client/panel/ExtensionPanel.tsx

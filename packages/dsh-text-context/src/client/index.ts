@@ -1,3 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 /**
  * Browser-half entry for the text-context plugin — runs inside the dsh web GUI.
  *
@@ -8,8 +11,9 @@
  * Export discipline: the /client surface carries what cordis loading needs
  * plus types only — value helpers stay in sibling modules.
  */
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { TextContextClientApi } from './api.ts'
@@ -35,7 +39,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(
     () => installTextContextCapture({
       uploader: api,
-      attachmentInserter: (composer, attachment) => insertFileReference(ctx as never, composer, attachment),
+      attachmentInserter: (composer, attachment) => insertFileReference({ sessions: ctx.sessions as unknown as ISessions, conversation: ctx.conversation }, composer, attachment),
       connectorImportSource: rememberConnectorImportSource,
     }),
     'dsh-text-context: capture listeners',

@@ -27,7 +27,7 @@ describe('knowledge proposal validation', () => {
       title: '先验证工具链再扩大实现范围',
       content: '附件、连接器和模型能力要拆成独立链路验证，避免用一个开关掩盖另一个问题。',
       project: 'dsh-design-desktop',
-      tags: ['Harness', '验证'],
+      tags: ['Harness', '验证', 'harness'],
       confidence: 0.86,
       source: { kind: 'conversation', label: '附件与连接器排查', sessionId: 'session-1', capturedAt: NOW },
       createdAt: NOW,
@@ -64,5 +64,29 @@ describe('knowledge proposal validation', () => {
     expect(validateKnowledgeItem(item)).toEqual(item)
     expect(() => validateKnowledgeItem({ ...item, status: 'confirmed' })).toThrow(/confirmedAt/u)
     expect(() => validateKnowledgeItem({ ...item, id: '../escape' })).toThrow(/id/u)
+  })
+
+  it('accepts article metadata and an independently validated model summary', () => {
+    const item = normalizeProposal(proposal(), { id: ID, now: NOW })
+    const withArticle = {
+      ...item,
+      article: { author: '测试作者', format: 'markdown', truncated: false, originalByteLength: 42 },
+      summary: { text: '这是独立的摘要。', provider: 'zhipu', model: 'glm-test', generatedAt: NOW, sourceTruncated: false, editedByUser: false },
+    }
+    expect(validateKnowledgeItem(withArticle)).toMatchObject({ article: withArticle.article, summary: withArticle.summary })
+    expect(() => validateKnowledgeItem({ ...item, article: { format: 'html', truncated: false } })).toThrow(/article format/u)
+    expect(() => validateKnowledgeItem({ ...item, summary: { text: '摘要', provider: 'p', model: 'm', generatedAt: NOW, sourceTruncated: false, editedByUser: false, extra: true } })).toThrow(/summary/u)
+    expect(() => validateKnowledgeItem({ ...item, summary: { text: 'Authorization: Bearer test-summary-secret-12345', provider: 'p', model: 'm', generatedAt: NOW, sourceTruncated: false, editedByUser: false } })).toThrow(/secret/u)
+  })
+
+  it('rejects invalid summary provenance and oversized text without relaxing legacy validation', () => {
+    const item = normalizeProposal(proposal(), { id: ID, now: NOW })
+    const summary = { text: '摘要', provider: 'fixture', model: 'fixture-model', generatedAt: NOW, sourceTruncated: false, editedByUser: false }
+    for (const patch of [{ text: 'x'.repeat(4001) }, { provider: '' }, { model: 'x'.repeat(161) }, { model: 'bad\nmodel' }, { generatedAt: 'invalid' }, { editedByUser: 'yes' }]) {
+      expect(() => validateKnowledgeItem({ ...item, summary: { ...summary, ...patch } })).toThrow()
+    }
+    expect(validateKnowledgeItem({ ...item, article: { format: 'markdown', truncated: true, originalByteLength: 2_000_000 } }).article?.originalByteLength).toBe(2_000_000)
+    expect(() => validateKnowledgeItem({ ...item, article: { format: 'text', truncated: true, originalByteLength: -1 } })).toThrow()
+    expect(validateKnowledgeItem(item)).toEqual(item)
   })
 })

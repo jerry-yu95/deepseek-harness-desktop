@@ -94,7 +94,7 @@ export interface WireEvent {
   readonly seq: number
   readonly time: number
   readonly data: unknown
-  readonly sourceEventSeqs?: number[]
+  readonly sourceEventSeqs?: unknown
   readonly surfaceOp?: unknown
   readonly ignorable?: true
 }
