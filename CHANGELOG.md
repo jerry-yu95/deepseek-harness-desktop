@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased - 2026-09-14
+
+This development snapshot targets 0.1.45. The locally verified Apple Silicon DMG still reports application version 0.1.44 and includes `20260914-harness-rc2` in its filename. It has not been published as a GitHub Release.
+
+- Upgraded the official Harness SDK from `0.1.1-rc.2` to `0.1.5-rc.2` (the official `next` prerelease), adapting plugin services, browser authentication, the rich-text composer, attachment uploads, and workspace file previews.
+- Added Session V3 compatibility, including synthetic v0/v1/v2 migration coverage, preserved predecessor logs, replay statistics, background task completion, and mobile stream reconnect handling.
+- Improved article image extraction and bounded local caching, offline reading, unsupported-video placeholders, summary failure messages and model-switch retries, structured summary editing, reader tab targeting, and composer layouts.
+- Added deletion and restoration for pending and deposited knowledge. Improved tag/category interactions, provider endpoint display, saved/draft API-key visibility, and connector editing with persistence across restarts.
+- Fixed missing packaged runtime peers for attachments, Client Store, and Settings. The final DMG passed integrity, ad-hoc signature, 263-package/native payload checks, and 17 isolated in-package Electron scenarios.
+- Expanded CI to complete workspace builds, typechecks, tests, and desktop regressions. Fixed public-document audit traversal of installed dependencies and accumulated local packages.
+- Verification: the compatibility baseline passed 1,132 package tests; subsequent packaging changes passed 270 desktop tests and 21 repository script tests. Real-account model/IM behavior and other-platform installers remain unverified.
+
+See [current update notes](docs/launch/release-notes.md), [SDK compatibility evidence](docs/qa/2026-09-13-harness-compatibility.md), and [DMG acceptance](docs/qa/2026-09-14-dmg-and-github-sync.md). Reading old sessions converts them in memory; continuing a session writes V3 files while retaining older logs. Older app versions cannot be assumed to read new session data.
+
 ## 0.1.44 - 2026-09-01
 
 - Made native Finder file-reference parsing independent of the CI host path rules.

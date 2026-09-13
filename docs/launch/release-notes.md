@@ -1,4 +1,35 @@
-# 积微 JIWEI 0.1.44
+# 积微 JIWEI 更新说明
+
+## 2026-09-14 开发版：官方 Harness 兼容升级
+
+本轮已同步至 `codex/jiwei-0.1.45-readiness` 开发分支，目标版本为 0.1.45，尚未创建正式 GitHub Release。已验证的本地 Apple Silicon DMG 仍使用应用版本 0.1.44，文件名包含 `20260914-harness-rc2`；旧 Releases 中的安装包不包含本轮升级。
+
+### 本轮变化
+
+- **官方运行时升级**：从 `0.1.1-rc.2` 适配到官方 `next` 预发布 `0.1.5-rc.2`，更新插件接口、启动认证、富文本输入框、官方附件上传及工作区文件侧栏预览。
+- **文章阅读与摘要**：完善文章配图提取、本地缓存和离线重开；视频区域使用不支持解析的占位提示。摘要支持更明确的失败信息与切换模型重试，编辑摘要采用分块结构，阅读、编辑和 AI 整理入口定位对应页签。
+- **知识管理**：待确认和已沉淀知识支持删除与恢复；完善标签、分类移动及阅读器布局。历史对话删除不属于本轮已完成能力。
+- **模型与连接器配置**：展示提供方默认地址，支持保存及草稿 API Key 的显隐；连接器配置可回填、编辑、保存并在重载后保留。
+- **会话与任务兼容**：适配 Session V3，修复后台任务状态订阅、统计回放和手机端流式输出重连，避免依赖当前打开的会话或重复追加内容。
+- **打包与工程检查**：补齐附件、Client Store 和 Settings 三个安装包运行依赖，CI 改为全量构建与检查，并修复文档审查脚本遍历大量本地产物时的溢出。
+
+### 验证与安装包
+
+兼容升级的全量构建、类型检查和 1,132 项包测试通过。后续打包修复重新通过 270 项桌面测试、21 项仓库脚本测试；从只读挂载的 DMG 内完成知识库 9、通用流程 5、官方附件 3 个合成场景。镜像完整性、签名和 263 个运行包及原生依赖检查通过。
+
+本地文件：`JIWEI-0.1.44-20260914-harness-rc2-arm64.dmg`，约 198 MiB。
+
+SHA-256：`e24ac900de99d8303e120802586c38bc0445509390974e34d4ab5ef8d7ab1289`。
+
+该包适用于 Apple Silicon，采用本地 ad-hoc 签名，未进行 Apple Developer ID 签名或公证。完整证据见 [DMG 验收报告](../qa/2026-09-14-dmg-and-github-sync.md)；这些是本机验证结果，不代表 GitHub hosted CI 或真实账号验收通过。
+
+### 数据兼容边界
+
+读取旧会话时在内存中转换；继续写入时生成独立 V3 日志并保留旧日志。旧版安装包不能保证读取升级后新增的数据，升级前应备份用户资料。本轮仅使用合成数据，没有迁移真实会话。真实模型、IM 账号收发和 Windows/Intel 安装包尚未验收。
+
+## 历史说明：JIWEI 0.1.44
+
+以下保留原版本说明，仅描述当时的安装包；其中旧 SDK 版本不适用于上述开发版。
 
 This release introduces the independent JIWEI product identity while keeping the embedded official DeepSeek Harness runtime at `0.1.1-rc.2`. It adds a local-first knowledge loop, safer link ingestion, native file references, and a diagnosable Connector Center on top of the official Agent Loop, model adapter, and MCP client. Version 0.1.44 also makes Finder reference verification portable across Windows release runners.
 
